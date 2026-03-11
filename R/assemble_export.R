@@ -14,12 +14,14 @@ be_assemble_export <- function(spec, shared_root) {
 
   redcap_df <- be_read_redcap_snapshot(shared_root)
   output <- NULL
+  participant_ids <- be_resolve_cohort_ids(spec)
 
   if ("participants" %in% domains) {
     output <- be_build_participants_domain(
       redcap_df = redcap_df,
       years = spec$cohort$years %||% NULL
     )
+    output <- be_filter_participants(output, participant_ids = participant_ids)
   }
 
   if (is.null(output)) {

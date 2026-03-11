@@ -45,6 +45,19 @@ be_app_ui <- function() {
                 "Categorical labels",
                 choices = c("named", "numbered"),
                 selected = "named"
+              ),
+              shiny::textAreaInput(
+                "participant_ids",
+                "Participant IDs",
+                value = "",
+                placeholder = "Optional. Enter BACH001, 002, etc. separated by commas or new lines.",
+                rows = 4
+              ),
+              shiny::textInput(
+                "subset_file",
+                "Subset file path",
+                value = "",
+                placeholder = "Optional text file with one participant ID per line."
               )
             ),
             shiny::column(

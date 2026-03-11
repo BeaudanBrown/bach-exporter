@@ -73,6 +73,8 @@ be_app_server <- function(shared_root = NULL) {
     shiny::observeEvent(input$run_export_btn, {
       spec <- be_default_export_spec(shared_root = input$shared_root)
       spec$cohort$years <- input$years
+      spec$cohort$participant_ids <- input$participant_ids
+      spec$cohort$subset_file <- input$subset_file
       spec$domains <- input$domains
       spec$options$cat_labels <- input$cat_labels
       spec$output$path <- input$output_path

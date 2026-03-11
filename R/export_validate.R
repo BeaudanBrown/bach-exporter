@@ -18,6 +18,20 @@ be_validate_export_spec <- function(spec) {
     return(list(ok = FALSE, message = "Choose at least one data domain."))
   }
 
+  if (
+    !is.null(spec$cohort$subset_file) &&
+      nzchar(spec$cohort$subset_file) &&
+      !file.exists(spec$cohort$subset_file)
+  ) {
+    return(list(
+      ok = FALSE,
+      message = sprintf(
+        "Subset file does not exist: %s",
+        spec$cohort$subset_file
+      )
+    ))
+  }
+
   supported_domains <- c("participants")
   unsupported_domains <- setdiff(spec$domains, supported_domains)
   if (length(unsupported_domains)) {

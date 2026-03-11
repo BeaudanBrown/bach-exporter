@@ -6,7 +6,7 @@ The goal is to build the system iteratively, with working end-to-end milestones 
 
 ## 0. Current status
 
-This document was updated after the minimal participants export slice was completed.
+This document was updated after the cohort subsetting slice was completed.
 
 ### Completed in the first slice
 
@@ -88,6 +88,20 @@ This document was updated after the minimal participants export slice was comple
   - record app/platform metadata in the manifest
 - Added tests covering participants normalization, export output, and unsupported-domain validation.
 
+### Completed in the cohort subsetting slice
+
+- Added cohort filtering helpers for:
+  - direct `participant_ids` in the export spec
+  - optional `subset_file` lists
+- Wired participant subsetting into the direct export assembly path.
+- Added minimal UI controls for:
+  - ad hoc participant IDs
+  - subset file path
+- Added tests covering:
+  - spec-based participant filtering
+  - subset-file participant filtering
+  - missing subset-file validation
+
 ### Verified in the first slice
 
 - All newly added `.R` files, `app.R`, `launch_bach_exporter.R`, and `_targets.R` were parsed successfully with `Rscript`.
@@ -108,6 +122,11 @@ This document was updated after the minimal participants export slice was comple
 
 - Parsed the new normalization/domain/export files plus `R/export_run.R`, `R/export_validate.R`, and `R/app_ui.R` with `Rscript`.
 - Ran `bash ./bin/in-env Rscript -e "testthat::test_dir('tests/testthat')"` and all tests passed, including the new export tests.
+
+### Verified in the cohort subsetting slice
+
+- Parsed `R/cohort_filters.R`, updated export/app files, and `tests/testthat/test-export-run.R` with `Rscript`.
+- Ran `bash ./bin/in-env Rscript -e "testthat::test_dir('tests/testthat')"` and all tests passed.
 
 ### Not completed yet
 
@@ -132,10 +151,13 @@ This document was updated after the minimal participants export slice was comple
   - biomarkers
   - sidecar metadata
 - The direct export path now supports `participants` only; other domain selections fail with a clear "not implemented yet" validation error.
+- The direct export path now supports participant subsetting through either:
+  - explicit IDs in the spec/UI
+  - a subset file path
 - Placeholder REDCap settings currently exist only to keep the interface shape stable.
 - The placeholder API key is masked in the export manifest and is not written into the CSV output.
 
-### Files added or changed across the first four slices
+### Files added or changed across the first five slices
 
 - `DESCRIPTION`
 - `LICENSE`
@@ -157,6 +179,7 @@ This document was updated after the minimal participants export slice was comple
 - `R/app_run.R`
 - `R/release_runtime.R`
 - `R/normalize_redcap.R`
+- `R/cohort_filters.R`
 - `R/split_events.R`
 - `R/domain_participants.R`
 - `R/assemble_export.R`
@@ -198,6 +221,7 @@ This document was updated after the minimal participants export slice was comple
 - Future test entrypoints should use the same wrapper pattern, for example:
   - `bash ./bin/in-env Rscript -e "testthat::test_dir('tests/testthat')"`
 - The next major product gap is extending the real export path beyond `participants`, then adding `targets` caching behind it.
+- The current participants export already supports cohort filtering, so future domains should plug into that same spec-driven filter path rather than inventing separate subset semantics.
 - The current app already has controls for:
   - shared root
   - output path

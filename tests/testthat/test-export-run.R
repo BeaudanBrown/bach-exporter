@@ -2,6 +2,7 @@ source(file.path("..", "..", "R", "paths.R"))
 source(file.path("..", "..", "R", "config.R"))
 source(file.path("..", "..", "R", "source_snapshots.R"))
 source(file.path("..", "..", "R", "normalize_redcap.R"))
+source(file.path("..", "..", "R", "cohort_filters.R"))
 source(file.path("..", "..", "R", "split_events.R"))
 source(file.path("..", "..", "R", "domain_participants.R"))
 source(file.path("..", "..", "R", "assemble_export.R"))
@@ -121,4 +122,69 @@ test_that("unsupported domains fail validation clearly", {
 
   expect_false(validation$ok)
   expect_match(validation$message, "not implemented yet")
+})
+
+test_that("run_export filters by participant_ids from the spec", {
+  shared_root <- make_export_shared_root()
+  on.exit(unlink(shared_root, recursive = TRUE), add = TRUE)
+
+  output_dir <- tempfile("export-dir-")
+  dir.create(output_dir, recursive = TRUE)
+  on.exit(unlink(output_dir, recursive = TRUE), add = TRUE)
+
+  spec <- be_default_export_spec(shared_root = shared_root)
+  spec$output$path <- file.path(output_dir, "participants-filtered.csv")
+  spec$domains <- "participants"
+  spec$cohort$years <- c("baseline", "year2")
+  spec$cohort$participant_ids <- "BACH001"
+
+  result <- run_export(spec, refresh_mode = "auto")
+  export_df <- utils::read.csv(
+    result$output,
+    stringsAsFactors = FALSE,
+    colClasses = c(participant_id = "character")
+  )
+
+  expect_equal(export_df$participant_id, "001")
+})
+
+test_that("run_export filters by participant IDs from a subset file", {
+  shared_root <- make_export_shared_root()
+  on.exit(unlink(shared_root, recursive = TRUE), add = TRUE)
+
+  output_dir <- tempfile("export-dir-")
+  dir.create(output_dir, recursive = TRUE)
+  on.exit(unlink(output_dir, recursive = TRUE), add = TRUE)
+
+  subset_file <- file.path(output_dir, "subset.txt")
+  writeLines(c("BACH002"), subset_file)
+
+  spec <- be_default_export_spec(shared_root = shared_root)
+  spec$output$path <- file.path(output_dir, "participants-subset.csv")
+  spec$domains <- "participants"
+  spec$cohort$years <- c("baseline", "year2")
+  spec$cohort$subset_file <- subset_file
+
+  result <- run_export(spec, refresh_mode = "auto")
+  export_df <- utils::read.csv(
+    result$output,
+    stringsAsFactors = FALSE,
+    colClasses = c(participant_id = "character")
+  )
+
+  expect_equal(unique(export_df$participant_id), "002")
+})
+
+test_that("validation fails clearly when subset_file is missing", {
+  shared_root <- make_export_shared_root()
+  on.exit(unlink(shared_root, recursive = TRUE), add = TRUE)
+
+  spec <- be_default_export_spec(shared_root = shared_root)
+  spec$output$path <- tempfile(fileext = ".csv")
+  spec$cohort$subset_file <- file.path(shared_root, "missing.txt")
+
+  validation <- be_validate_export_spec(spec)
+
+  expect_false(validation$ok)
+  expect_match(validation$message, "Subset file does not exist")
 })
