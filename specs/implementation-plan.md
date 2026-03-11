@@ -6,7 +6,7 @@ The goal is to build the system iteratively, with working end-to-end milestones 
 
 ## 0. Current status
 
-This document was updated after the shared-release launcher slice was completed.
+This document was updated after the snapshot reader slice was completed.
 
 ### Completed in the first slice
 
@@ -64,6 +64,16 @@ This document was updated after the shared-release launcher slice was completed.
 - Added a minimal `manifest.json` for the direct `dev` release root.
 - Added initial `testthat` scaffolding and release-runtime tests.
 
+### Completed in the snapshot reader slice
+
+- Added `R/source_snapshots.R` with:
+  - canonical snapshot path helpers derived from `shared_root`
+  - generic CSV and metadata readers
+  - snapshot index reader
+  - family-specific wrappers for REDCap, PSG, and biomarker snapshots
+- Added explicit missing-file errors for snapshot data, metadata, and sidecars.
+- Added test coverage for snapshot path derivation and shared-drive snapshot reads.
+
 ### Verified in the first slice
 
 - All newly added `.R` files, `app.R`, `launch_bach_exporter.R`, and `_targets.R` were parsed successfully with `Rscript`.
@@ -75,9 +85,13 @@ This document was updated after the shared-release launcher slice was completed.
 - Parsed the changed launcher/runtime files with `Rscript`.
 - Ran `bash ./bin/in-env Rscript -e "testthat::test_dir('tests/testthat')"` and all release-runtime tests passed.
 
+### Verified in the snapshot reader slice
+
+- Parsed `R/source_snapshots.R` and `tests/testthat/test-source-snapshots.R` with `Rscript`.
+- Ran `bash ./bin/in-env Rscript -e "testthat::test_dir('tests/testthat')"` and all tests passed, including the new snapshot reader tests.
+
 ### Not completed yet
 
-- No real snapshot readers.
 - No real `targets`-backed export execution.
 - No migration of real domains from `old-script.R`.
 - No real REDCap refresh logic.
@@ -93,10 +107,15 @@ This document was updated after the shared-release launcher slice was completed.
   - then the folder is treated as a direct release root with release id `dev`
 - In `dev` mode, missing `renv.lock` is allowed so local development still works without a packaged release bundle.
 - In non-`dev` mode, missing `manifest.json` or `renv.lock` is now treated as a release error.
+- Snapshot readers now assume the shared-drive layout documented in the spec for:
+  - REDCap
+  - PSG
+  - biomarkers
+  - sidecar metadata
 - Placeholder REDCap settings currently exist only to keep the interface shape stable.
 - The placeholder API key is masked in the export manifest and is not written into the CSV output.
 
-### Files added or changed across the first two slices
+### Files added or changed across the first three slices
 
 - `DESCRIPTION`
 - `LICENSE`
@@ -117,6 +136,7 @@ This document was updated after the shared-release launcher slice was completed.
 - `R/app_server.R`
 - `R/app_run.R`
 - `R/release_runtime.R`
+- `R/source_snapshots.R`
 - `R/source_refresh_admin.R`
 - `R/targets_graph.R`
 - `bin/in-env`
@@ -129,6 +149,7 @@ This document was updated after the shared-release launcher slice was completed.
 - `inst/side-data/admin-config.template.json`
 - `tests/testthat.R`
 - `tests/testthat/test-release-runtime.R`
+- `tests/testthat/test-source-snapshots.R`
 
 ### Practical notes for the next agent
 
@@ -140,8 +161,8 @@ This document was updated after the shared-release launcher slice was completed.
   - `shinyFiles`
   - `jsonlite`
   - `bslib`
-- `renv`
-- `remotes`
+  - `renv`
+  - `remotes`
 - The current first-run bootstrap UX should be preserved:
   - choose shared root
   - validate it
@@ -151,7 +172,7 @@ This document was updated after the shared-release launcher slice was completed.
   - `bash ./bin/in-env Rscript scripts/check-dev-env.R`
 - Future test entrypoints should use the same wrapper pattern, for example:
   - `bash ./bin/in-env Rscript -e "testthat::test_dir('tests/testthat')"`
-- The next major product gap is snapshot ingestion and a real minimal export path rather than launcher bootstrap.
+- Snapshot readers now exist, so the next major product gap is wiring them into a real minimal export path.
 - The current app already has controls for:
   - shared root
   - output path
@@ -519,7 +540,20 @@ Remaining:
 
 - snapshot readers can load data and report metadata
 
-Status: not started.
+Status: complete for the initial snapshot reader slice.
+
+Implemented in:
+
+- `R/source_snapshots.R`
+- `tests/testthat/test-source-snapshots.R`
+
+Notes:
+
+- Readers currently cover the shared snapshot families already named in the spec:
+  - REDCap
+  - PSG
+  - biomarkers
+- Missing snapshot files fail with explicit path-bearing errors so the next export slice can surface clear validation.
 
 ## Phase 8: Build a minimal non-targets export path
 
