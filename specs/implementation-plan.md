@@ -110,6 +110,7 @@ This document was updated after the admin refresh documentation/scaffold slice w
   - environment-variable overrides
   - shared-root resolution
 - Added a schema-snapshot-oriented admin refresh stub entrypoint in `scripts/refresh_snapshots.R`.
+- Switched the admin refresh scaffold to `redcapAPI::unlockREDCap()` keyring-based token handling instead of plain-text token config.
 - Updated the admin config template with the fields needed for the schema snapshot path.
 - Updated the specs to reflect the `redcapAPI`-based admin schema snapshot path.
 
@@ -170,7 +171,7 @@ This document was updated after the admin refresh documentation/scaffold slice w
 - The direct export path now supports participant subsetting through either:
   - explicit IDs in the spec/UI
   - a subset file path
-- The admin refresh path is now explicitly configured around `redcapAPI`, but currently stops at dry-run/config validation plus documented schema snapshot targets.
+- The admin refresh path is now explicitly configured around `redcapAPI`, but currently stops at dry-run/config validation, keyring initialization, and documented schema snapshot targets.
 - Placeholder REDCap settings currently exist only to keep the interface shape stable.
 - The placeholder API key is masked in the export manifest and is not written into the CSV output.
 
@@ -240,6 +241,7 @@ This document was updated after the admin refresh documentation/scaffold slice w
   - `bash ./bin/in-env Rscript -e "testthat::test_dir('tests/testthat')"`
 - The next major product gap is extending the real export path beyond `participants`, then adding `targets` caching behind it.
 - The admin refresh stub now expects local admin configuration, not researcher-facing shared config; keep secrets out of the normal shared-release path.
+- The admin refresh stub now expects keyring metadata in config and the API token itself in the admin-local `unlockREDCap()` keyring.
 - The current participants export already supports cohort filtering, so future domains should plug into that same spec-driven filter path rather than inventing separate subset semantics.
 - The current app already has controls for:
   - shared root
@@ -808,6 +810,7 @@ Notes:
 
 - The selected admin REDCap library is `redcapAPI`.
 - The current stub is intentionally schema-snapshot-oriented first so downstream development can use structural metadata before record export is implemented.
+- Use `scripts/refresh_snapshots.R --init-keyring` to populate or unlock the admin keyring interactively.
 
 ## Phase 13: Logging, manifests, and history
 

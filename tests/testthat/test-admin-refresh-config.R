@@ -11,7 +11,9 @@ test_that("admin refresh config reads local config json", {
     list(
       shared_root = "/tmp/shared-root",
       redcap_url = "https://redcap.example.org/api/",
-      api_key = "token-123",
+      keyring = "bach-exporter-admin",
+      project_alias = "bach-exporter",
+      connection_name = "rcon_admin",
       schema_snapshot_only = TRUE
     ),
     config_path,
@@ -24,7 +26,9 @@ test_that("admin refresh config reads local config json", {
 
   expect_true(validation$ok)
   expect_equal(config$shared_root, "/tmp/shared-root")
-  expect_equal(config$api_key, "token-123")
+  expect_equal(config$keyring, "bach-exporter-admin")
+  expect_equal(config$project_alias, "bach-exporter")
+  expect_equal(config$connection_name, "rcon_admin")
   expect_true(config$schema_snapshot_only)
   expect_equal(
     plan$snapshot_paths$metadata,
@@ -38,16 +42,18 @@ test_that("admin refresh config reads local config json", {
   )
 })
 
-test_that("admin refresh config fails clearly when api key is missing", {
+test_that("admin refresh config fails clearly when project alias is missing", {
   config <- list(
     config_path = "/tmp/admin-refresh.json",
     shared_root = "/tmp/shared-root",
     redcap_url = "https://redcap.example.org/api/",
-    api_key = "REPLACE_WITH_ADMIN_TOKEN"
+    keyring = "bach-exporter-admin",
+    project_alias = "",
+    connection_name = "rcon_admin"
   )
 
   validation <- be_validate_admin_refresh_config(config)
 
   expect_false(validation$ok)
-  expect_match(validation$message, "api_key is not configured")
+  expect_match(validation$message, "project_alias is not configured")
 })

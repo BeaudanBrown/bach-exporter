@@ -1,7 +1,9 @@
 {
   "shared_root": "/path/to/shared/root",
   "redcap_url": "https://redcap.example.org/api/",
-  "api_key": "REPLACE_WITH_ADMIN_TOKEN",
+  "keyring": "bach-exporter-admin",
+  "project_alias": "bach-exporter",
+  "connection_name": "rcon_admin",
   "schema_snapshot_only": true,
   "mode": "admin-only"
 }

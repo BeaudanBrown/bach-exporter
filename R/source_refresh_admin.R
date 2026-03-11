@@ -38,10 +38,20 @@ be_admin_refresh_config <- function(config_path = NULL) {
       "redcap_url",
       "https://redcap.example.org/api/"
     ),
-    api_key = env_or_file(
-      "BACH_REDCAP_API_KEY",
-      "api_key",
-      "REPLACE_WITH_ADMIN_TOKEN"
+    keyring = env_or_file(
+      "BACH_REDCAP_KEYRING",
+      "keyring",
+      "bach-exporter-admin"
+    ),
+    project_alias = env_or_file(
+      "BACH_REDCAP_PROJECT_ALIAS",
+      "project_alias",
+      "bach-exporter"
+    ),
+    connection_name = env_or_file(
+      "BACH_REDCAP_CONNECTION_NAME",
+      "connection_name",
+      "rcon_admin"
     ),
     schema_snapshot_only = isTRUE(
       file_config$schema_snapshot_only %||% TRUE
@@ -84,14 +94,31 @@ be_validate_admin_refresh_config <- function(config) {
     ))
   }
 
-  if (
-    identical(config$api_key, "REPLACE_WITH_ADMIN_TOKEN") ||
-      !nzchar(config$api_key)
-  ) {
+  if (is.null(config$keyring) || !nzchar(config$keyring)) {
     return(list(
       ok = FALSE,
       message = sprintf(
-        "Admin refresh api_key is not configured. Set BACH_REDCAP_API_KEY or populate %s.",
+        "Admin refresh keyring is not configured. Set BACH_REDCAP_KEYRING or populate %s.",
+        config$config_path
+      )
+    ))
+  }
+
+  if (is.null(config$project_alias) || !nzchar(config$project_alias)) {
+    return(list(
+      ok = FALSE,
+      message = sprintf(
+        "Admin refresh project_alias is not configured. Set BACH_REDCAP_PROJECT_ALIAS or populate %s.",
+        config$config_path
+      )
+    ))
+  }
+
+  if (is.null(config$connection_name) || !nzchar(config$connection_name)) {
+    return(list(
+      ok = FALSE,
+      message = sprintf(
+        "Admin refresh connection_name is not configured. Set BACH_REDCAP_CONNECTION_NAME or populate %s.",
         config$config_path
       )
     ))
@@ -105,7 +132,21 @@ be_admin_refresh_plan <- function(config) {
     shared_root = config$shared_root,
     config_path = config$config_path,
     package = config$package,
+    keyring = config$keyring,
+    project_alias = config$project_alias,
+    connection_name = config$connection_name,
     schema_snapshot_only = isTRUE(config$schema_snapshot_only),
     snapshot_paths = be_admin_snapshot_schema_paths(config$shared_root)
+  )
+}
+
+be_admin_unlock_connections <- function(config, envir = parent.frame()) {
+  connections <- stats::setNames(config$project_alias, config$connection_name)
+
+  redcapAPI::unlockREDCap(
+    connections = connections,
+    keyring = config$keyring,
+    url = config$redcap_url,
+    envir = envir
   )
 }

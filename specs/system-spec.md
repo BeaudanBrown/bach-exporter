@@ -72,7 +72,7 @@ Instead:
 - An admin-only refresh process will use the REDCap API token.
 - That process will write refreshed snapshots to the shared drive.
 - Researcher launches will read those snapshots from the shared drive.
-- The admin refresh implementation will use `redcapAPI`.
+- The admin refresh implementation will use `redcapAPI`, with token management through `unlockREDCap()` keyrings.
 
 This is the chosen design because a token that a researcher's R session can read is not meaningfully secret from that researcher.
 
@@ -95,6 +95,7 @@ The final system will use this model:
   - OS keyring on an admin machine
   - restricted environment file on an admin machine
   - ACL-restricted admin-only folder on the shared drive, not readable by researchers
+- When using `redcapAPI`, the preferred implementation is an admin-local encrypted keyring created via `unlockREDCap()`.
 - Only the admin refresh process uses the token.
 - Researcher-facing code reads shared snapshots, not the token.
 
@@ -113,6 +114,8 @@ Before full record refresh is implemented, the first admin refresh path may capt
 - field names
 
 This is intended to unblock downstream domain implementation without exposing participant data during development.
+
+The admin scaffold should store the REDCap URL, keyring name, and project alias in local admin configuration. The API token itself should be entered interactively into the keyring and not written into project JSON templates.
 
 ## 5. Shared-drive layout
 
