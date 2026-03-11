@@ -14,7 +14,7 @@ be_app_ui <- function() {
       shiny::titlePanel("BACH Exporter"),
       shiny::p(
         class = "app-note",
-        "Shared-drive launched export tool. This initial build provides the launcher, settings, and placeholder export path."
+        "Shared-drive launched export tool. This build supports a first real participants export from shared REDCap snapshots; other domains remain scaffolded."
       ),
       shiny::tabsetPanel(
         shiny::tabPanel(

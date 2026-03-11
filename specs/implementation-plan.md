@@ -6,7 +6,7 @@ The goal is to build the system iteratively, with working end-to-end milestones 
 
 ## 0. Current status
 
-This document was updated after the snapshot reader slice was completed.
+This document was updated after the minimal participants export slice was completed.
 
 ### Completed in the first slice
 
@@ -74,6 +74,20 @@ This document was updated after the snapshot reader slice was completed.
 - Added explicit missing-file errors for snapshot data, metadata, and sidecars.
 - Added test coverage for snapshot path derivation and shared-drive snapshot reads.
 
+### Completed in the minimal participants export slice
+
+- Added minimal normalization helpers for:
+  - participant ID cleanup
+  - REDCap event-to-year mapping
+  - empty-column removal
+- Added a first domain builder for `participants` using the REDCap snapshot.
+- Added `be_assemble_export()` for the direct non-`targets` export path.
+- Updated `run_export()` to:
+  - assemble a real participants export from the REDCap snapshot
+  - write snapshot metadata into the sidecar manifest
+  - record app/platform metadata in the manifest
+- Added tests covering participants normalization, export output, and unsupported-domain validation.
+
 ### Verified in the first slice
 
 - All newly added `.R` files, `app.R`, `launch_bach_exporter.R`, and `_targets.R` were parsed successfully with `Rscript`.
@@ -89,6 +103,11 @@ This document was updated after the snapshot reader slice was completed.
 
 - Parsed `R/source_snapshots.R` and `tests/testthat/test-source-snapshots.R` with `Rscript`.
 - Ran `bash ./bin/in-env Rscript -e "testthat::test_dir('tests/testthat')"` and all tests passed, including the new snapshot reader tests.
+
+### Verified in the minimal participants export slice
+
+- Parsed the new normalization/domain/export files plus `R/export_run.R`, `R/export_validate.R`, and `R/app_ui.R` with `Rscript`.
+- Ran `bash ./bin/in-env Rscript -e "testthat::test_dir('tests/testthat')"` and all tests passed, including the new export tests.
 
 ### Not completed yet
 
@@ -112,10 +131,11 @@ This document was updated after the snapshot reader slice was completed.
   - PSG
   - biomarkers
   - sidecar metadata
+- The direct export path now supports `participants` only; other domain selections fail with a clear "not implemented yet" validation error.
 - Placeholder REDCap settings currently exist only to keep the interface shape stable.
 - The placeholder API key is masked in the export manifest and is not written into the CSV output.
 
-### Files added or changed across the first three slices
+### Files added or changed across the first four slices
 
 - `DESCRIPTION`
 - `LICENSE`
@@ -136,6 +156,10 @@ This document was updated after the snapshot reader slice was completed.
 - `R/app_server.R`
 - `R/app_run.R`
 - `R/release_runtime.R`
+- `R/normalize_redcap.R`
+- `R/split_events.R`
+- `R/domain_participants.R`
+- `R/assemble_export.R`
 - `R/source_snapshots.R`
 - `R/source_refresh_admin.R`
 - `R/targets_graph.R`
@@ -150,6 +174,7 @@ This document was updated after the snapshot reader slice was completed.
 - `tests/testthat.R`
 - `tests/testthat/test-release-runtime.R`
 - `tests/testthat/test-source-snapshots.R`
+- `tests/testthat/test-export-run.R`
 
 ### Practical notes for the next agent
 
@@ -172,7 +197,7 @@ This document was updated after the snapshot reader slice was completed.
   - `bash ./bin/in-env Rscript scripts/check-dev-env.R`
 - Future test entrypoints should use the same wrapper pattern, for example:
   - `bash ./bin/in-env Rscript -e "testthat::test_dir('tests/testthat')"`
-- Snapshot readers now exist, so the next major product gap is wiring them into a real minimal export path.
+- The next major product gap is extending the real export path beyond `participants`, then adding `targets` caching behind it.
 - The current app already has controls for:
   - shared root
   - output path
@@ -588,10 +613,11 @@ Status: partially complete.
 Implemented:
 
 - placeholder export writes output and manifest
+- direct non-`targets` export now works for the `participants` domain from the REDCap snapshot
 
 Remaining:
 
-- replace placeholder output with real snapshot-backed data
+- extend the direct export path beyond `participants`
 
 ## Phase 9: Add `targets` backend
 

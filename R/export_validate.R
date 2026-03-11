@@ -18,5 +18,17 @@ be_validate_export_spec <- function(spec) {
     return(list(ok = FALSE, message = "Choose at least one data domain."))
   }
 
+  supported_domains <- c("participants")
+  unsupported_domains <- setdiff(spec$domains, supported_domains)
+  if (length(unsupported_domains)) {
+    return(list(
+      ok = FALSE,
+      message = sprintf(
+        "Selected domains are not implemented yet: %s",
+        paste(unsupported_domains, collapse = ", ")
+      )
+    ))
+  }
+
   list(ok = TRUE, message = "Export spec is valid.", paths = root_check$paths)
 }
