@@ -28,8 +28,10 @@ Inspect [`specs/implementation-plan.md`](/home/beau/documents/projects/bach-expo
 4. Add or update tests for any new logic introduced.
 5. Run verification appropriate to the changed scope.
    - At minimum, run an R parse/syntax check across changed R files.
+   - Run commands through `bash ./bin/in-env ...` when they depend on the flake R environment.
    - Run relevant unit or integration tests when test scaffolding exists.
    - Run any additional validation needed for launcher, Shiny, path/config, or `targets` changes.
+   - When using the dev shell, rely on the repo-local `PRE_COMMIT_HOME` setting rather than overriding `pre-commit` cache paths manually.
 6. Update [`specs/implementation-plan.md`](/home/beau/documents/projects/bach-exporter/specs/implementation-plan.md):
    - mark the task or phase status accurately,
    - add brief completion notes,

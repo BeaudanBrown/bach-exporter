@@ -42,10 +42,14 @@ This document was updated after the first implementation slice was completed.
 - Added placeholder admin refresh config/script stubs.
 - Added one shipped preset and one side-data admin config template.
 - Extended `flake.nix` with the packages needed for this slice.
+- Added a reusable `bin/in-env` wrapper for running commands inside the flake dev environment.
+- Added `scripts/check-dev-env.R` to verify the flake-provided R packages are available.
 
 ### Verified in the first slice
 
 - All newly added `.R` files, `app.R`, `launch_bach_exporter.R`, and `_targets.R` were parsed successfully with `Rscript`.
+- The Nix dev shell now sets `PRE_COMMIT_HOME=./.pre-commit-cache` so git commits do not fail when sandboxed environments cannot write to `~/.cache/pre-commit`.
+- `bash ./bin/in-env Rscript scripts/check-dev-env.R` verifies the flake-defined R package set is available.
 
 ### Not completed yet
 
@@ -92,7 +96,9 @@ This document was updated after the first implementation slice was completed.
 - `R/app_run.R`
 - `R/source_refresh_admin.R`
 - `R/targets_graph.R`
+- `bin/in-env`
 - `scripts/local_launcher.R`
+- `scripts/check-dev-env.R`
 - `scripts/launch_from_share.R`
 - `scripts/refresh_snapshots.R`
 - `inst/presets/baseline-core.json`
@@ -101,6 +107,8 @@ This document was updated after the first implementation slice was completed.
 ### Practical notes for the next agent
 
 - `launch_bach_exporter.R` is the intended researcher-facing file. Keep it self-contained unless there is a strong reason not to.
+- When working inside the Nix dev shell, `pre-commit` should now use the repo-local `.pre-commit-cache/` directory automatically.
+- Use `bash ./bin/in-env <command>` for future R verification and tests so commands run inside the flake environment even when the caller is outside it.
 - The current launcher installs only bootstrap packages from CRAN:
   - `shiny`
   - `shinyFiles`
@@ -112,6 +120,10 @@ This document was updated after the first implementation slice was completed.
   - save locally
   - continue into the shared backend
 - The next major gap is shared-release dependency bootstrap. The best next move is to make `scripts/launch_from_share.R` restore a local library and install the current release locally, then call `bachExporter::run_app()`.
+- The baseline environment verification command is:
+  - `bash ./bin/in-env Rscript scripts/check-dev-env.R`
+- Future test entrypoints should use the same wrapper pattern, for example:
+  - `bash ./bin/in-env Rscript -e "testthat::test_dir('tests/testthat')"`
 - The current app already has controls for:
   - shared root
   - output path
