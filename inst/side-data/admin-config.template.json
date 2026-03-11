@@ -1,5 +1,7 @@
 {
+  "shared_root": "/path/to/shared/root",
   "redcap_url": "https://redcap.example.org/api/",
   "api_key": "REPLACE_WITH_ADMIN_TOKEN",
+  "schema_snapshot_only": true,
   "mode": "admin-only"
 }

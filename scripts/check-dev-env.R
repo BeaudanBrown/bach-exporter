@@ -11,6 +11,7 @@ required_packages <- c(
   "jsonlite",
   "renv",
   "remotes",
+  "redcapAPI",
   "testthat"
 )
 

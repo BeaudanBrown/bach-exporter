@@ -69,6 +69,7 @@
               jsonlite
               renv
               remotes
+              redcapAPI
               testthat
             ]);
         };

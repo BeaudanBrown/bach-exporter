@@ -19,6 +19,7 @@ These documents are intended for a fresh implementation agent. They should be tr
 - Researchers will normally consume shared data snapshots, not call the REDCap API directly from their own machines.
 - The REDCap API token will not be stored in a shared folder readable by all researchers if the goal is to keep it secret from them.
 - API refresh will be handled by an admin-only refresh process that writes snapshots to the shared drive.
+- The admin refresh path will use `redcapAPI`, starting with schema-only snapshots that capture project structure without exposing record data.
 - The live package library and live `targets` store will be local per user, not shared on the network drive.
 
 ## Design intent

@@ -6,7 +6,7 @@ The goal is to build the system iteratively, with working end-to-end milestones 
 
 ## 0. Current status
 
-This document was updated after the cohort subsetting slice was completed.
+This document was updated after the admin refresh documentation/scaffold slice was completed.
 
 ### Completed in the first slice
 
@@ -102,6 +102,17 @@ This document was updated after the cohort subsetting slice was completed.
   - subset-file participant filtering
   - missing subset-file validation
 
+### Completed in the admin refresh documentation/scaffold slice
+
+- Added `redcapAPI` to the flake R package set and dev-environment verification.
+- Expanded the admin refresh config helper to support:
+  - local admin config JSON
+  - environment-variable overrides
+  - shared-root resolution
+- Added a schema-snapshot-oriented admin refresh stub entrypoint in `scripts/refresh_snapshots.R`.
+- Updated the admin config template with the fields needed for the schema snapshot path.
+- Updated the specs to reflect the `redcapAPI`-based admin schema snapshot path.
+
 ### Verified in the first slice
 
 - All newly added `.R` files, `app.R`, `launch_bach_exporter.R`, and `_targets.R` were parsed successfully with `Rscript`.
@@ -128,11 +139,16 @@ This document was updated after the cohort subsetting slice was completed.
 - Parsed `R/cohort_filters.R`, updated export/app files, and `tests/testthat/test-export-run.R` with `Rscript`.
 - Ran `bash ./bin/in-env Rscript -e "testthat::test_dir('tests/testthat')"` and all tests passed.
 
+### Verified in the admin refresh documentation/scaffold slice
+
+- Parsed `R/source_refresh_admin.R` and `scripts/refresh_snapshots.R` with `Rscript`.
+- Verified the dev environment package list includes `redcapAPI` via `scripts/check-dev-env.R`.
+
 ### Not completed yet
 
 - No real `targets`-backed export execution.
 - No migration of real domains from `old-script.R`.
-- No real REDCap refresh logic.
+- No real REDCap refresh execution yet beyond the `redcapAPI` config/scaffold path.
 - No packaged `releases/<release-id>/` bundle is checked into this repo yet, so published-release bootstrap has not been exercised against a real shared release artifact.
 
 ### Important current behavior
@@ -154,10 +170,11 @@ This document was updated after the cohort subsetting slice was completed.
 - The direct export path now supports participant subsetting through either:
   - explicit IDs in the spec/UI
   - a subset file path
+- The admin refresh path is now explicitly configured around `redcapAPI`, but currently stops at dry-run/config validation plus documented schema snapshot targets.
 - Placeholder REDCap settings currently exist only to keep the interface shape stable.
 - The placeholder API key is masked in the export manifest and is not written into the CSV output.
 
-### Files added or changed across the first five slices
+### Files added or changed across the first six slices
 
 - `DESCRIPTION`
 - `LICENSE`
@@ -198,6 +215,7 @@ This document was updated after the cohort subsetting slice was completed.
 - `tests/testthat/test-release-runtime.R`
 - `tests/testthat/test-source-snapshots.R`
 - `tests/testthat/test-export-run.R`
+- `tests/testthat/test-admin-refresh-config.R`
 
 ### Practical notes for the next agent
 
@@ -221,6 +239,7 @@ This document was updated after the cohort subsetting slice was completed.
 - Future test entrypoints should use the same wrapper pattern, for example:
   - `bash ./bin/in-env Rscript -e "testthat::test_dir('tests/testthat')"`
 - The next major product gap is extending the real export path beyond `participants`, then adding `targets` caching behind it.
+- The admin refresh stub now expects local admin configuration, not researcher-facing shared config; keep secrets out of the normal shared-release path.
 - The current participants export already supports cohort filtering, so future domains should plug into that same spec-driven filter path rather than inventing separate subset semantics.
 - The current app already has controls for:
   - shared root
@@ -777,12 +796,18 @@ Status: not started.
 
 - snapshots can be refreshed without researcher machines needing the token
 
-Status: not started beyond placeholders.
+Status: partially complete for config/docs/scaffold; execution is still not implemented.
 
-Current placeholders:
+Current scaffold:
 
 - `R/source_refresh_admin.R`
 - `scripts/refresh_snapshots.R`
+- `inst/side-data/admin-config.template.json`
+
+Notes:
+
+- The selected admin REDCap library is `redcapAPI`.
+- The current stub is intentionally schema-snapshot-oriented first so downstream development can use structural metadata before record export is implemented.
 
 ## Phase 13: Logging, manifests, and history
 

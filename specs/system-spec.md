@@ -72,6 +72,7 @@ Instead:
 - An admin-only refresh process will use the REDCap API token.
 - That process will write refreshed snapshots to the shared drive.
 - Researcher launches will read those snapshots from the shared drive.
+- The admin refresh implementation will use `redcapAPI`.
 
 This is the chosen design because a token that a researcher's R session can read is not meaningfully secret from that researcher.
 
@@ -101,6 +102,18 @@ The final system will use this model:
 
 The codebase may retain an admin-only API mode for maintainers, but the default deployed researcher workflow must remain snapshot-based.
 
+### 4.5 Initial admin refresh slice
+
+Before full record refresh is implemented, the first admin refresh path may capture schema-only REDCap artifacts with `redcapAPI`, for example:
+
+- project information
+- metadata / data dictionary
+- events
+- instruments
+- field names
+
+This is intended to unblock downstream domain implementation without exposing participant data during development.
+
 ## 5. Shared-drive layout
 
 The user selects a single shared-drive root. All other paths are derived from it.
@@ -129,6 +142,12 @@ Recommended layout:
       raw.csv
       labels.csv
       metadata.json
+      schema/
+        metadata.json
+        project-info.json
+        events.json
+        instruments.json
+        field-names.json
     psg/
       raw.csv
       metadata.json
@@ -146,6 +165,7 @@ Notes:
 - `CURRENT_RELEASE.txt` contains the active release identifier, for example `2026-03-11`.
 - Avoid relying on symlinks for release switching because they are awkward on Windows shared drives.
 - Shared-drive snapshots are the data source for normal researcher sessions.
+- Schema-only REDCap snapshots are admin artifacts used to understand project structure and should not be confused with researcher-facing record snapshots.
 
 ## 6. Local machine layout
 
