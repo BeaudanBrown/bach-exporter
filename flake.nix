@@ -55,6 +55,9 @@
               air-formatter
             ])
             ++ (with rPackages; [
+              shiny
+              shinyFiles
+              bslib
               targets
               tarchetypes
               crew
@@ -62,6 +65,10 @@
               qs2
               languageserver
               dotenv
+              jsonlite
+              renv
+              remotes
+              testthat
             ]);
         };
       }

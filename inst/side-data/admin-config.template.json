@@ -1,0 +1,5 @@
+{
+  "redcap_url": "https://redcap.example.org/api/",
+  "api_key": "REPLACE_WITH_ADMIN_TOKEN",
+  "mode": "admin-only"
+}

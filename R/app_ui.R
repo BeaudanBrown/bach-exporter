@@ -1,0 +1,112 @@
+be_app_ui <- function() {
+  shiny::fluidPage(
+    theme = bslib::bs_theme(version = 5, bootswatch = "minty"),
+    shiny::tags$head(
+      shiny::tags$style(
+        shiny::HTML(
+          ".app-shell { max-width: 1200px; margin: 24px auto; }
+           .app-note { color: #495057; }"
+        )
+      )
+    ),
+    shiny::div(
+      class = "app-shell",
+      shiny::titlePanel("BACH Exporter"),
+      shiny::p(
+        class = "app-note",
+        "Shared-drive launched export tool. This initial build provides the launcher, settings, and placeholder export path."
+      ),
+      shiny::tabsetPanel(
+        shiny::tabPanel(
+          "Export",
+          shiny::fluidRow(
+            shiny::column(
+              width = 6,
+              shiny::selectInput(
+                "years",
+                "Years",
+                choices = c("baseline", "year2", "year3"),
+                multiple = TRUE,
+                selected = "baseline"
+              ),
+              shiny::checkboxGroupInput(
+                "domains",
+                "Domains",
+                choices = c(
+                  "Participants" = "participants",
+                  "Annual Phone" = "annual_phone",
+                  "Demographics" = "demographics",
+                  "Vitals" = "vitals"
+                ),
+                selected = "participants"
+              ),
+              shiny::radioButtons(
+                "cat_labels",
+                "Categorical labels",
+                choices = c("named", "numbered"),
+                selected = "named"
+              )
+            ),
+            shiny::column(
+              width = 6,
+              shiny::textInput("output_path", "Output CSV path", value = ""),
+              shinyFiles::shinySaveButton(
+                "browse_output",
+                "Browse",
+                "Choose output file",
+                filetype = list(csv = "csv")
+              ),
+              shiny::selectInput(
+                "refresh_mode",
+                "Refresh mode",
+                choices = c("auto", "use_cache", "force"),
+                selected = "auto"
+              ),
+              shiny::actionButton("run_export_btn", "Run export")
+            )
+          )
+        ),
+        shiny::tabPanel(
+          "Presets",
+          shiny::selectInput(
+            "preset",
+            "Preset",
+            choices = names(be_default_presets())
+          ),
+          shiny::verbatimTextOutput("preset_detail")
+        ),
+        shiny::tabPanel(
+          "Settings",
+          shiny::textInput("shared_root", "Shared folder root", value = ""),
+          shinyFiles::shinyDirButton(
+            "browse_shared_root",
+            "Browse",
+            "Choose shared folder"
+          ),
+          shiny::actionButton("save_shared_root", "Save shared root"),
+          shiny::hr(),
+          shiny::textInput(
+            "redcap_url",
+            "Placeholder REDCap URL",
+            value = getOption(
+              "bachExporter.placeholder_redcap_url",
+              "https://redcap.example.org/api/"
+            )
+          ),
+          shiny::passwordInput(
+            "redcap_api_key",
+            "Placeholder REDCap API key",
+            value = getOption(
+              "bachExporter.placeholder_redcap_api_key",
+              "REPLACE_WITH_ADMIN_TOKEN"
+            )
+          )
+        ),
+        shiny::tabPanel(
+          "Status",
+          shiny::verbatimTextOutput("status_log")
+        )
+      )
+    )
+  )
+}
