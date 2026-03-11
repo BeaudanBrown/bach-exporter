@@ -5,8 +5,14 @@ launch_bach_exporter <- function() {
     }
   }
 
-  bootstrap_packages <- c("shiny", "shinyFiles", "jsonlite")
-  bootstrap_packages <- c(bootstrap_packages, "bslib")
+  bootstrap_packages <- c(
+    "shiny",
+    "shinyFiles",
+    "jsonlite",
+    "bslib",
+    "renv",
+    "remotes"
+  )
   invisible(lapply(bootstrap_packages, ensure_bootstrap_package))
 
   config_dir <- tools::R_user_dir("bachExporter", which = "config")

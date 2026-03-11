@@ -8,29 +8,57 @@ launch_from_share <- function(shared_root) {
     release_root <- shared_root
   }
 
-  message(sprintf("Launching BACH Exporter from release %s", release_id))
-  message(sprintf("Shared root: %s", shared_root))
-  message(sprintf("Release root: %s", release_root))
-  message(
-    "Dependency restore and local package installation are deferred to the next implementation slice."
-  )
+  source(file.path(release_root, "R", "paths.R"), local = TRUE)
+  source(file.path(release_root, "R", "release_runtime.R"), local = TRUE)
 
-  r_files <- sort(list.files(
-    file.path(release_root, "R"),
-    pattern = "\\.[Rr]$",
-    full.names = TRUE
-  ))
-  if (!length(r_files)) {
-    stop("No R source files were found in the release root.", call. = FALSE)
+  paths <- be_shared_paths(shared_root)
+  if (is.null(paths$release_id) || is.null(paths$release_root)) {
+    stop(
+      "Unable to determine the active release from the shared root.",
+      call. = FALSE
+    )
+  }
+  if (!dir.exists(paths$release_root)) {
+    stop("Active release directory does not exist.", call. = FALSE)
   }
 
-  runtime_env <- new.env(parent = globalenv())
-  for (path in r_files) {
-    sys.source(path, envir = runtime_env)
+  manifest_validation <- be_validate_release_manifest(
+    release_root = paths$release_root,
+    release_id = paths$release_id
+  )
+  if (!isTRUE(manifest_validation$ok)) {
+    stop(manifest_validation$message, call. = FALSE)
+  }
+
+  local_library <- be_local_library_dir(paths$release_id)
+  .libPaths(unique(c(local_library, .libPaths())))
+
+  message(sprintf("Launching BACH Exporter from release %s", paths$release_id))
+  message(sprintf("Shared root: %s", shared_root))
+  message(sprintf("Release root: %s", paths$release_root))
+  message(sprintf("Local library: %s", local_library))
+
+  be_restore_release_dependencies(
+    release_root = paths$release_root,
+    release_id = paths$release_id,
+    library_dir = local_library
+  )
+  be_install_release_package(
+    release_root = paths$release_root,
+    release_id = paths$release_id,
+    library_dir = local_library,
+    package_name = manifest_validation$package$package
+  )
+
+  if (!requireNamespace(manifest_validation$package$package, quietly = TRUE)) {
+    stop(
+      "Installed release package could not be loaded from the local library.",
+      call. = FALSE
+    )
   }
 
   shiny::runApp(
-    runtime_env$run_app(shared_root = shared_root),
+    bachExporter::run_app(shared_root = shared_root),
     launch.browser = TRUE
   )
 }

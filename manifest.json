@@ -1,0 +1,7 @@
+{
+  "release_id": "dev",
+  "package": {
+    "name": "bachExporter",
+    "version": "0.0.1"
+  }
+}

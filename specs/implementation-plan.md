@@ -6,7 +6,7 @@ The goal is to build the system iteratively, with working end-to-end milestones 
 
 ## 0. Current status
 
-This document was updated after the first implementation slice was completed.
+This document was updated after the shared-release launcher slice was completed.
 
 ### Completed in the first slice
 
@@ -45,36 +45,58 @@ This document was updated after the first implementation slice was completed.
 - Added a reusable `bin/in-env` wrapper for running commands inside the flake dev environment.
 - Added `scripts/check-dev-env.R` to verify the flake-provided R packages are available.
 
+### Completed in the shared-release launcher slice
+
+- Added release-runtime helpers for:
+  - release manifest validation
+  - release DESCRIPTION parsing
+  - per-release dependency restore
+  - per-release local package installation
+- Updated `scripts/launch_from_share.R` to:
+  - validate the active release metadata
+  - use a per-release local library
+  - restore dependencies from `renv.lock`
+  - install the release locally with `remotes::install_local()`
+  - launch the installed package via `bachExporter::run_app()`
+- Expanded launcher bootstrap packages to include:
+  - `renv`
+  - `remotes`
+- Added a minimal `manifest.json` for the direct `dev` release root.
+- Added initial `testthat` scaffolding and release-runtime tests.
+
 ### Verified in the first slice
 
 - All newly added `.R` files, `app.R`, `launch_bach_exporter.R`, and `_targets.R` were parsed successfully with `Rscript`.
 - The Nix dev shell now sets `PRE_COMMIT_HOME=./.pre-commit-cache` so git commits do not fail when sandboxed environments cannot write to `~/.cache/pre-commit`.
 - `bash ./bin/in-env Rscript scripts/check-dev-env.R` verifies the flake-defined R package set is available.
 
+### Verified in the shared-release launcher slice
+
+- Parsed the changed launcher/runtime files with `Rscript`.
+- Ran `bash ./bin/in-env Rscript -e "testthat::test_dir('tests/testthat')"` and all release-runtime tests passed.
+
 ### Not completed yet
 
-- No real dependency restore from shared release via `renv`.
-- No local install of the package from the shared release.
-- No real release manifest handling beyond basic path conventions.
 - No real snapshot readers.
 - No real `targets`-backed export execution.
 - No migration of real domains from `old-script.R`.
 - No real REDCap refresh logic.
-- No automated tests yet.
+- No packaged `releases/<release-id>/` bundle is checked into this repo yet, so published-release bootstrap has not been exercised against a real shared release artifact.
 
 ### Important current behavior
 
 - The local launcher is intentionally self-contained so a researcher can copy a single file onto their machine.
-- The shared release launcher currently sources all files from the release `R/` directory directly into a runtime environment.
-- This direct sourcing path is a temporary bridge until local package installation from the shared release is implemented.
+- The shared release launcher now restores into a per-release local library and launches the installed package instead of sourcing the entire `R/` directory into a runtime environment.
 - The app supports a development-style shared root:
   - if `CURRENT_RELEASE.txt` is missing
   - but the selected folder contains `DESCRIPTION` and `scripts/launch_from_share.R`
   - then the folder is treated as a direct release root with release id `dev`
+- In `dev` mode, missing `renv.lock` is allowed so local development still works without a packaged release bundle.
+- In non-`dev` mode, missing `manifest.json` or `renv.lock` is now treated as a release error.
 - Placeholder REDCap settings currently exist only to keep the interface shape stable.
 - The placeholder API key is masked in the export manifest and is not written into the CSV output.
 
-### Files added or changed in the first slice
+### Files added or changed across the first two slices
 
 - `DESCRIPTION`
 - `LICENSE`
@@ -94,36 +116,42 @@ This document was updated after the first implementation slice was completed.
 - `R/app_ui.R`
 - `R/app_server.R`
 - `R/app_run.R`
+- `R/release_runtime.R`
 - `R/source_refresh_admin.R`
 - `R/targets_graph.R`
 - `bin/in-env`
+- `manifest.json`
 - `scripts/local_launcher.R`
 - `scripts/check-dev-env.R`
 - `scripts/launch_from_share.R`
 - `scripts/refresh_snapshots.R`
 - `inst/presets/baseline-core.json`
 - `inst/side-data/admin-config.template.json`
+- `tests/testthat.R`
+- `tests/testthat/test-release-runtime.R`
 
 ### Practical notes for the next agent
 
 - `launch_bach_exporter.R` is the intended researcher-facing file. Keep it self-contained unless there is a strong reason not to.
 - When working inside the Nix dev shell, `pre-commit` should now use the repo-local `.pre-commit-cache/` directory automatically.
 - Use `bash ./bin/in-env <command>` for future R verification and tests so commands run inside the flake environment even when the caller is outside it.
-- The current launcher installs only bootstrap packages from CRAN:
+- The current launcher installs these bootstrap packages from CRAN if needed:
   - `shiny`
   - `shinyFiles`
   - `jsonlite`
   - `bslib`
-- The next implementation slice should preserve the current first-run bootstrap UX:
+- `renv`
+- `remotes`
+- The current first-run bootstrap UX should be preserved:
   - choose shared root
   - validate it
   - save locally
   - continue into the shared backend
-- The next major gap is shared-release dependency bootstrap. The best next move is to make `scripts/launch_from_share.R` restore a local library and install the current release locally, then call `bachExporter::run_app()`.
 - The baseline environment verification command is:
   - `bash ./bin/in-env Rscript scripts/check-dev-env.R`
 - Future test entrypoints should use the same wrapper pattern, for example:
   - `bash ./bin/in-env Rscript -e "testthat::test_dir('tests/testthat')"`
+- The next major product gap is snapshot ingestion and a real minimal export path rather than launcher bootstrap.
 - The current app already has controls for:
   - shared root
   - output path
@@ -165,18 +193,20 @@ Start with:
 
 Shared-root bootstrap works and the main Shiny app launches from a shared release.
 
-Status: partially complete.
+Status: complete in code for launcher/runtime behavior; release packaging still needs to be exercised with a real bundled release.
 
 Completed:
 
 - local launcher exists
 - bootstrap shared-root selector exists
 - main Shiny app launches through the shared launcher path
+- shared launcher restores to a per-release local library
+- shared launcher installs the release locally and calls `bachExporter::run_app()`
+- release manifest validation exists
 
 Remaining:
 
-- local dependency restore from shared release
-- local install of the package from shared release instead of direct `sys.source()` loading
+- publish and validate a real `releases/<release-id>/` bundle with `renv.lock` and `manifest.json`
 
 ### Milestone 2
 
@@ -375,16 +405,17 @@ Note:
 
 - app can be launched from shared release after dependency bootstrap
 
-Status: partially complete.
+Status: complete in code for the launcher implementation slice.
 
 Implemented:
 
 - `scripts/launch_from_share.R`
+- `R/release_runtime.R`
 
 Current limitation:
 
-- it directly sources `R/` files from the selected release root
-- it does not yet restore dependencies or install the package locally
+- the repository still relies on the direct `dev` release-root fallback for local development because no packaged release bundle is checked in
+- published-release bootstrap still needs to be exercised against a real `releases/<release-id>/` folder with `renv.lock`
 
 ## Phase 5: Build the main app shell
 
