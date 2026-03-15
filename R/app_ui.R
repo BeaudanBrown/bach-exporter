@@ -14,7 +14,7 @@ be_app_ui <- function() {
       shiny::titlePanel("BACH Exporter"),
       shiny::p(
         class = "app-note",
-        "Shared-drive launched export tool. This build supports a first real participants export from shared REDCap snapshots; other domains remain scaffolded."
+        "Shared-drive launched export tool. This build supports participants plus the first migrated screening and annual-phone slices from shared REDCap snapshots."
       ),
       shiny::tabsetPanel(
         shiny::tabPanel(
@@ -34,9 +34,11 @@ be_app_ui <- function() {
                 "Domains",
                 choices = c(
                   "Participants" = "participants",
-                  "Annual Phone" = "annual_phone",
-                  "Demographics" = "demographics",
-                  "Vitals" = "vitals"
+                  "Participant Screening" = "participant_screening",
+                  "Similarities" = "similarities",
+                  "Prose Passages" = "prose_passages",
+                  "Cognitive Screening" = "cognitive_screening",
+                  "Medications" = "medications"
                 ),
                 selected = "participants"
               ),

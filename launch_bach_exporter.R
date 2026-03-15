@@ -93,6 +93,7 @@ launch_bach_exporter <- function() {
 
     list(
       ok = TRUE,
+      message = "Shared root is valid.",
       shared_root = shared_root,
       release_id = release_id,
       launcher = launcher

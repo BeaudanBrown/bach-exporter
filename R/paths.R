@@ -1,19 +1,50 @@
+be_resolve_local_dir <- function(path_candidates) {
+  for (candidate in path_candidates) {
+    if (is.null(candidate) || !nzchar(candidate)) {
+      next
+    }
+
+    ok <- tryCatch(
+      {
+        dir.create(candidate, recursive = TRUE, showWarnings = FALSE)
+        file.access(candidate, mode = 2) == 0
+      },
+      error = function(err) FALSE
+    )
+
+    if (isTRUE(ok)) {
+      return(candidate)
+    }
+  }
+
+  stop("Could not create a writable local directory.", call. = FALSE)
+}
+
 be_local_config_dir <- function() {
-  path <- tools::R_user_dir("bachExporter", which = "config")
-  dir.create(path, recursive = TRUE, showWarnings = FALSE)
-  path
+  be_resolve_local_dir(c(
+    Sys.getenv("BACH_EXPORTER_LOCAL_CONFIG_DIR", unset = ""),
+    getOption("bachExporter.local_config_dir", ""),
+    tools::R_user_dir("bachExporter", which = "config"),
+    file.path(tempdir(), "bachExporter", "config")
+  ))
 }
 
 be_local_cache_dir <- function() {
-  path <- tools::R_user_dir("bachExporter", which = "cache")
-  dir.create(path, recursive = TRUE, showWarnings = FALSE)
-  path
+  be_resolve_local_dir(c(
+    Sys.getenv("BACH_EXPORTER_LOCAL_CACHE_DIR", unset = ""),
+    getOption("bachExporter.local_cache_dir", ""),
+    tools::R_user_dir("bachExporter", which = "cache"),
+    file.path(tempdir(), "bachExporter", "cache")
+  ))
 }
 
 be_local_data_dir <- function() {
-  path <- tools::R_user_dir("bachExporter", which = "data")
-  dir.create(path, recursive = TRUE, showWarnings = FALSE)
-  path
+  be_resolve_local_dir(c(
+    Sys.getenv("BACH_EXPORTER_LOCAL_DATA_DIR", unset = ""),
+    getOption("bachExporter.local_data_dir", ""),
+    tools::R_user_dir("bachExporter", which = "data"),
+    file.path(tempdir(), "bachExporter", "data")
+  ))
 }
 
 be_local_log_dir <- function() {

@@ -32,7 +32,14 @@ be_validate_export_spec <- function(spec) {
     ))
   }
 
-  supported_domains <- c("participants")
+  supported_domains <- c(
+    "participants",
+    "participant_screening",
+    "similarities",
+    "prose_passages",
+    "cognitive_screening",
+    "medications"
+  )
   unsupported_domains <- setdiff(spec$domains, supported_domains)
   if (length(unsupported_domains)) {
     return(list(

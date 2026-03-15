@@ -2,8 +2,11 @@ run_export <- function(
   spec,
   output_path = NULL,
   shared_root = NULL,
-  refresh_mode = "auto"
+  refresh_mode = "auto",
+  execution_mode = c("targets", "direct")
 ) {
+  execution_mode <- match.arg(execution_mode)
+
   if (!is.null(shared_root)) {
     spec$shared$root <- shared_root
   }
@@ -17,52 +20,33 @@ run_export <- function(
     stop(validation$message, call. = FALSE)
   }
 
-  export_df <- be_assemble_export(
-    spec = spec,
-    shared_root = validation$paths$shared_root
-  )
-  snapshot_metadata <- list(
-    redcap = tryCatch(
-      be_read_snapshot_metadata(validation$paths$shared_root, "redcap"),
-      error = function(err) list(error = conditionMessage(err))
-    ),
-    snapshot_index = tryCatch(
-      be_read_snapshot_index(validation$paths$shared_root),
-      error = function(err) list(error = conditionMessage(err))
+  pipeline_result <- if (identical(execution_mode, "targets")) {
+    be_run_export_pipeline(
+      spec = spec,
+      shared_root = validation$paths$shared_root,
+      refresh_mode = refresh_mode,
+      release_id = validation$paths$release_id
     )
-  )
+  } else {
+    list(
+      export_df = be_assemble_export(
+        spec = spec,
+        shared_root = validation$paths$shared_root
+      ),
+      manifest = be_build_export_manifest(
+        spec = spec,
+        shared_root = validation$paths$shared_root,
+        refresh_mode = refresh_mode,
+        execution_mode = execution_mode
+      )
+    )
+  }
 
   final_output <- spec$output$path
   dir.create(dirname(final_output), recursive = TRUE, showWarnings = FALSE)
-  app_version <- tryCatch(
-    as.character(utils::packageVersion("bachExporter")),
-    error = function(err) "0.0.1"
-  )
-
-  manifest <- list(
-    exported_at = format(Sys.time(), "%Y-%m-%d %H:%M:%S %Z"),
-    refresh_mode = refresh_mode,
-    shared_root = spec$shared$root,
-    release_id = validation$paths$release_id,
-    snapshot_metadata = snapshot_metadata,
-    app = list(
-      package = "bachExporter",
-      version = app_version
-    ),
-    platform = list(
-      r_version = R.version.string,
-      platform = R.version$platform
-    ),
-    source = utils::modifyList(spec$source, list(api_key = "[masked]")),
-    cohort = spec$cohort,
-    domains = spec$domains,
-    options = spec$options,
-    output = spec$output
-  )
-
-  utils::write.csv(export_df, final_output, row.names = FALSE)
+  utils::write.csv(pipeline_result$export_df, final_output, row.names = FALSE)
   jsonlite::write_json(
-    manifest,
+    pipeline_result$manifest,
     path = paste0(final_output, ".manifest.json"),
     auto_unbox = TRUE,
     pretty = TRUE
