@@ -6,7 +6,7 @@ The goal is to build the system iteratively, with working end-to-end milestones 
 
 ## 0. Current status
 
-This document was updated after the admin refresh documentation/scaffold slice was completed.
+This document was updated after the admin refresh implementation and the first legacy-domain migration slices were completed.
 
 ### Completed in the first slice
 
@@ -114,6 +114,53 @@ This document was updated after the admin refresh documentation/scaffold slice w
 - Updated the admin config template with the fields needed for the schema snapshot path.
 - Updated the specs to reflect the `redcapAPI`-based admin schema snapshot path.
 
+### Completed in the admin refresh implementation slice
+
+- Added `.env` loading to `scripts/refresh_snapshots.R`.
+- Implemented schema snapshot export for:
+  - project info
+  - events
+  - instruments
+  - field-name mappings
+  - codebook metadata
+- Redacted PI contact fields from saved `project-info.json`.
+- Implemented typed REDCap record snapshot export for:
+  - `raw.csv`
+  - `labels.csv`
+  - top-level REDCap snapshot metadata
+  - snapshot index sidecar
+- Added probe-mode record export with env/config controls for record IDs.
+- Switched the record snapshot path to `exportRecordsTyped()`.
+
+### Completed in the first legacy-domain migration slices
+
+- Updated the `participants` domain to derive demographics from baseline rows and carry them onto later-year rows.
+- Added a real `participant_screening` domain slice based on the legacy script fields:
+  - age
+  - sex
+  - education
+  - highest education
+  - highest-education other detail
+- Added a real `similarities` domain slice using the legacy corrected scoring rule.
+- Added a real `prose_passages` domain slice using the annual-phone prose mapping plus the legacy Passage A/B percent-correct denominators.
+- Added a real `cognitive_screening` domain slice mapping `tele_total` to `cogscreen_total`.
+- Wired the migrated domains into export validation, direct export assembly, presets, and the Shiny domain selector.
+
+### Completed in the initial final-export pipeline slice
+
+- Replaced the scaffold-only `targets` backend with a real hidden export pipeline for the currently implemented domains.
+- Updated `run_export()` to execute through the `targets` pipeline by default and keep the direct assembler as a debugging fallback.
+- Added a reusable manifest builder so direct and `targets` execution produce the same sidecar shape.
+- Added writable-local-store fallback logic so the `targets` cache can run in sandboxed development and test environments.
+
+### Completed in the medications slice
+
+- Added a real `medications` domain slice based on the legacy repeated-instrument fields.
+- Implemented dual medication export behavior:
+  - standalone `medications` exports stay long at one row per medication instance
+  - merged exports widen medication repeat instances so participant-level outputs do not duplicate rows
+- Exposed `medications` in export validation, presets, and the Shiny domain selector.
+
 ### Verified in the first slice
 
 - All newly added `.R` files, `app.R`, `launch_bach_exporter.R`, and `_targets.R` were parsed successfully with `Rscript`.
@@ -145,11 +192,29 @@ This document was updated after the admin refresh documentation/scaffold slice w
 - Parsed `R/source_refresh_admin.R` and `scripts/refresh_snapshots.R` with `Rscript`.
 - Verified the dev environment package list includes `redcapAPI` via `scripts/check-dev-env.R`.
 
+### Verified in the admin refresh implementation slice
+
+- Ran `bash ./bin/in-env Rscript -e "testthat::test_file('tests/testthat/test-admin-refresh-config.R')"` and the admin refresh tests passed.
+- Ran `bash ./bin/in-env Rscript tests/testthat.R` and the full suite passed after the refresh changes.
+
+### Verified in the first legacy-domain migration slices
+
+- Ran `bash ./bin/in-env Rscript -e "testthat::test_file('tests/testthat/test-export-run.R')"` and the export tests passed.
+- Ran `bash ./bin/in-env Rscript tests/testthat.R` and the full suite passed after adding `participant_screening`, `similarities`, `prose_passages`, and `cognitive_screening`.
+
+### Verified in the initial final-export pipeline slice
+
+- Parsed the updated pipeline/runtime files and `tests/testthat/test-export-run.R` with `Rscript`.
+- Ran `bash ./bin/in-env Rscript -e "testthat::test_file('tests/testthat/test-export-run.R')"` and the targets-backed export tests passed.
+
+### Verified in the medications slice
+
+- Ran `bash ./bin/in-env Rscript -e "testthat::test_file('tests/testthat/test-export-run.R')"` and the medication export tests passed.
+- Ran `bash ./bin/in-env Rscript tests/testthat.R` and the full suite passed after adding medication handling.
+
 ### Not completed yet
 
-- No real `targets`-backed export execution.
-- No migration of real domains from `old-script.R`.
-- No real REDCap refresh execution yet beyond the `redcapAPI` config/scaffold path.
+- More legacy domains remain to be migrated from `old-script.R`.
 - No packaged `releases/<release-id>/` bundle is checked into this repo yet, so published-release bootstrap has not been exercised against a real shared release artifact.
 
 ### Important current behavior
@@ -167,11 +232,22 @@ This document was updated after the admin refresh documentation/scaffold slice w
   - PSG
   - biomarkers
   - sidecar metadata
-- The direct export path now supports `participants` only; other domain selections fail with a clear "not implemented yet" validation error.
+- The targets-backed export pipeline currently supports:
+  - `participants`
+  - `participant_screening`
+  - `similarities`
+  - `prose_passages`
+  - `cognitive_screening`
+  - `medications`
+- The direct assembler remains available as a debugging fallback.
+- `medications` exports now have two supported shapes:
+  - standalone long-table export for repeated medication instances
+  - widened participant/year merge when combined with participant-grain domains
 - The direct export path now supports participant subsetting through either:
   - explicit IDs in the spec/UI
   - a subset file path
-- The admin refresh path is now explicitly configured around `redcapAPI`, but currently stops at dry-run/config validation, keyring initialization, and documented schema snapshot targets.
+- The admin refresh path is now explicitly configured around `redcapAPI` and can write schema snapshots plus typed REDCap record snapshots.
+- Probe mode can limit record export to a small set of IDs using env vars or local admin config.
 - Placeholder REDCap settings currently exist only to keep the interface shape stable.
 - The placeholder API key is masked in the export manifest and is not written into the CSV output.
 
@@ -200,6 +276,9 @@ This document was updated after the admin refresh documentation/scaffold slice w
 - `R/cohort_filters.R`
 - `R/split_events.R`
 - `R/domain_participants.R`
+- `R/domain_similarities.R`
+- `R/domain_prose_passages.R`
+- `R/domain_cognitive_screening.R`
 - `R/assemble_export.R`
 - `R/source_snapshots.R`
 - `R/source_refresh_admin.R`
@@ -239,7 +318,7 @@ This document was updated after the admin refresh documentation/scaffold slice w
   - `bash ./bin/in-env Rscript scripts/check-dev-env.R`
 - Future test entrypoints should use the same wrapper pattern, for example:
   - `bash ./bin/in-env Rscript -e "testthat::test_dir('tests/testthat')"`
-- The next major product gap is extending the real export path beyond `participants`, then adding `targets` caching behind it.
+- The next major product gap is migrating additional legacy domains beyond `participants`, `participant_screening`, `similarities`, `prose_passages`, and `cognitive_screening`, then adding `targets` caching behind them.
 - The admin refresh stub now expects local admin configuration, not researcher-facing shared config; keep secrets out of the normal shared-release path.
 - The admin refresh stub now expects keyring metadata in config and the API token itself in the admin-local `unlockREDCap()` keyring.
 - The current participants export already supports cohort filtering, so future domains should plug into that same spec-driven filter path rather than inventing separate subset semantics.
@@ -253,6 +332,40 @@ This document was updated after the admin refresh documentation/scaffold slice w
   - placeholder REDCap URL/key
 - Those controls are mostly scaffolding and should now be connected to real backend logic instead of being redesigned.
 - Do not remove the `dev` shared-root fallback until shared-release packaging is working; it is useful for local development in this repo.
+
+### Current implementation handoff
+
+- The direct non-`targets` export path currently supports:
+  - `participants`
+  - `participant_screening`
+  - `similarities`
+  - `prose_passages`
+  - `cognitive_screening`
+- `participants` now derives demographics from baseline rows and carries them onto later-year rows.
+- `participant_screening` maps the first explicit legacy screening cluster from `old-script.R`:
+  - `age`
+  - `sex`
+  - `education`
+  - `highest_education`
+  - `highest_education_other`
+- `similarities` maps the annual-phone similarities cluster from `old-script.R` and uses the corrected stop-after-three-zeros scoring rule.
+- `prose_passages` maps the annual-phone prose cluster from `old-script.R` and derives immediate/delayed percent-correct using the legacy Passage A/B denominators.
+- `cognitive_screening` maps the legacy TELE screening field from `old-script.R`:
+  - `tele_total -> cogscreen_total`
+- The admin refresh path is implemented and can:
+  - write schema snapshots
+  - write typed REDCap record snapshots
+  - run in probe mode for a small list of records
+- Probe/full refresh behavior can now be controlled entirely by env vars in `.env`:
+  - `BACH_SCHEMA_SNAPSHOT_ONLY`
+  - `BACH_RECORD_PROBE_ONLY`
+  - `BACH_PROBE_RECORDS`
+- The refresh path now uses `redcapAPI::exportRecordsTyped()` rather than `exportRecords()`.
+- Current tests are green after the domain and refresh work:
+  - `bash ./bin/in-env Rscript -e "testthat::test_file('tests/testthat/test-export-run.R')"`
+  - `bash ./bin/in-env Rscript tests/testthat.R`
+- The next recommended domain slice is one of the remaining annual-phone clusters adjacent to the current work, such as `moca` or `ad8`, because they use the same event/year merge pattern.
+- After that, continue broader annual-phone migration before shifting focus to the heavier non-phone domains.
 
 ## 1. Implementation principles
 
@@ -303,16 +416,22 @@ Remaining:
 
 An end-to-end export works for a minimal domain set using snapshot files and no `targets` yet.
 
-Status: partially complete.
+Status: substantially complete for the first direct-export vertical slice.
 
 Completed:
 
-- placeholder export path writes CSV plus manifest
+- direct export path writes CSV plus manifest
+- snapshot-backed export works for:
+  - `participants`
+  - `participant_screening`
+  - `similarities`
+  - `prose_passages`
+  - `cognitive_screening`
 
 Remaining:
 
-- replace placeholder export with real snapshot-backed minimal data flow
-- migrate one real domain cluster such as participant screening plus one annual phone domain
+- migrate additional legacy domain clusters
+- validate the migrated outputs against broader legacy expectations
 
 ### Milestone 3
 
@@ -335,13 +454,13 @@ Remaining:
 
 Core domains from `old-script.R` are migrated and validated.
 
-Status: not started.
+Status: started.
 
 ### Milestone 5
 
 Admin refresh tooling for shared snapshots is in place.
 
-Status: not started beyond placeholder config/script.
+Status: partially complete.
 
 ## 4. Phase-by-phase plan
 
