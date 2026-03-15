@@ -4,6 +4,8 @@
   "keyring": "bach-exporter-admin",
   "project_alias": "bach-exporter",
   "connection_name": "rcon_admin",
-  "schema_snapshot_only": true,
+  "schema_snapshot_only": false,
+  "record_probe_only": true,
+  "probe_records": ["10000"],
   "mode": "admin-only"
 }
