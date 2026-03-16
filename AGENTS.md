@@ -7,6 +7,7 @@ This repository contains the BACH exporter rewrite: a local Shiny app plus hidde
 - Use the Nix dev environment for repo commands.
 - Prefer `bash ./bin/in-env <command>` for R, test, and formatting tasks.
 - Treat `specs/system-spec.md` and `specs/implementation-plan.md` as the primary product and implementation references.
+- Treat the coordinator Beads epic `coordinator-d6f` as the live work tracker for this repo; do not add backlog/status tracking to repo markdown.
 - Keep researcher-facing workflow simple: launch app, choose export options, write CSV output.
 - Do not commit or hardcode REDCap secrets, shared-drive credentials, or researcher-specific local paths.
 

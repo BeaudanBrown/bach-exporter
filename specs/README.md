@@ -1,13 +1,13 @@
 # BACH Exporter Specs
 
-This folder defines the target architecture and delivery plan for the new BACH exporter system.
+This folder defines the target architecture and durable implementation guidance for the BACH exporter system.
 
-These documents started as a fresh-implementation brief. They now also serve as a running status record for the in-repo implementation.
+Live work tracking now happens in the coordinator Beads graph under epic `coordinator-d6f` (`bach-exporter: exporter-rewrite-completion`). These markdown files should stay focused on stable project guidance rather than open-task tracking.
 
 ## Document index
 
 - [`system-spec.md`](/home/beau/documents/projects/bach-exporter/specs/system-spec.md): full architecture and product specification
-- [`implementation-plan.md`](/home/beau/documents/projects/bach-exporter/specs/implementation-plan.md): step-by-step plan for building the system from this blank repository
+- [`implementation-plan.md`](/home/beau/documents/projects/bach-exporter/specs/implementation-plan.md): durable implementation direction, migration strategy, and testing guidance
 
 ## Core decisions
 
@@ -22,27 +22,13 @@ These documents started as a fresh-implementation brief. They now also serve as 
 - The admin refresh path will use `redcapAPI`, with token storage handled through `unlockREDCap()` keyrings rather than plain-text config values.
 - The live package library and live `targets` store will be local per user, not shared on the network drive.
 
-## Current implementation status
+## Current baseline
 
-- Shared-root bootstrap, shared-release launcher, and local runtime install path are implemented.
-- Shared snapshot readers are implemented for REDCap, PSG, biomarkers, and sidecar metadata.
-- Admin REDCap refresh is implemented through `redcapAPI` with keyring-backed auth.
-- The admin refresh can write:
-  - schema snapshots
-  - typed REDCap record snapshots
-  - single-record probe snapshots via env/config flags
-- The direct non-`targets` export path currently supports:
-- The targets-backed export pipeline is now active for the currently implemented domains, with the direct path retained as a debugging fallback.
-- The currently implemented export domains are:
-  - `participants`
-  - `participant_screening`
-  - `similarities`
-  - `prose_passages`
-  - `cognitive_screening`
-  - `medications`
-- Repeated medications now export in two shapes:
-  - standalone `medications` export stays long at one row per medication instance
-  - combined exports widen medication repeat instances to preserve one row per participant/year
+- The repo already has the intended package-style layout, launcher entrypoints, and hidden backend pipeline structure.
+- Shared snapshot readers exist for the named snapshot families in the spec.
+- The exporter currently includes multiple implemented domains, including `participants`, `participant_screening`, `similarities`, `prose_passages`, `cognitive_screening`, and `medications`.
+- The admin refresh path is built around `redcapAPI` with keyring-backed auth.
+- The direct export path and the hidden `targets` path should continue to be treated as implementation details, not user-facing workflow concepts.
 
 ## Design intent
 
