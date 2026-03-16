@@ -430,6 +430,12 @@ make_medications_export_shared_root <- function() {
       age = c(70, NA, NA, NA, 71),
       sex = c("F", NA, NA, NA, "M"),
       highest_education = c("College", NA, NA, NA, "TAFE"),
+      lying_systolic_bp_av = c(145, NA, NA, NA, 128),
+      lying_diastolic_bp_av = c(88, NA, NA, NA, 82),
+      bloods_chol = c(6.1, NA, NA, NA, 4.8),
+      bloods_chol_hdl = c(1.4, NA, NA, NA, 1.2),
+      bloods_ldl = c(3.8, NA, NA, NA, 3.0),
+      bloods_trigly = c(2.1, NA, NA, NA, 1.5),
       med_name = c(NA, "Aspirin", NA, NA, NA),
       med_strength = c(NA, "100mg", NA, NA, NA),
       med_freq = c(NA, "daily", NA, NA, NA),
@@ -1029,30 +1035,67 @@ test_that("medications domain returns one row per medication instance", {
 
 test_that("medications wide domain keeps one row per participant year", {
   redcap_df <- data.frame(
-    idno = c("BACH001", "BACH001", "BACH001"),
-    redcap_event_name = c("Year 2", "Year 2", "Year 2"),
-    redcap_repeat_instrument = c("", "Medication Follow", "Medication Follow"),
-    redcap_repeat_instance = c(NA, 1, 2),
-    mh_follow_meds_v2 = c("Yes", "Yes", "Yes"),
-    mh_follow_meds_startstop_v2 = c(NA, "Start", "Stop"),
-    mh_follow_meds_n_v2 = c(NA, "Metformin", "Vitamin D"),
-    mh_follow_meds_str_v2 = c(NA, "500mg", "1000IU"),
-    mh_follow_meds_freq_v2 = c(NA, "bid", "daily"),
-    mh_follow_meds_times_v2 = c(NA, "2", "1"),
-    mh_follow_meds_why_v2 = c(NA, "Diabetes", "Bone"),
-    mh_follow_meds_why_y_v2 = c(NA, "", ""),
-    mh_follow_meds_presc_v2 = c(NA, "Yes", "No"),
-    mh_follow_meds_atc_v2 = c(NA, "A10BA02", "A11CC05"),
+    idno = c("BACH001", "BACH001", "BACH001", "BACH002"),
+    redcap_event_name = c("Year 2", "Year 2", "Year 2", "Baseline"),
+    redcap_repeat_instrument = c(
+      "",
+      "Medication Follow",
+      "Medication Follow",
+      ""
+    ),
+    redcap_repeat_instance = c(NA, 1, 2, NA),
+    sex = c(NA, NA, NA, "Male"),
+    mh_follow_meds_v2 = c("Yes", "Yes", "Yes", NA),
+    mh_follow_meds_startstop_v2 = c(NA, "Start", "Stop", NA),
+    mh_follow_meds_n_v2 = c(NA, "Metformin", "Diazepam", NA),
+    mh_follow_meds_str_v2 = c(NA, "500mg", "5mg", NA),
+    mh_follow_meds_freq_v2 = c(NA, "bid", "daily", NA),
+    mh_follow_meds_times_v2 = c(NA, "2", "1", NA),
+    mh_follow_meds_why_v2 = c(NA, "Diabetes", "Anxiety", NA),
+    mh_follow_meds_why_y_v2 = c(NA, "", "", NA),
+    mh_follow_meds_presc_v2 = c(NA, "Yes", "No", NA),
+    mh_follow_meds_atc_v2 = c(NA, "A10BA02", "N05BA01", NA),
+    lying_systolic_bp_av = c(NA, NA, NA, 128),
+    lying_diastolic_bp_av = c(NA, NA, NA, 82),
+    bloods_chol = c(NA, NA, NA, 4.8),
+    bloods_chol_hdl = c(NA, NA, NA, 1.2),
+    bloods_ldl = c(NA, NA, NA, 3.0),
+    bloods_trigly = c(NA, NA, NA, 1.5),
     stringsAsFactors = FALSE
   )
 
-  result <- be_build_medications_wide_domain(redcap_df, years = "year2")
+  result <- be_build_medications_wide_domain(
+    redcap_df,
+    years = c("baseline", "year2")
+  )
 
-  expect_equal(nrow(result), 1)
-  expect_equal(result$medication_change, "Yes")
-  expect_equal(result$medication_name_med_01, "Metformin")
-  expect_equal(result$medication_name_med_02, "Vitamin D")
-  expect_equal(result$medication_atc_med_02, "A11CC05")
+  expect_equal(nrow(result), 2)
+  year2_row <- result[
+    result$participant_id == "001" & result$year == "year2",
+    ,
+    drop = FALSE
+  ]
+  baseline_row <- result[
+    result$participant_id == "002" & result$year == "baseline",
+    ,
+    drop = FALSE
+  ]
+
+  expect_equal(nrow(year2_row), 1)
+  expect_equal(nrow(baseline_row), 1)
+  expect_equal(year2_row$medication_change, "Yes")
+  expect_equal(year2_row$medication_name_med_01, "Metformin")
+  expect_equal(year2_row$medication_name_med_02, "Diazepam")
+  expect_equal(year2_row$medication_atc_med_02, "N05BA01")
+  expect_equal(year2_row$diabetes_meds, "Yes")
+  expect_equal(year2_row$anxiety_meds, "Yes")
+  expect_equal(year2_row$sedative_meds, "No")
+  expect_true(is.na(year2_row$hypertension))
+  expect_true(is.na(year2_row$dyslipidemia))
+  expect_equal(baseline_row$diabetes_meds, "No")
+  expect_equal(baseline_row$anxiety_meds, "No")
+  expect_equal(baseline_row$hypertension, "No")
+  expect_equal(baseline_row$dyslipidemia, "No")
 })
 
 test_that("run_export writes a snapshot-backed participants csv and manifest", {
@@ -1541,6 +1584,10 @@ test_that("run_export merges medications onto participants without row explosion
   expect_equal(export_df$participant_id, c("001", "001"))
   expect_equal(export_df$medication_name_med_01[[1]], "Aspirin")
   expect_equal(export_df$medication_name_med_02[[2]], "Metformin")
+  expect_equal(export_df$depression_meds, c("No", "No"))
+  expect_equal(export_df$diabetes_meds, c("No", "Yes"))
+  expect_equal(export_df$hypertension, c("Yes", NA))
+  expect_equal(export_df$dyslipidemia, c("Yes", NA))
 })
 
 test_that("run_export can export medications as a standalone long table", {

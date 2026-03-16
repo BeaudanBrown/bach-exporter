@@ -40,6 +40,33 @@ be_bind_rows_fill <- function(rows) {
   out
 }
 
+be_medication_codes <- function(x) {
+  values <- trimws(as.character(x))
+  values[!nzchar(values)] <- NA_character_
+  unique(values[!is.na(values)])
+}
+
+be_medication_has_prefix <- function(codes, prefixes) {
+  if (!length(codes)) {
+    return(FALSE)
+  }
+
+  any(vapply(
+    codes,
+    function(code) any(startsWith(code, prefixes)),
+    logical(1)
+  ))
+}
+
+be_yes_no_flag <- function(value) {
+  if (isTRUE(value)) "Yes" else "No"
+}
+
+be_first_numeric <- function(df, field) {
+  value <- be_first_nonempty(be_column_or_na(df, field))
+  suppressWarnings(as.numeric(value))
+}
+
 be_build_medications_domain <- function(redcap_df, years = NULL) {
   redcap_df <- be_prepare_redcap_snapshot(redcap_df)
   redcap_df <- be_filter_years(redcap_df, years)
@@ -179,26 +206,31 @@ be_build_medications_wide_domain <- function(redcap_df, years = NULL) {
   redcap_df <- be_filter_years(redcap_df, years)
 
   medication_long <- be_build_medications_domain(redcap_df, years = years)
-  if (!nrow(medication_long)) {
+  if (!nrow(redcap_df)) {
     return(data.frame(participant_id = character(), stringsAsFactors = FALSE))
   }
 
+  baseline_demographics <- be_baseline_demographics(redcap_df)
   grouped <- split(
-    medication_long,
+    redcap_df,
     interaction(
-      medication_long$participant_id,
-      medication_long$event_name,
-      medication_long$year,
+      redcap_df$participant_id,
+      redcap_df$event_name,
+      redcap_df$year,
       drop = TRUE
     )
   )
 
-  wide_rows <- lapply(grouped, function(df) {
-    key <- df[1, c("participant_id", "event_name", "year"), drop = FALSE]
-    source_rows <- redcap_df[
-      redcap_df$participant_id == key$participant_id[[1]] &
-        redcap_df$event_name == key$event_name[[1]] &
-        redcap_df$year == key$year[[1]],
+  wide_rows <- lapply(grouped, function(source_rows) {
+    key <- source_rows[
+      1,
+      c("participant_id", "event_name", "year"),
+      drop = FALSE
+    ]
+    medication_rows <- medication_long[
+      medication_long$participant_id == key$participant_id[[1]] &
+        medication_long$event_name == key$event_name[[1]] &
+        medication_long$year == key$year[[1]],
       ,
       drop = FALSE
     ]
@@ -225,34 +257,120 @@ be_build_medications_wide_domain <- function(redcap_df, years = NULL) {
       row$medication_change_startstop <- medication_change_startstop
     }
 
-    instances <- suppressWarnings(as.integer(df$repeat_instance))
-    fallback_instances <- seq_len(nrow(df))
-    normalized_instances <- ifelse(
-      is.na(instances),
-      fallback_instances,
-      instances
-    )
-    order_index <- order(normalized_instances)
-    df <- df[order_index, , drop = FALSE]
-    normalized_instances <- normalized_instances[order_index]
+    medication_codes <- be_medication_codes(medication_rows$medication_atc)
+    row$depression_meds <- be_yes_no_flag(be_medication_has_prefix(
+      medication_codes,
+      c("N06A")
+    ))
+    row$hypertensive_meds <- be_yes_no_flag(be_medication_has_prefix(
+      medication_codes,
+      c("C02", "C03", "C07", "C08", "C09")
+    ))
+    row$lipid_meds <- be_yes_no_flag(be_medication_has_prefix(
+      medication_codes,
+      c("C10")
+    ))
+    row$statin_meds <- be_yes_no_flag(be_medication_has_prefix(
+      medication_codes,
+      c("C10AA")
+    ))
+    row$anxiety_meds <- be_yes_no_flag(be_medication_has_prefix(
+      medication_codes,
+      c("N05B")
+    ))
+    row$diabetes_meds <- be_yes_no_flag(be_medication_has_prefix(
+      medication_codes,
+      c("A10")
+    ))
+    row$sedative_meds <- be_yes_no_flag(be_medication_has_prefix(
+      medication_codes,
+      c("N05C")
+    ))
 
-    value_columns <- setdiff(
-      names(df),
-      c(
-        "participant_id",
-        "event_name",
-        "year",
-        "repeat_instrument",
-        "repeat_instance"
+    lying_sys <- be_first_numeric(source_rows, "lying_systolic_bp_av")
+    lying_dia <- be_first_numeric(source_rows, "lying_diastolic_bp_av")
+    row$hypertension <- if (is.na(lying_sys) || is.na(lying_dia)) {
+      NA_character_
+    } else if (
+      lying_sys >= 140 ||
+        lying_dia >= 90 ||
+        identical(row$hypertensive_meds, "Yes")
+    ) {
+      "Yes"
+    } else {
+      "No"
+    }
+
+    sex <- be_first_nonempty(be_column_or_na(source_rows, "sex"))
+    if (is.na(sex) && nrow(baseline_demographics)) {
+      demo_match <- baseline_demographics[
+        baseline_demographics$participant_id == key$participant_id[[1]],
+        ,
+        drop = FALSE
+      ]
+      if (nrow(demo_match)) {
+        sex <- be_first_nonempty(be_column_or_na(demo_match, "sex"))
+      }
+    }
+    bloods_chol <- be_first_numeric(source_rows, "bloods_chol")
+    bloods_hdl <- be_first_numeric(source_rows, "bloods_chol_hdl")
+    bloods_ldl <- be_first_numeric(source_rows, "bloods_ldl")
+    bloods_trig <- be_first_numeric(source_rows, "bloods_trigly")
+    row$dyslipidemia <- if (
+      is.na(bloods_chol) ||
+        is.na(bloods_hdl) ||
+        is.na(bloods_ldl) ||
+        is.na(bloods_trig) ||
+        is.na(sex)
+    ) {
+      NA_character_
+    } else if (
+      (identical(sex, "Male") && bloods_hdl < 1.0) ||
+        (identical(sex, "Female") && bloods_hdl < 1.3) ||
+        bloods_chol >= 5.5 ||
+        bloods_ldl >= 3.5 ||
+        bloods_trig >= 2.0 ||
+        identical(row$lipid_meds, "Yes")
+    ) {
+      "Yes"
+    } else {
+      "No"
+    }
+
+    if (nrow(medication_rows)) {
+      instances <- suppressWarnings(as.integer(medication_rows$repeat_instance))
+      fallback_instances <- seq_len(nrow(medication_rows))
+      normalized_instances <- ifelse(
+        is.na(instances),
+        fallback_instances,
+        instances
       )
-    )
-    for (i in seq_len(nrow(df))) {
-      suffix <- sprintf("med_%02d", normalized_instances[[i]])
-      for (column in value_columns) {
-        if (column %in% c("medication_change", "medication_change_startstop")) {
-          next
+      order_index <- order(normalized_instances)
+      medication_rows <- medication_rows[order_index, , drop = FALSE]
+      normalized_instances <- normalized_instances[order_index]
+
+      value_columns <- setdiff(
+        names(medication_rows),
+        c(
+          "participant_id",
+          "event_name",
+          "year",
+          "repeat_instrument",
+          "repeat_instance"
+        )
+      )
+      for (i in seq_len(nrow(medication_rows))) {
+        suffix <- sprintf("med_%02d", normalized_instances[[i]])
+        for (column in value_columns) {
+          if (
+            column %in% c("medication_change", "medication_change_startstop")
+          ) {
+            next
+          }
+          row[[paste(column, suffix, sep = "_")]] <- medication_rows[[column]][[
+            i
+          ]]
         }
-        row[[paste(column, suffix, sep = "_")]] <- df[[column]][[i]]
       }
     }
 
