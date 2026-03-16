@@ -467,6 +467,103 @@ make_medications_export_shared_root <- function() {
   shared_root
 }
 
+make_medical_history_export_shared_root <- function() {
+  shared_root <- tempfile("shared-root-medhx-")
+  dir.create(file.path(shared_root, "snapshots", "redcap"), recursive = TRUE)
+  dir.create(file.path(shared_root, "snapshots", "sidecars"), recursive = TRUE)
+
+  writeLines("dev", file.path(shared_root, "CURRENT_RELEASE.txt"))
+  dir.create(file.path(shared_root, "releases", "dev", "R"), recursive = TRUE)
+  dir.create(
+    file.path(shared_root, "releases", "dev", "scripts"),
+    recursive = TRUE
+  )
+  dir.create(file.path(shared_root, "side-data"), recursive = TRUE)
+  writeLines(
+    c("Package: bachExporter", "Version: 0.0.1"),
+    file.path(shared_root, "releases", "dev", "DESCRIPTION")
+  )
+  file.copy(
+    file.path("..", "..", "NAMESPACE"),
+    file.path(shared_root, "releases", "dev", "NAMESPACE")
+  )
+  file.copy(
+    file.path("..", "..", "R", "paths.R"),
+    file.path(shared_root, "releases", "dev", "R", "paths.R")
+  )
+  file.copy(
+    file.path("..", "..", "R", "release_runtime.R"),
+    file.path(shared_root, "releases", "dev", "R", "release_runtime.R")
+  )
+  file.copy(
+    file.path("..", "..", "scripts", "launch_from_share.R"),
+    file.path(shared_root, "releases", "dev", "scripts", "launch_from_share.R")
+  )
+  file.copy(
+    file.path("..", "..", "scripts", "validate_release.R"),
+    file.path(shared_root, "releases", "dev", "scripts", "validate_release.R")
+  )
+
+  utils::write.csv(
+    data.frame(
+      idno = c("BACH001", "BACH001", "BACH002", "BACH001"),
+      redcap_event_name = c("Baseline", "Year 2", "Baseline", "Year 3"),
+      pp_date = c("2026-01-01", "2027-01-01", "2026-01-02", "2028-01-01"),
+      age = c(70, NA, 71, NA),
+      sex = c("F", NA, "M", NA),
+      highest_education = c("College", NA, "TAFE", NA),
+      medical_history_date = c("2026-02-01", NA, "2026-02-02", NA),
+      smoked_recent = c("No", NA, "Yes", NA),
+      smoked_lifetime = c("Yes", NA, "Yes", NA),
+      smoked_years = c(10, NA, 25, NA),
+      smoked_number = c(0.5, NA, 1.0, NA),
+      smoked_agequit = c(50, NA, NA, NA),
+      cvd_heartattack = c("No", NA, "Yes", NA),
+      cvd_atrialfibrillation = c("No", NA, "Yes", NA),
+      cva_stroke = c("No", NA, "No", NA),
+      medical_diabetes = c("No", NA, "Yes", NA),
+      medical_hypertension = c("Yes", NA, "Yes", NA),
+      medical_hypercholesterolemia = c("Yes", NA, "No", NA),
+      medical_apnoea = c("No", NA, "Yes", NA),
+      mh_notes = c("Baseline note", NA, "Second baseline note", NA),
+      mh_follow_cogimpair_v2 = c(NA, "Yes", NA, "No"),
+      mh_follow_cogimpair_y_v2 = c(NA, "Memory issues", NA, ""),
+      mh_follow_cd_v2 = c(NA, "No", NA, "Yes"),
+      mh_follow_mycardial_v2 = c(NA, "No", NA, "Yes"),
+      mh_follow_stroke_v2 = c(NA, "No", NA, "Yes"),
+      mh_follow_stroke_t_v2 = c(NA, "", NA, "Ischemic"),
+      mh_follow_tia_v2 = c(NA, "No", NA, "Yes"),
+      mh_follow_hf_v2 = c(NA, "No", NA, "No"),
+      mh_follow_af_v2 = c(NA, "Yes", NA, "No"),
+      mh_follow_cvd_other_v2 = c(NA, "", NA, "Valve repair"),
+      mh_follow_cancer_v2 = c(NA, "No", NA, "Yes"),
+      mh_follow_cancer_y_v2 = c(NA, "", NA, "Skin"),
+      mh_follow_sleep_v2 = c(NA, "Yes", NA, "No"),
+      mh_follow_sleep_y_v2 = c(NA, "Insomnia", NA, ""),
+      mh_follow_psych_v2 = c(NA, "No", NA, "Yes"),
+      mh_follow_psych_y_v2 = c(NA, "", NA, "Anxiety"),
+      mh_follow_hosp_v2 = c(NA, "Yes", NA, "No"),
+      mh_follow_hosp_y_v2 = c(NA, "Knee surgery", NA, ""),
+      mh_follow_notes = c(NA, "Year 2 note", NA, "Year 3 note"),
+      stringsAsFactors = FALSE
+    ),
+    file.path(shared_root, "snapshots", "redcap", "raw.csv"),
+    row.names = FALSE
+  )
+  jsonlite::write_json(
+    list(refreshed_at = "2026-03-11T00:00:00Z", source = "redcap"),
+    file.path(shared_root, "snapshots", "redcap", "metadata.json"),
+    auto_unbox = TRUE
+  )
+  jsonlite::write_json(
+    list(families = "redcap"),
+    file.path(shared_root, "snapshots", "sidecars", "snapshot-index.json"),
+    auto_unbox = TRUE
+  )
+
+  shared_root
+}
+
 test_that("participants domain normalizes IDs and event years", {
   redcap_df <- data.frame(
     idno = c("BACH001", "BACH002", "  BACH002  "),
@@ -754,6 +851,63 @@ test_that("clinical domains map baseline clinical fields and derived outcomes", 
   expect_equal(bp24h$BP24h_records, c(50, 48))
   expect_equal(bp24h$BP24h_asleep_sys_dip_percent, c(11, 8))
   expect_equal(bp24h$BP24h_dipper, c("Yes", "No"))
+})
+
+test_that("medical history domain maps baseline and follow-up clinical history fields", {
+  redcap_df <- data.frame(
+    idno = c("BACH001", "BACH001", "BACH001"),
+    redcap_event_name = c("Baseline", "Year 2", "Year 3"),
+    medical_history_date = c("2026-02-01", NA, NA),
+    smoked_recent = c("No", NA, NA),
+    smoked_lifetime = c("Yes", NA, NA),
+    smoked_years = c(10, NA, NA),
+    smoked_number = c(0.5, NA, NA),
+    smoked_agequit = c(50, NA, NA),
+    cvd_heartattack = c("No", NA, NA),
+    cvd_atrialfibrillation = c("No", NA, NA),
+    medical_diabetes = c("No", NA, NA),
+    medical_hypertension = c("Yes", NA, NA),
+    medical_apnoea = c("No", NA, NA),
+    mh_notes = c("Baseline note", NA, NA),
+    mh_follow_cogimpair_v2 = c(NA, "Yes", "No"),
+    mh_follow_cogimpair_y_v2 = c(NA, "Memory issues", ""),
+    mh_follow_cd_v2 = c(NA, "No", "Yes"),
+    mh_follow_mycardial_v2 = c(NA, "No", "Yes"),
+    mh_follow_stroke_v2 = c(NA, "No", "Yes"),
+    mh_follow_stroke_t_v2 = c(NA, "", "Ischemic"),
+    mh_follow_tia_v2 = c(NA, "No", "Yes"),
+    mh_follow_hf_v2 = c(NA, "No", "No"),
+    mh_follow_af_v2 = c(NA, "Yes", "No"),
+    mh_follow_cvd_other_v2 = c(NA, "", "Valve repair"),
+    mh_follow_cancer_v2 = c(NA, "No", "Yes"),
+    mh_follow_cancer_y_v2 = c(NA, "", "Skin"),
+    mh_follow_sleep_v2 = c(NA, "Yes", "No"),
+    mh_follow_sleep_y_v2 = c(NA, "Insomnia", ""),
+    mh_follow_psych_v2 = c(NA, "No", "Yes"),
+    mh_follow_psych_y_v2 = c(NA, "", "Anxiety"),
+    mh_follow_hosp_v2 = c(NA, "Yes", "No"),
+    mh_follow_hosp_y_v2 = c(NA, "Knee surgery", ""),
+    mh_follow_notes = c(NA, "Year 2 note", "Year 3 note"),
+    stringsAsFactors = FALSE
+  )
+
+  result <- be_build_medical_history_domain(
+    redcap_df,
+    years = c("baseline", "year2", "year3")
+  )
+
+  expect_equal(result$participant_id, c("001", "001", "001"))
+  expect_equal(result$year, c("baseline", "year2", "year3"))
+  expect_equal(result$medhx_date[[1]], "2026-02-01")
+  expect_equal(result$smoking_current[[1]], "No")
+  expect_equal(result$medhx_htn[[1]], "Yes")
+  expect_equal(result$medhx_cogimpair[2:3], c("Yes", "No"))
+  expect_equal(result$medhx_sleep_follow[2:3], c("Yes", "No"))
+  expect_equal(result$medhx_hosp_detail[2], "Knee surgery")
+  expect_equal(
+    result$medhx_notes,
+    c("Baseline note", "Year 2 note", "Year 3 note")
+  )
 })
 
 test_that("similarities domain applies corrected stop-after-three-zeros score", {
@@ -1137,6 +1291,49 @@ test_that("run_export supports baseline clinical domains", {
   expect_equal(export_df$BP24h_dipper, c("Yes", "No"))
 })
 
+test_that("run_export supports multi-year medical history exports", {
+  shared_root <- make_medical_history_export_shared_root()
+  on.exit(unlink(shared_root, recursive = TRUE), add = TRUE)
+
+  output_dir <- tempfile("export-dir-")
+  dir.create(output_dir, recursive = TRUE)
+  on.exit(unlink(output_dir, recursive = TRUE), add = TRUE)
+
+  spec <- be_default_export_spec(shared_root = shared_root)
+  spec$output$path <- file.path(output_dir, "medical-history.csv")
+  spec$domains <- c("participants", "medical_history")
+  spec$cohort$years <- c("baseline", "year2", "year3")
+
+  result <- run_export(
+    spec,
+    refresh_mode = "auto",
+    execution_mode = "direct"
+  )
+
+  export_df <- utils::read.csv(
+    result$output,
+    stringsAsFactors = FALSE,
+    colClasses = c(
+      participant_id = "character",
+      subject_id = "character"
+    )
+  )
+
+  expect_equal(export_df$participant_id, c("001", "001", "001", "002"))
+  expect_equal(export_df$subject_id, c("001", "001", "001", "002"))
+  expect_equal(export_df$year, c("baseline", "year2", "year3", "baseline"))
+  expect_equal(
+    export_df$session_date,
+    c("2026-01-01", "2027-01-01", "2028-01-01", "2026-01-02")
+  )
+  expect_equal(
+    export_df$medhx_notes,
+    c("Baseline note", "Year 2 note", "Year 3 note", "Second baseline note")
+  )
+  expect_equal(export_df$medhx_cogimpair[2:3], c("Yes", "No"))
+  expect_equal(export_df$medhx_sleep_follow[2:3], c("Yes", "No"))
+  expect_equal(export_df$medhx_hosp_detail[[2]], "Knee surgery")
+})
 
 test_that("run_export supports direct mode for export debugging", {
   shared_root <- make_export_shared_root()

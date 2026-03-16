@@ -80,6 +80,7 @@ be_validate_export_spec <- function(spec) {
     "bloods",
     "vitals",
     "bp24h",
+    "medical_history",
     "similarities",
     "prose_passages",
     "cognitive_screening",

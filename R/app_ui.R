@@ -56,6 +56,7 @@ be_app_ui <- function() {
                   "Bloods / Pathology" = "bloods",
                   "Vitals" = "vitals",
                   "24h Blood Pressure" = "bp24h",
+                  "Medical History" = "medical_history",
                   "Similarities" = "similarities",
                   "Prose Passages" = "prose_passages",
                   "Cognitive Screening" = "cognitive_screening",

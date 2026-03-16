@@ -65,6 +65,7 @@ be_assemble_export <- function(spec, shared_root) {
     "bloods",
     "vitals",
     "bp24h",
+    "medical_history",
     "similarities",
     "prose_passages",
     "cognitive_screening",
@@ -353,6 +354,18 @@ be_assemble_export <- function(spec, shared_root) {
     )
     bp24h <- be_filter_participants(bp24h, participant_ids = participant_ids)
     output <- be_merge_event_domain(output, bp24h)
+  }
+
+  if ("medical_history" %in% domains) {
+    medical_history <- be_build_medical_history_domain(
+      redcap_df = redcap_df,
+      years = spec$cohort$years %||% NULL
+    )
+    medical_history <- be_filter_participants(
+      medical_history,
+      participant_ids = participant_ids
+    )
+    output <- be_merge_event_domain(output, medical_history)
   }
 
   if ("similarities" %in% domains) {

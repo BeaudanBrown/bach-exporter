@@ -56,6 +56,14 @@ be_default_presets <- function() {
         "bp24h",
         "medications"
       )
+    ),
+    medical_history = list(
+      label = "Medical History",
+      years = c("baseline", "year2", "year3"),
+      domains = c(
+        "participants",
+        "medical_history"
+      )
     )
   )
 }
