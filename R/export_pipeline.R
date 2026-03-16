@@ -39,7 +39,7 @@ be_build_export_manifest <- function(
       r_version = R.version.string,
       platform = R.version$platform
     ),
-    source = utils::modifyList(spec$source, list(api_key = "[masked]")),
+    source = spec$source,
     cohort = spec$cohort,
     domains = spec$domains,
     options = spec$options,
@@ -62,6 +62,10 @@ be_write_export_targets_script <- function(
   refresh_mode = "auto",
   project_root = getwd()
 ) {
+  quote_r_string <- function(value) {
+    encodeString(as.character(value), quote = "\"")
+  }
+
   spec_lines <- capture.output(dput(spec))
 
   script_lines <- c(
@@ -73,7 +77,7 @@ be_write_export_targets_script <- function(
     ")",
     sprintf(
       "project_root <- %s",
-      dQuote(normalizePath(
+      quote_r_string(normalizePath(
         project_root,
         winslash = "/",
         mustWork = TRUE
@@ -91,8 +95,8 @@ be_write_export_targets_script <- function(
   script_lines <- c(script_lines, spec_lines)
   script_lines <- c(
     script_lines,
-    sprintf("shared_root <- %s", dQuote(shared_root)),
-    sprintf("refresh_mode <- %s", dQuote(refresh_mode)),
+    sprintf("shared_root <- %s", quote_r_string(shared_root)),
+    sprintf("refresh_mode <- %s", quote_r_string(refresh_mode)),
     "be_target_graph(",
     "  spec = spec,",
     "  shared_root = shared_root,",

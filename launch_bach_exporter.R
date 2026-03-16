@@ -1,3 +1,12 @@
+`%||%` <- function(x, y) {
+  if (is.null(x)) y else x
+}
+
+be_launcher_status_text <- function(text) {
+  text <- text %||% ""
+  paste(as.character(text), collapse = "\n")
+}
+
 launch_bach_exporter <- function() {
   ensure_bootstrap_package <- function(pkg) {
     if (!requireNamespace(pkg, quietly = TRUE)) {
@@ -18,10 +27,6 @@ launch_bach_exporter <- function() {
   config_dir <- tools::R_user_dir("bachExporter", which = "config")
   dir.create(config_dir, recursive = TRUE, showWarnings = FALSE)
   config_path <- file.path(config_dir, "shared-root.json")
-
-  `%||%` <- function(x, y) {
-    if (is.null(x)) y else x
-  }
 
   load_shared_root <- function() {
     if (!file.exists(config_path)) {
@@ -67,19 +72,13 @@ launch_bach_exporter <- function() {
       if (!nzchar(release_id)) {
         return(list(ok = FALSE, message = "CURRENT_RELEASE.txt is empty."))
       }
-      launcher <- file.path(
-        shared_root,
-        "releases",
-        release_id,
-        "scripts",
-        "launch_from_share.R"
-      )
+      release_root <- file.path(shared_root, "releases", release_id)
     } else if (
       file.exists(file.path(shared_root, "DESCRIPTION")) &&
         file.exists(file.path(shared_root, "scripts", "launch_from_share.R"))
     ) {
       release_id <- "dev"
-      launcher <- file.path(shared_root, "scripts", "launch_from_share.R")
+      release_root <- shared_root
     } else {
       return(list(
         ok = FALSE,
@@ -87,8 +86,30 @@ launch_bach_exporter <- function() {
       ))
     }
 
-    if (!file.exists(launcher)) {
-      return(list(ok = FALSE, message = "Shared release launcher is missing."))
+    required_files <- c(
+      file.path(release_root, "DESCRIPTION"),
+      file.path(release_root, "NAMESPACE"),
+      file.path(release_root, "R", "paths.R"),
+      file.path(release_root, "R", "release_runtime.R"),
+      file.path(release_root, "scripts", "launch_from_share.R"),
+      file.path(release_root, "scripts", "validate_release.R")
+    )
+    if (!identical(release_id, "dev")) {
+      required_files <- c(
+        required_files,
+        file.path(release_root, "manifest.json"),
+        file.path(release_root, "renv.lock")
+      )
+    }
+    missing_files <- required_files[!file.exists(required_files)]
+    if (length(missing_files)) {
+      return(list(
+        ok = FALSE,
+        message = sprintf(
+          "Release is missing required files: %s",
+          paste(basename(missing_files), collapse = ", ")
+        )
+      ))
     }
 
     list(
@@ -96,13 +117,13 @@ launch_bach_exporter <- function() {
       message = "Shared root is valid.",
       shared_root = shared_root,
       release_id = release_id,
-      launcher = launcher
+      launcher = file.path(release_root, "scripts", "launch_from_share.R")
     )
   }
 
   launch_bootstrap <- function(initial_root = NULL) {
     ui <- shiny::fluidPage(
-      bslib::bs_theme(version = 5, bootswatch = "flatly"),
+      theme = bslib::bs_theme(version = 5, bootswatch = "flatly"),
       shiny::div(
         style = "max-width: 840px; margin: 40px auto;",
         shiny::h2("Locate Shared BACH Exporter Folder"),
@@ -154,7 +175,7 @@ launch_bach_exporter <- function() {
 
       shiny::observeEvent(input$validate_root, {
         result <- validate_shared_root(input$shared_root)
-        current_status(result$message)
+        current_status(be_launcher_status_text(result$message))
         if (isTRUE(result$ok)) {
           save_shared_root(result$shared_root)
         }
@@ -163,17 +184,22 @@ launch_bach_exporter <- function() {
       shiny::observeEvent(input$continue_root, {
         result <- validate_shared_root(input$shared_root)
         if (!isTRUE(result$ok)) {
-          current_status(result$message)
+          current_status(be_launcher_status_text(result$message))
           return()
         }
         save_shared_root(result$shared_root)
         shiny::stopApp(result)
       })
 
-      output$status <- shiny::renderText(current_status())
+      output$status <- shiny::renderText(
+        be_launcher_status_text(current_status())
+      )
     }
 
-    shiny::runApp(shiny::shinyApp(ui, server))
+    shiny::runApp(
+      shiny::shinyApp(ui, server),
+      launch.browser = TRUE
+    )
   }
 
   shared_root <- load_shared_root()
@@ -189,4 +215,6 @@ launch_bach_exporter <- function() {
   launch_from_share(validation$shared_root)
 }
 
-launch_bach_exporter()
+if (sys.nframe() == 0) {
+  launch_bach_exporter()
+}

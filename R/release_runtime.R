@@ -1,3 +1,13 @@
+if (!exists("%||%", mode = "function")) {
+  `%||%` <- function(x, y) {
+    if (is.null(x)) {
+      y
+    } else {
+      x
+    }
+  }
+}
+
 be_release_manifest_path <- function(release_root) {
   file.path(release_root, "manifest.json")
 }
@@ -8,6 +18,126 @@ be_release_lockfile_path <- function(release_root) {
 
 be_release_description_path <- function(release_root) {
   file.path(release_root, "DESCRIPTION")
+}
+
+be_release_namespace_path <- function(release_root) {
+  file.path(release_root, "NAMESPACE")
+}
+
+be_release_runtime_path <- function(release_root) {
+  file.path(release_root, "R", "release_runtime.R")
+}
+
+be_release_paths_path <- function(release_root) {
+  file.path(release_root, "R", "paths.R")
+}
+
+be_release_launcher_path <- function(release_root) {
+  file.path(release_root, "scripts", "launch_from_share.R")
+}
+
+be_release_validate_script_path <- function(release_root) {
+  file.path(release_root, "scripts", "validate_release.R")
+}
+
+be_release_required_files <- function(release_root, release_id = "dev") {
+  required_paths <- c(
+    be_release_description_path(release_root),
+    be_release_namespace_path(release_root),
+    be_release_paths_path(release_root),
+    be_release_runtime_path(release_root),
+    be_release_launcher_path(release_root),
+    be_release_validate_script_path(release_root)
+  )
+
+  if (!identical(release_id, "dev")) {
+    required_paths <- c(
+      required_paths,
+      be_release_manifest_path(release_root),
+      be_release_lockfile_path(release_root)
+    )
+  }
+
+  required_paths
+}
+
+be_validate_release_files <- function(release_root, release_id = "dev") {
+  missing_paths <- be_release_required_files(
+    release_root = release_root,
+    release_id = release_id
+  )
+  missing_paths <- missing_paths[!file.exists(missing_paths)]
+
+  if (length(missing_paths)) {
+    return(list(
+      ok = FALSE,
+      message = sprintf(
+        "Release is missing required files: %s",
+        paste(basename(missing_paths), collapse = ", ")
+      ),
+      missing_paths = missing_paths
+    ))
+  }
+
+  list(
+    ok = TRUE,
+    message = "Release contains the required runtime files.",
+    missing_paths = character()
+  )
+}
+
+be_validate_release_contract <- function(shared_root, allow_dev = TRUE) {
+  if (is.null(shared_root) || !nzchar(shared_root)) {
+    return(list(ok = FALSE, message = "Shared root path is empty."))
+  }
+
+  if (!dir.exists(shared_root)) {
+    return(list(ok = FALSE, message = "Shared root directory does not exist."))
+  }
+
+  paths <- be_shared_paths(shared_root)
+  if (is.null(paths$release_id)) {
+    return(list(
+      ok = FALSE,
+      message = "Shared root is missing CURRENT_RELEASE.txt and does not look like a direct release root."
+    ))
+  }
+  if (!allow_dev && identical(paths$release_id, "dev")) {
+    return(list(
+      ok = FALSE,
+      message = "Dev-mode release roots are not valid for published release validation."
+    ))
+  }
+  if (is.null(paths$release_root) || !dir.exists(paths$release_root)) {
+    return(list(
+      ok = FALSE,
+      message = "Active release folder does not exist under releases/."
+    ))
+  }
+
+  file_check <- be_validate_release_files(
+    release_root = paths$release_root,
+    release_id = paths$release_id
+  )
+  if (!isTRUE(file_check$ok)) {
+    return(utils::modifyList(file_check, list(paths = paths)))
+  }
+
+  manifest_check <- be_validate_release_manifest(
+    release_root = paths$release_root,
+    release_id = paths$release_id
+  )
+  if (!isTRUE(manifest_check$ok)) {
+    return(utils::modifyList(manifest_check, list(paths = paths)))
+  }
+
+  list(
+    ok = TRUE,
+    message = "Release contract is valid.",
+    paths = paths,
+    manifest = manifest_check$manifest,
+    package = manifest_check$package
+  )
 }
 
 be_read_release_description <- function(release_root) {
@@ -137,6 +267,18 @@ be_validate_release_manifest <- function(release_root, release_id = "dev") {
   )
 }
 
+be_release_runtime_hook <- function(name, default) {
+  hooks <- getOption("bachExporter.release_runtime_hooks", default = list())
+  hook <- hooks[[name]] %||% default
+  if (!is.function(hook)) {
+    stop(
+      sprintf("Release runtime hook '%s' must be a function.", name),
+      call. = FALSE
+    )
+  }
+  hook
+}
+
 be_ensure_bootstrap_package <- function(pkg) {
   if (!requireNamespace(pkg, quietly = TRUE)) {
     install.packages(pkg, repos = "https://cloud.r-project.org")
@@ -204,4 +346,43 @@ be_install_release_package <- function(
   )
 
   invisible(TRUE)
+}
+
+be_release_run_app_fn <- function(package_name) {
+  namespace <- asNamespace(package_name)
+  run_app_fn <- tryCatch(
+    getExportedValue(package_name, "run_app"),
+    error = function(err) NULL
+  )
+  if (
+    is.null(run_app_fn) &&
+      exists("run_app", envir = namespace, inherits = FALSE)
+  ) {
+    run_app_fn <- get("run_app", envir = namespace, inherits = FALSE)
+  }
+
+  run_app_fn
+}
+
+be_launch_installed_release_app <- function(package_name, shared_root) {
+  if (!requireNamespace(package_name, quietly = TRUE)) {
+    stop(
+      "Installed release package could not be loaded from the local library.",
+      call. = FALSE
+    )
+  }
+
+  run_app_fn <- be_release_run_app_fn(package_name)
+  if (!is.function(run_app_fn)) {
+    stop(
+      sprintf(
+        "Installed release package '%s' does not expose a usable run_app() entrypoint.",
+        package_name
+      ),
+      call. = FALSE
+    )
+  }
+
+  app <- run_app_fn(shared_root = shared_root)
+  shiny::runApp(app, launch.browser = TRUE)
 }

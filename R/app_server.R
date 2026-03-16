@@ -7,7 +7,7 @@ be_app_server <- function(shared_root = NULL) {
       roots = roots,
       session = session
     )
-    shinyFiles::shinySaveFile(
+    shinyFiles::shinyFileSave(
       input,
       "browse_output",
       roots = roots,
@@ -78,8 +78,6 @@ be_app_server <- function(shared_root = NULL) {
       spec$domains <- input$domains
       spec$options$cat_labels <- input$cat_labels
       spec$output$path <- input$output_path
-      spec$source$redcap_url <- input$redcap_url
-      spec$source$api_key <- input$redcap_api_key
 
       result <- tryCatch(
         {

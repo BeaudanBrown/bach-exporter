@@ -28,32 +28,14 @@ be_save_shared_root <- function(shared_root) {
 }
 
 be_validate_shared_root <- function(shared_root) {
-  if (is.null(shared_root) || !nzchar(shared_root)) {
-    return(list(ok = FALSE, message = "Shared root path is empty."))
+  validation <- be_validate_release_contract(shared_root = shared_root)
+  if (!isTRUE(validation$ok)) {
+    return(validation)
   }
 
-  if (!dir.exists(shared_root)) {
-    return(list(ok = FALSE, message = "Shared root directory does not exist."))
-  }
-
-  paths <- be_shared_paths(shared_root)
-  if (is.null(paths$release_id)) {
-    return(list(
-      ok = FALSE,
-      message = "Shared root is missing CURRENT_RELEASE.txt and does not look like a direct release root."
-    ))
-  }
-
-  if (!dir.exists(paths$release_root)) {
-    return(list(
-      ok = FALSE,
-      message = "Active release folder does not exist under releases/."
-    ))
-  }
-
-  if (!file.exists(paths$release_launcher)) {
-    return(list(ok = FALSE, message = "Shared release launcher is missing."))
-  }
-
-  list(ok = TRUE, message = "Shared root is valid.", paths = paths)
+  list(
+    ok = TRUE,
+    message = validation$message,
+    paths = validation$paths
+  )
 }
