@@ -61,6 +61,25 @@ be_validate_export_spec <- function(spec) {
     "participant_screening",
     "mri_screening",
     "lp_screening",
+    "moca",
+    "ad8",
+    "ucla",
+    "demographics",
+    "cesd",
+    "stai",
+    "pss",
+    "cdrisc",
+    "ses",
+    "aria",
+    "ipaq",
+    "rhhi",
+    "minddiet",
+    "alcohol",
+    "cfi",
+    "global_health",
+    "bloods",
+    "vitals",
+    "bp24h",
     "similarities",
     "prose_passages",
     "cognitive_screening",
@@ -75,6 +94,25 @@ be_validate_export_spec <- function(spec) {
         paste(unsupported_domains, collapse = ", ")
       )
     ))
+  }
+
+  selected_domains <- spec$domains %||% character()
+  if (any(c("ses", "aria") %in% selected_domains)) {
+    side_data_dir <- root_check$paths$side_data_dir %||% NULL
+    required_files <- file.path(
+      side_data_dir,
+      c("absdf.csv", "RA_2016_AUST.csv")
+    )
+    missing_files <- required_files[!file.exists(required_files)]
+    if (length(missing_files)) {
+      return(list(
+        ok = FALSE,
+        message = sprintf(
+          "SES/ARIA side-data is missing from shared root side-data/: %s",
+          paste(basename(missing_files), collapse = ", ")
+        )
+      ))
+    }
   }
 
   cat_labels <- spec$options$cat_labels %||% "named"

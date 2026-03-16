@@ -10,6 +10,9 @@ be_default_presets <- function() {
       years = c("baseline", "year2", "year3"),
       domains = c(
         "participants",
+        "moca",
+        "ad8",
+        "ucla",
         "similarities",
         "prose_passages",
         "cognitive_screening"
@@ -20,6 +23,37 @@ be_default_presets <- function() {
       years = c("baseline", "year2", "year3"),
       domains = c(
         "participants",
+        "medications"
+      )
+    ),
+    baseline_surveys = list(
+      label = "Baseline Surveys",
+      years = c("baseline"),
+      domains = c(
+        "participants",
+        "demographics",
+        "cesd",
+        "stai",
+        "pss",
+        "cdrisc",
+        "ses",
+        "aria",
+        "ipaq",
+        "rhhi",
+        "minddiet",
+        "alcohol",
+        "cfi",
+        "global_health"
+      )
+    ),
+    baseline_clinical = list(
+      label = "Baseline Clinical",
+      years = c("baseline"),
+      domains = c(
+        "participants",
+        "bloods",
+        "vitals",
+        "bp24h",
         "medications"
       )
     )

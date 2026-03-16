@@ -169,6 +169,8 @@ Notes:
 - Avoid relying on symlinks for release switching because they are awkward on Windows shared drives.
 - Shared-drive snapshots are the data source for normal researcher sessions.
 - Schema-only REDCap snapshots are admin artifacts used to understand project structure and should not be confused with researcher-facing record snapshots.
+- Shared non-secret lookup tables should live under `side-data/` at the shared-root level. Current expected SES/ARIA filenames are `absdf.csv` and `RA_2016_AUST.csv`.
+- When publishing to the real shared drive, maintainers must manually copy the SES/ARIA lookup files into `side-data/` at the shared root unless a later packaging step automates that copy.
 
 ## 6. Local machine layout
 

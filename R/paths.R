@@ -137,11 +137,7 @@ be_shared_paths <- function(shared_root) {
     } else {
       NULL
     },
-    side_data_dir = if (!is.null(release_root)) {
-      file.path(release_root, "inst", "side-data")
-    } else {
-      NULL
-    },
+    side_data_dir = file.path(shared_root, "side-data"),
     snapshots_dir = file.path(shared_root, "snapshots")
   )
 }

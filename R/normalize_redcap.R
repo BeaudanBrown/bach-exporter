@@ -60,6 +60,20 @@ be_coalesce_columns <- function(df, fields) {
   out
 }
 
+be_coalesce_vectors <- function(left, right) {
+  if (is.null(left)) {
+    return(right)
+  }
+  if (is.null(right)) {
+    return(left)
+  }
+
+  out <- left
+  fill <- is.na(out) & !is.na(right)
+  out[fill] <- right[fill]
+  out
+}
+
 be_drop_empty_columns <- function(df) {
   keep <- vapply(
     df,
