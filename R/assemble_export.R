@@ -3,6 +3,8 @@ be_assemble_export <- function(spec, shared_root) {
   supported_domains <- c(
     "participants",
     "participant_screening",
+    "mri_screening",
+    "lp_screening",
     "similarities",
     "prose_passages",
     "cognitive_screening",
@@ -20,8 +22,16 @@ be_assemble_export <- function(spec, shared_root) {
   }
 
   redcap_df <- be_read_redcap_snapshot(shared_root)
-  output <- NULL
   participant_ids <- be_resolve_cohort_ids(spec)
+  scaffold <- be_build_core_scaffold_domain(
+    redcap_df = redcap_df,
+    years = spec$cohort$years %||% NULL
+  )
+  scaffold <- be_filter_participants(
+    scaffold,
+    participant_ids = participant_ids
+  )
+  output <- NULL
 
   if ("participants" %in% domains) {
     output <- be_build_participants_domain(
@@ -45,6 +55,52 @@ be_assemble_export <- function(spec, shared_root) {
         output,
         screening,
         by = "participant_id",
+        all.x = TRUE,
+        sort = FALSE
+      )
+    }
+  }
+
+  if ("mri_screening" %in% domains) {
+    mri_screening <- be_build_mri_screening_domain(
+      redcap_df = redcap_df,
+      years = spec$cohort$years %||% NULL
+    )
+    mri_screening <- be_filter_participants(
+      mri_screening,
+      participant_ids = participant_ids
+    )
+
+    output <- if (is.null(output)) {
+      mri_screening
+    } else {
+      merge(
+        output,
+        mri_screening,
+        by = c("participant_id", "event_name", "year"),
+        all.x = TRUE,
+        sort = FALSE
+      )
+    }
+  }
+
+  if ("lp_screening" %in% domains) {
+    lp_screening <- be_build_lp_screening_domain(
+      redcap_df = redcap_df,
+      years = spec$cohort$years %||% NULL
+    )
+    lp_screening <- be_filter_participants(
+      lp_screening,
+      participant_ids = participant_ids
+    )
+
+    output <- if (is.null(output)) {
+      lp_screening
+    } else {
+      merge(
+        output,
+        lp_screening,
+        by = c("participant_id", "event_name", "year"),
         all.x = TRUE,
         sort = FALSE
       )
@@ -153,6 +209,24 @@ be_assemble_export <- function(spec, shared_root) {
 
   if (is.null(output)) {
     stop("No supported domains were selected for export.", call. = FALSE)
+  }
+
+  scaffold_keys <- c("participant_id", "event_name", "year")
+  scaffold_columns <- c("subject_id", "session", "session_date")
+  if (
+    nrow(scaffold) &&
+      all(scaffold_keys %in% names(output))
+  ) {
+    missing_scaffold_columns <- setdiff(scaffold_columns, names(output))
+    if (length(missing_scaffold_columns)) {
+      output <- merge(
+        output,
+        scaffold[, c(scaffold_keys, missing_scaffold_columns), drop = FALSE],
+        by = scaffold_keys,
+        all.x = TRUE,
+        sort = FALSE
+      )
+    }
   }
 
   output

@@ -17,6 +17,29 @@ be_first_nonempty <- function(x) {
   values[[1]]
 }
 
+be_build_core_scaffold_domain <- function(redcap_df, years = NULL) {
+  redcap_df <- be_prepare_redcap_snapshot(redcap_df)
+  redcap_df <- be_filter_years(redcap_df, years)
+
+  if (!nrow(redcap_df)) {
+    return(data.frame(participant_id = character(), stringsAsFactors = FALSE))
+  }
+
+  scaffold <- unique(data.frame(
+    participant_id = redcap_df$participant_id,
+    subject_id = redcap_df$participant_id,
+    event_name = redcap_df$event_name,
+    session = redcap_df$event_name,
+    year = redcap_df$year,
+    session_date = be_coalesce_columns(redcap_df, c("pa_date", "pp_date")),
+    stringsAsFactors = FALSE
+  ))
+
+  scaffold <- be_drop_empty_columns(scaffold)
+  rownames(scaffold) <- NULL
+  scaffold
+}
+
 be_baseline_demographics <- function(redcap_df) {
   baseline_rows <- redcap_df[redcap_df$year == "baseline", , drop = FALSE]
   if (!nrow(baseline_rows)) {
@@ -74,11 +97,7 @@ be_baseline_demographics <- function(redcap_df) {
 }
 
 be_build_participant_screening_domain <- function(redcap_df) {
-  participant_id_column <- be_redcap_id_column(redcap_df)
-  redcap_df$participant_id <- be_clean_participant_id(redcap_df[[
-    participant_id_column
-  ]])
-  redcap_df <- be_split_redcap_events(redcap_df)
+  redcap_df <- be_prepare_redcap_snapshot(redcap_df)
 
   screening <- be_baseline_demographics(redcap_df)
   if (!nrow(screening)) {
@@ -109,18 +128,9 @@ be_build_participant_screening_domain <- function(redcap_df) {
 }
 
 be_build_participants_domain <- function(redcap_df, years = NULL) {
-  participant_id_column <- be_redcap_id_column(redcap_df)
-  redcap_df$participant_id <- be_clean_participant_id(redcap_df[[
-    participant_id_column
-  ]])
-  redcap_df <- be_split_redcap_events(redcap_df)
+  redcap_df <- be_prepare_redcap_snapshot(redcap_df)
   baseline_demographics <- be_baseline_demographics(redcap_df)
-  redcap_df <- be_filter_years(redcap_df, years)
-
-  participants <- unique(redcap_df[,
-    c("participant_id", "event_name", "year"),
-    drop = FALSE
-  ])
+  participants <- be_build_core_scaffold_domain(redcap_df, years = years)
   if (nrow(baseline_demographics)) {
     participants <- merge(
       participants,
@@ -133,8 +143,11 @@ be_build_participants_domain <- function(redcap_df, years = NULL) {
 
   keep_columns <- c(
     "participant_id",
+    "subject_id",
     "event_name",
+    "session",
     "year",
+    "session_date",
     "dob",
     "date_of_birth",
     "age",

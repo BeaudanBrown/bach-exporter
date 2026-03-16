@@ -35,6 +35,8 @@ be_app_ui <- function() {
                 choices = c(
                   "Participants" = "participants",
                   "Participant Screening" = "participant_screening",
+                  "MRI Screening" = "mri_screening",
+                  "LP Screening" = "lp_screening",
                   "Similarities" = "similarities",
                   "Prose Passages" = "prose_passages",
                   "Cognitive Screening" = "cognitive_screening",
@@ -100,21 +102,9 @@ be_app_ui <- function() {
           ),
           shiny::actionButton("save_shared_root", "Save shared root"),
           shiny::hr(),
-          shiny::textInput(
-            "redcap_url",
-            "Placeholder REDCap URL",
-            value = getOption(
-              "bachExporter.placeholder_redcap_url",
-              "https://redcap.example.org/api/"
-            )
-          ),
-          shiny::passwordInput(
-            "redcap_api_key",
-            "Placeholder REDCap API key",
-            value = getOption(
-              "bachExporter.placeholder_redcap_api_key",
-              "REPLACE_WITH_ADMIN_TOKEN"
-            )
+          shiny::p(
+            class = "app-note",
+            "Researcher sessions use shared snapshots only. REDCap refresh configuration stays in the admin workflow."
           )
         ),
         shiny::tabPanel(

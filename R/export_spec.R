@@ -6,17 +6,7 @@ be_default_export_spec <- function(shared_root = NULL) {
   }
   list(
     shared = list(root = shared_root, release_id = release_id),
-    source = list(
-      mode = "snapshot",
-      redcap_url = getOption(
-        "bachExporter.placeholder_redcap_url",
-        "https://redcap.example.org/api/"
-      ),
-      api_key = getOption(
-        "bachExporter.placeholder_redcap_api_key",
-        "REPLACE_WITH_ADMIN_TOKEN"
-      )
-    ),
+    source = list(mode = "snapshot"),
     cohort = list(
       years = c("baseline"),
       subset_file = NULL,

@@ -18,6 +18,30 @@ be_validate_export_spec <- function(spec) {
     return(list(ok = FALSE, message = "Choose at least one data domain."))
   }
 
+  source_mode <- spec$source$mode %||% "snapshot"
+  if (!identical(source_mode, "snapshot")) {
+    return(list(
+      ok = FALSE,
+      message = sprintf(
+        "Unsupported source mode '%s'. Researcher exports must use snapshot mode.",
+        source_mode
+      )
+    ))
+  }
+
+  supported_years <- c("baseline", "year2", "year3")
+  years <- spec$cohort$years %||% character()
+  unsupported_years <- setdiff(years, supported_years)
+  if (length(unsupported_years)) {
+    return(list(
+      ok = FALSE,
+      message = sprintf(
+        "Selected years are not supported: %s",
+        paste(unsupported_years, collapse = ", ")
+      )
+    ))
+  }
+
   if (
     !is.null(spec$cohort$subset_file) &&
       nzchar(spec$cohort$subset_file) &&
@@ -35,6 +59,8 @@ be_validate_export_spec <- function(spec) {
   supported_domains <- c(
     "participants",
     "participant_screening",
+    "mri_screening",
+    "lp_screening",
     "similarities",
     "prose_passages",
     "cognitive_screening",
@@ -47,6 +73,17 @@ be_validate_export_spec <- function(spec) {
       message = sprintf(
         "Selected domains are not implemented yet: %s",
         paste(unsupported_domains, collapse = ", ")
+      )
+    ))
+  }
+
+  cat_labels <- spec$options$cat_labels %||% "named"
+  if (!cat_labels %in% c("named", "numbered")) {
+    return(list(
+      ok = FALSE,
+      message = sprintf(
+        "Unsupported categorical label mode '%s'.",
+        cat_labels
       )
     ))
   }

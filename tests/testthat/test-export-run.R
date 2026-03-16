@@ -1,10 +1,12 @@
 source(file.path("..", "..", "R", "paths.R"))
+source(file.path("..", "..", "R", "release_runtime.R"))
 source(file.path("..", "..", "R", "config.R"))
 source(file.path("..", "..", "R", "source_snapshots.R"))
 source(file.path("..", "..", "R", "normalize_redcap.R"))
 source(file.path("..", "..", "R", "cohort_filters.R"))
 source(file.path("..", "..", "R", "split_events.R"))
 source(file.path("..", "..", "R", "domain_participants.R"))
+source(file.path("..", "..", "R", "domain_screening_aux.R"))
 source(file.path("..", "..", "R", "domain_similarities.R"))
 source(file.path("..", "..", "R", "domain_prose_passages.R"))
 source(file.path("..", "..", "R", "domain_cognitive_screening.R"))
@@ -18,12 +20,14 @@ source(file.path("..", "..", "R", "export_run.R"))
 
 make_export_shared_root <- function() {
   shared_root <- tempfile("shared-root-")
-  dir.create(file.path(shared_root, "scripts"), recursive = TRUE)
-  dir.create(file.path(shared_root, "R"), recursive = TRUE)
   dir.create(file.path(shared_root, "snapshots", "redcap"), recursive = TRUE)
   dir.create(file.path(shared_root, "snapshots", "sidecars"), recursive = TRUE)
 
   writeLines("dev", file.path(shared_root, "CURRENT_RELEASE.txt"))
+  dir.create(
+    file.path(shared_root, "releases", "dev", "R"),
+    recursive = TRUE
+  )
   dir.create(
     file.path(shared_root, "releases", "dev", "scripts"),
     recursive = TRUE
@@ -32,13 +36,26 @@ make_export_shared_root <- function() {
     c("Package: bachExporter", "Version: 0.0.1"),
     file.path(shared_root, "releases", "dev", "DESCRIPTION")
   )
-  file.create(file.path(
-    shared_root,
-    "releases",
-    "dev",
-    "scripts",
-    "launch_from_share.R"
-  ))
+  file.copy(
+    file.path("..", "..", "NAMESPACE"),
+    file.path(shared_root, "releases", "dev", "NAMESPACE")
+  )
+  file.copy(
+    file.path("..", "..", "R", "paths.R"),
+    file.path(shared_root, "releases", "dev", "R", "paths.R")
+  )
+  file.copy(
+    file.path("..", "..", "R", "release_runtime.R"),
+    file.path(shared_root, "releases", "dev", "R", "release_runtime.R")
+  )
+  file.copy(
+    file.path("..", "..", "scripts", "launch_from_share.R"),
+    file.path(shared_root, "releases", "dev", "scripts", "launch_from_share.R")
+  )
+  file.copy(
+    file.path("..", "..", "scripts", "validate_release.R"),
+    file.path(shared_root, "releases", "dev", "scripts", "validate_release.R")
+  )
 
   utils::write.csv(
     data.frame(
@@ -93,12 +110,14 @@ make_export_shared_root <- function() {
 
 make_medications_export_shared_root <- function() {
   shared_root <- tempfile("shared-root-meds-")
-  dir.create(file.path(shared_root, "scripts"), recursive = TRUE)
-  dir.create(file.path(shared_root, "R"), recursive = TRUE)
   dir.create(file.path(shared_root, "snapshots", "redcap"), recursive = TRUE)
   dir.create(file.path(shared_root, "snapshots", "sidecars"), recursive = TRUE)
 
   writeLines("dev", file.path(shared_root, "CURRENT_RELEASE.txt"))
+  dir.create(
+    file.path(shared_root, "releases", "dev", "R"),
+    recursive = TRUE
+  )
   dir.create(
     file.path(shared_root, "releases", "dev", "scripts"),
     recursive = TRUE
@@ -107,13 +126,26 @@ make_medications_export_shared_root <- function() {
     c("Package: bachExporter", "Version: 0.0.1"),
     file.path(shared_root, "releases", "dev", "DESCRIPTION")
   )
-  file.create(file.path(
-    shared_root,
-    "releases",
-    "dev",
-    "scripts",
-    "launch_from_share.R"
-  ))
+  file.copy(
+    file.path("..", "..", "NAMESPACE"),
+    file.path(shared_root, "releases", "dev", "NAMESPACE")
+  )
+  file.copy(
+    file.path("..", "..", "R", "paths.R"),
+    file.path(shared_root, "releases", "dev", "R", "paths.R")
+  )
+  file.copy(
+    file.path("..", "..", "R", "release_runtime.R"),
+    file.path(shared_root, "releases", "dev", "R", "release_runtime.R")
+  )
+  file.copy(
+    file.path("..", "..", "scripts", "launch_from_share.R"),
+    file.path(shared_root, "releases", "dev", "scripts", "launch_from_share.R")
+  )
+  file.copy(
+    file.path("..", "..", "scripts", "validate_release.R"),
+    file.path(shared_root, "releases", "dev", "scripts", "validate_release.R")
+  )
 
   utils::write.csv(
     data.frame(
@@ -133,6 +165,13 @@ make_medications_export_shared_root <- function() {
         "Baseline Visit"
       ),
       redcap_repeat_instance = c(NA, 1, NA, 2, NA),
+      pp_date = c(
+        "2026-01-01",
+        "2026-01-01",
+        "2027-01-02",
+        "2027-01-02",
+        "2026-01-03"
+      ),
       age = c(70, NA, NA, NA, 71),
       sex = c("F", NA, NA, NA, "M"),
       highest_education = c("College", NA, NA, NA, "TAFE"),
@@ -189,9 +228,29 @@ test_that("participants domain normalizes IDs and event years", {
   )
 
   expect_equal(result$participant_id, c("001", "002", "002"))
+  expect_equal(result$subject_id, c("001", "002", "002"))
+  expect_equal(result$session, c("Baseline", "Baseline", "Year 2"))
   expect_equal(result$year, c("baseline", "baseline", "year2"))
   expect_true(all(c("age", "sex", "education") %in% names(result)))
   expect_equal(result$education, c("College", "TAFE", "TAFE"))
+})
+
+test_that("core scaffold drops unsupported IDs and incomplete rows", {
+  redcap_df <- data.frame(
+    idno = c("BACH001--1", "BACH001--2", "BACH301", "BACH004"),
+    redcap_event_name = c("Baseline", "Baseline", "Baseline", "Baseline"),
+    pa_date = c("2026-01-01", "2026-01-01", "2026-01-02", "2026-01-03"),
+    participated_assessment_complete = c("2", "2", "2", "Incomplete"),
+    stringsAsFactors = FALSE
+  )
+
+  result <- be_build_core_scaffold_domain(redcap_df, years = "baseline")
+
+  expect_equal(nrow(result), 1)
+  expect_equal(result$participant_id, "001")
+  expect_equal(result$subject_id, "001")
+  expect_equal(result$session, "Baseline")
+  expect_equal(result$session_date, "2026-01-01")
 })
 
 test_that("participants domain carries baseline demographics onto later years", {
@@ -239,6 +298,33 @@ test_that("participant screening domain maps legacy screening fields", {
   ))
   expect_equal(result$education_highest, c("University", "Diploma"))
   expect_equal(result$education_highest_other_detail[[1]], "Arts")
+})
+
+test_that("MRI and LP screening domains map baseline-only legacy fields", {
+  redcap_df <- data.frame(
+    idno = c("BACH001", "BACH001", "BACH002"),
+    redcap_event_name = c("Baseline", "Year 2", "Baseline"),
+    handedness = c("Right", NA, "Left"),
+    lp_interest = c("Interested", NA, "Declined"),
+    stringsAsFactors = FALSE
+  )
+
+  mri_result <- be_build_mri_screening_domain(
+    redcap_df,
+    years = c("baseline", "year2")
+  )
+  lp_result <- be_build_lp_screening_domain(
+    redcap_df,
+    years = c("baseline", "year2")
+  )
+
+  expect_equal(mri_result$participant_id, c("001", "002"))
+  expect_equal(mri_result$year, c("baseline", "baseline"))
+  expect_equal(mri_result$handedness, c("Right", "Left"))
+
+  expect_equal(lp_result$participant_id, c("001", "002"))
+  expect_equal(lp_result$year, c("baseline", "baseline"))
+  expect_equal(lp_result$lp_interest, c("Interested", "Declined"))
 })
 
 test_that("similarities domain applies corrected stop-after-three-zeros score", {
@@ -409,18 +495,61 @@ test_that("run_export writes a snapshot-backed participants csv and manifest", {
   export_df <- utils::read.csv(
     result$output,
     stringsAsFactors = FALSE,
-    colClasses = c(participant_id = "character")
+    colClasses = c(
+      participant_id = "character",
+      subject_id = "character"
+    )
   )
   manifest <- jsonlite::read_json(result$manifest, simplifyVector = TRUE)
 
   expect_equal(export_df$participant_id, "002")
+  expect_equal(export_df$subject_id, "002")
+  expect_equal(export_df$session, "Year 2")
+  expect_equal(export_df$session_date, "2027-01-02")
   expect_equal(export_df$year, "year2")
   expect_equal(export_df$age, 71)
   expect_equal(export_df$education, "TAFE")
   expect_equal(manifest$domains, "participants")
   expect_equal(manifest$snapshot_metadata$redcap$source, "redcap")
-  expect_equal(manifest$source$api_key, "[masked]")
+  expect_equal(manifest$source$mode, "snapshot")
   expect_equal(manifest$execution_mode, "targets")
+})
+
+test_that("run_export adds core scaffold columns to medications-only exports", {
+  shared_root <- make_medications_export_shared_root()
+  on.exit(unlink(shared_root, recursive = TRUE), add = TRUE)
+
+  output_dir <- tempfile("export-dir-")
+  dir.create(output_dir, recursive = TRUE)
+  on.exit(unlink(output_dir, recursive = TRUE), add = TRUE)
+
+  spec <- be_default_export_spec(shared_root = shared_root)
+  spec$output$path <- file.path(output_dir, "medications.csv")
+  spec$domains <- "medications"
+  spec$cohort$years <- c("baseline", "year2")
+
+  result <- run_export(
+    spec,
+    refresh_mode = "auto",
+    execution_mode = "direct"
+  )
+
+  export_df <- utils::read.csv(
+    result$output,
+    stringsAsFactors = FALSE,
+    colClasses = c(
+      participant_id = "character",
+      subject_id = "character",
+      repeat_instance = "character"
+    )
+  )
+
+  expect_true(all(
+    c("subject_id", "session", "session_date") %in% names(export_df)
+  ))
+  expect_equal(export_df$subject_id, c("001", "001"))
+  expect_equal(export_df$session, c("Baseline", "Year 2"))
+  expect_equal(export_df$session_date, c("2026-01-01", "2027-01-02"))
 })
 
 test_that("run_export supports direct mode for export debugging", {
@@ -451,6 +580,52 @@ test_that("run_export supports direct mode for export debugging", {
 
   expect_equal(export_df$participant_id, "002")
   expect_equal(manifest$execution_mode, "direct")
+  expect_equal(manifest$source$mode, "snapshot")
+})
+
+test_that("targets script writer emits ASCII-quoted paths", {
+  script_path <- tempfile("targets-script-", fileext = ".R")
+  on.exit(unlink(script_path), add = TRUE)
+
+  spec <- be_default_export_spec(shared_root = "/tmp/shared-root")
+  spec$output$path <- "/tmp/output.csv"
+
+  be_write_export_targets_script(
+    script_path = script_path,
+    spec = spec,
+    shared_root = "/tmp/shared-root",
+    refresh_mode = "auto",
+    project_root = getwd()
+  )
+
+  script_lines <- readLines(script_path, warn = FALSE)
+  project_root_line <- grep("^project_root <- ", script_lines, value = TRUE)
+  shared_root_line <- grep("^shared_root <- ", script_lines, value = TRUE)
+
+  expect_length(project_root_line, 1)
+  expect_length(shared_root_line, 1)
+  expect_match(project_root_line, '^project_root <- "')
+  expect_match(shared_root_line, '^shared_root <- "')
+  expect_false(any(grepl("[“”]", script_lines)))
+})
+
+test_that("export validation rejects unsupported source modes and years", {
+  shared_root <- make_export_shared_root()
+  on.exit(unlink(shared_root, recursive = TRUE), add = TRUE)
+
+  spec <- be_default_export_spec(shared_root = shared_root)
+  spec$output$path <- tempfile(fileext = ".csv")
+
+  spec$source$mode <- "redcap"
+  source_result <- be_validate_export_spec(spec)
+  expect_false(source_result$ok)
+  expect_match(source_result$message, "snapshot mode")
+
+  spec$source$mode <- "snapshot"
+  spec$cohort$years <- c("baseline", "year4")
+  year_result <- be_validate_export_spec(spec)
+  expect_false(year_result$ok)
+  expect_match(year_result$message, "not supported")
 })
 
 test_that("run_export merges participant screening onto participants output", {

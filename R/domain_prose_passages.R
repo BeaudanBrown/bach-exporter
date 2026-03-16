@@ -23,11 +23,7 @@ be_prose_percent_correct <- function(version, story1, story2) {
 }
 
 be_build_prose_passages_domain <- function(redcap_df, years = NULL) {
-  participant_id_column <- be_redcap_id_column(redcap_df)
-  redcap_df$participant_id <- be_clean_participant_id(redcap_df[[
-    participant_id_column
-  ]])
-  redcap_df <- be_split_redcap_events(redcap_df)
+  redcap_df <- be_prepare_redcap_snapshot(redcap_df)
   redcap_df <- be_filter_years(redcap_df, years)
 
   prose_fields <- intersect(

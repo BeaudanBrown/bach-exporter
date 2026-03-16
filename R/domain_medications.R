@@ -41,11 +41,7 @@ be_bind_rows_fill <- function(rows) {
 }
 
 be_build_medications_domain <- function(redcap_df, years = NULL) {
-  participant_id_column <- be_redcap_id_column(redcap_df)
-  redcap_df$participant_id <- be_clean_participant_id(redcap_df[[
-    participant_id_column
-  ]])
-  redcap_df <- be_split_redcap_events(redcap_df)
+  redcap_df <- be_prepare_redcap_snapshot(redcap_df)
   redcap_df <- be_filter_years(redcap_df, years)
 
   if (!"redcap_repeat_instrument" %in% names(redcap_df)) {
@@ -179,11 +175,7 @@ be_build_medications_domain <- function(redcap_df, years = NULL) {
 }
 
 be_build_medications_wide_domain <- function(redcap_df, years = NULL) {
-  participant_id_column <- be_redcap_id_column(redcap_df)
-  redcap_df$participant_id <- be_clean_participant_id(redcap_df[[
-    participant_id_column
-  ]])
-  redcap_df <- be_split_redcap_events(redcap_df)
+  redcap_df <- be_prepare_redcap_snapshot(redcap_df)
   redcap_df <- be_filter_years(redcap_df, years)
 
   medication_long <- be_build_medications_domain(redcap_df, years = years)
