@@ -145,6 +145,25 @@ make_export_shared_root <- function() {
     file.path(shared_root, "side-data", "psg_data.csv"),
     row.names = FALSE
   )
+  utils::write.csv(
+    data.frame(
+      ID = c(
+        "BACH001_07082023",
+        "BACH001_07082023",
+        "BACH002_23082023",
+        "BACH002_23082023",
+        "BACH10000_07082023"
+      ),
+      B = c("DELTA", "ALPHA", "DELTA", "THETA", "DELTA"),
+      CH = c("C3_M2", "C3_M2", "F4_M1", "F4_M1", "C3_M2"),
+      stage = c("N2", "REM", "N2", "N1", "N2"),
+      PSD = c(12.5, 4.2, 9.1, 2.7, 999),
+      RELPSD = c(0.42, 0.18, 0.35, 0.11, 9.99),
+      stringsAsFactors = FALSE
+    ),
+    file.path(shared_root, "side-data", "psg_powerspec.csv"),
+    row.names = FALSE
+  )
 
   export_snapshot <- data.frame(
     idno = c("BACH001", "BACH002", "BACH002"),
@@ -1689,6 +1708,33 @@ test_that("run_export supports PSG summary and full domains", {
   expect_equal(numbered_df$psg_rswa, c(1, 0, 0))
 })
 
+test_that("run_export supports PSG power-spectral domain", {
+  shared_root <- make_export_shared_root()
+  on.exit(unlink(shared_root, recursive = TRUE), add = TRUE)
+
+  output_dir <- tempfile("export-dir-")
+  dir.create(output_dir, recursive = TRUE)
+  on.exit(unlink(output_dir, recursive = TRUE), add = TRUE)
+
+  spec <- be_default_export_spec(shared_root = shared_root)
+  spec$output$path <- file.path(output_dir, "psg-powerspec.csv")
+  spec$domains <- c("participants", "psg_powerspec")
+  spec$cohort$years <- c("baseline", "year2")
+
+  result <- run_export(spec, refresh_mode = "auto")
+  export_df <- utils::read.csv(
+    result$output,
+    stringsAsFactors = FALSE,
+    check.names = FALSE
+  )
+
+  expect_equal(export_df$participant_id, c(1, 2, 2))
+  expect_equal(export_df$PSD_DELTA_C3M2_N2, c(12.5, NA, NA))
+  expect_equal(export_df$RELPSD_ALPHA_C3M2_REM, c(0.18, NA, NA))
+  expect_equal(export_df$PSD_DELTA_F4M1_N2, c(NA, 9.1, 9.1))
+  expect_equal(export_df$RELPSD_THETA_F4M1_N1, c(NA, 0.11, 0.11))
+})
+
 test_that("run_export supports CDR and MMSE neuropsych domains", {
   shared_root <- make_export_shared_root()
   on.exit(unlink(shared_root, recursive = TRUE), add = TRUE)
@@ -2376,6 +2422,21 @@ test_that("validation fails clearly when PSG side-data is missing", {
 
   expect_false(validation$ok)
   expect_match(validation$message, "PSG side-data is missing")
+})
+
+test_that("validation fails clearly when PSG power-spectral side-data is missing", {
+  shared_root <- make_export_shared_root()
+  on.exit(unlink(shared_root, recursive = TRUE), add = TRUE)
+  unlink(file.path(shared_root, "side-data", "psg_powerspec.csv"))
+
+  spec <- be_default_export_spec(shared_root = shared_root)
+  spec$output$path <- tempfile(fileext = ".csv")
+  spec$domains <- c("participants", "psg_powerspec")
+
+  validation <- be_validate_export_spec(spec)
+
+  expect_false(validation$ok)
+  expect_match(validation$message, "PSG power-spectral side-data is missing")
 })
 
 test_that("run_export filters by participant_ids from the spec", {

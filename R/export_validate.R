@@ -154,6 +154,7 @@ be_validate_export_spec <- function(spec) {
     "psg_morningquest",
     "psg_summary",
     "psg_full",
+    "psg_powerspec",
     "actigraphy_full",
     "actigraphy_summary",
     "similarities",
@@ -197,6 +198,21 @@ be_validate_export_spec <- function(spec) {
         ok = FALSE,
         message = sprintf(
           "PSG side-data is missing from shared root side-data/: %s",
+          paste(basename(missing_files), collapse = ", ")
+        )
+      ))
+    }
+  }
+
+  if ("psg_powerspec" %in% selected_domains) {
+    side_data_dir <- root_check$paths$side_data_dir %||% NULL
+    required_files <- file.path(side_data_dir, "psg_powerspec.csv")
+    missing_files <- required_files[!file.exists(required_files)]
+    if (length(missing_files)) {
+      return(list(
+        ok = FALSE,
+        message = sprintf(
+          "PSG power-spectral side-data is missing from shared root side-data/: %s",
           paste(basename(missing_files), collapse = ", ")
         )
       ))

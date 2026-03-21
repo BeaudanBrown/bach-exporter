@@ -121,6 +121,7 @@ be_app_ui <- function() {
                   "PSG Morning Questionnaire" = "psg_morningquest",
                   "PSG Summary" = "psg_summary",
                   "PSG Full" = "psg_full",
+                  "PSG Power Spectral" = "psg_powerspec",
                   "Actigraphy Full" = "actigraphy_full",
                   "Actigraphy Summary" = "actigraphy_summary",
                   "Similarities" = "similarities",

@@ -385,6 +385,85 @@ be_build_psg_full_domain <- function(
   )
 }
 
+be_normalize_psg_powerspec_id <- function(x) {
+  values <- trimws(as.character(x))
+  values[!nzchar(values)] <- NA_character_
+  values <- gsub("^BACH", "", values, ignore.case = TRUE)
+  values <- gsub("_[0-9]{8}$", "", values)
+  values
+}
+
+be_normalize_psg_channel_name <- function(x) {
+  values <- trimws(as.character(x))
+  values[!nzchar(values)] <- NA_character_
+  gsub("_", "", values, fixed = TRUE)
+}
+
+be_build_psg_powerspec_domain <- function(
+  redcap_df,
+  shared_root,
+  years = NULL
+) {
+  scaffold <- be_build_core_scaffold_domain(redcap_df, years = years)
+  if (!nrow(scaffold)) {
+    return(data.frame(participant_id = character(), stringsAsFactors = FALSE))
+  }
+
+  powerspec <- be_read_side_data_csv(
+    shared_root,
+    "psg_powerspec.csv",
+    col_classes = c(ID = "character", CH = "character", stage = "character")
+  )
+  if (!all(c("ID", "B", "CH", "stage") %in% names(powerspec))) {
+    stop(
+      "PSG power-spectral side-data is missing one of ID, B, CH, or stage.",
+      call. = FALSE
+    )
+  }
+
+  powerspec$participant_id <- be_normalize_psg_powerspec_id(powerspec$ID)
+  powerspec$CH <- be_normalize_psg_channel_name(powerspec$CH)
+  powerspec$B <- trimws(as.character(powerspec$B))
+  powerspec$stage <- trimws(as.character(powerspec$stage))
+  powerspec <- powerspec[
+    !is.na(powerspec$participant_id) &
+      !is.na(powerspec$B) &
+      !is.na(powerspec$CH) &
+      !is.na(powerspec$stage),
+    ,
+    drop = FALSE
+  ]
+
+  grouped_rows <- lapply(
+    split(powerspec, powerspec$participant_id),
+    function(df) {
+      row <- list(participant_id = df$participant_id[[1]])
+      for (i in seq_len(nrow(df))) {
+        suffix <- paste(df$B[[i]], df$CH[[i]], df$stage[[i]], sep = "_")
+        if ("PSD" %in% names(df)) {
+          row[[paste("PSD", suffix, sep = "_")]] <- df$PSD[[i]]
+        }
+        if ("RELPSD" %in% names(df)) {
+          row[[paste("RELPSD", suffix, sep = "_")]] <- df$RELPSD[[i]]
+        }
+      }
+      as.data.frame(row, stringsAsFactors = FALSE)
+    }
+  )
+
+  powerspec_wide <- be_bind_rows_fill(grouped_rows)
+  powerspec_wide <- be_drop_empty_columns(powerspec_wide)
+  powerspec_wide <- unique(powerspec_wide)
+
+  merge(
+    scaffold[, c("participant_id", "event_name", "year"), drop = FALSE],
+    powerspec_wide,
+    by = "participant_id",
+    all.x = TRUE,
+    sort = FALSE
+  )
+}
+
 be_psg_medication_repeat_labels <- function() {
   "Sleep Medications In Last Two Weeks"
 }

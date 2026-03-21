@@ -89,6 +89,7 @@ be_assemble_export <- function(spec, shared_root) {
     "psg_morningquest",
     "psg_summary",
     "psg_full",
+    "psg_powerspec",
     "actigraphy_full",
     "actigraphy_summary",
     "similarities",
@@ -642,6 +643,19 @@ be_assemble_export <- function(spec, shared_root) {
       participant_ids = participant_ids
     )
     output <- be_merge_event_domain(output, psg_full)
+  }
+
+  if ("psg_powerspec" %in% domains) {
+    psg_powerspec <- be_build_psg_powerspec_domain(
+      redcap_df = redcap_df,
+      shared_root = shared_root,
+      years = spec$cohort$years %||% NULL
+    )
+    psg_powerspec <- be_filter_participants(
+      psg_powerspec,
+      participant_ids = participant_ids
+    )
+    output <- be_merge_event_domain(output, psg_powerspec)
   }
 
   if ("actigraphy_full" %in% domains) {
