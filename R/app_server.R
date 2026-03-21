@@ -1,4 +1,21 @@
-be_app_server <- function(shared_root = NULL) {
+be_set_button_busy_state <- function(
+  session,
+  id,
+  busy,
+  idle_label,
+  busy_label
+) {
+  session$sendCustomMessage(
+    "be-set-button-state",
+    list(
+      id = id,
+      disabled = isTRUE(busy),
+      label = if (isTRUE(busy)) busy_label else idle_label
+    )
+  )
+}
+
+be_app_server <- function(shared_root = NULL, export_runner = run_export) {
   function(input, output, session) {
     roots <- be_shiny_roots()
     shinyFiles::shinyDirChoose(
@@ -16,6 +33,8 @@ be_app_server <- function(shared_root = NULL) {
     )
 
     status_log <- shiny::reactiveVal("App started.")
+    export_busy <- shiny::reactiveVal(FALSE)
+    export_busy_message <- shiny::reactiveVal(NULL)
 
     initial_shared_root <- shared_root %||% be_load_shared_root() %||% ""
     shiny::updateTextInput(session, "shared_root", value = initial_shared_root)
@@ -71,6 +90,11 @@ be_app_server <- function(shared_root = NULL) {
     )
 
     shiny::observeEvent(input$run_export_btn, {
+      if (isTRUE(export_busy())) {
+        status_log("Export request ignored: an export is already running.")
+        return()
+      }
+
       spec <- be_default_export_spec(shared_root = input$shared_root)
       spec$cohort$years <- input$years
       spec$cohort$participant_ids <- input$participant_ids
@@ -79,11 +103,56 @@ be_app_server <- function(shared_root = NULL) {
       spec$options$cat_labels <- input$cat_labels
       spec$output$path <- input$output_path
 
+      export_busy(TRUE)
+      export_busy_message(
+        "Export in progress. Keep this window open until the result appears."
+      )
+      status_log(
+        "Export started. Preparing shared snapshots and export output."
+      )
+      be_set_button_busy_state(
+        session = session,
+        id = "run_export_btn",
+        busy = TRUE,
+        idle_label = "Run export",
+        busy_label = "Export running..."
+      )
+      on.exit(
+        {
+          export_busy(FALSE)
+          export_busy_message(NULL)
+          be_set_button_busy_state(
+            session = session,
+            id = "run_export_btn",
+            busy = FALSE,
+            idle_label = "Run export",
+            busy_label = "Export running..."
+          )
+        },
+        add = TRUE
+      )
+
       result <- tryCatch(
         {
-          run_export(
-            spec = spec,
-            refresh_mode = input$refresh_mode
+          shiny::withProgress(
+            message = "Running export",
+            detail = "Preparing export inputs.",
+            value = 0,
+            {
+              shiny::incProgress(
+                0.2,
+                detail = "Reading snapshots and assembling the export."
+              )
+              result <- export_runner(
+                spec = spec,
+                refresh_mode = input$refresh_mode
+              )
+              shiny::incProgress(
+                0.8,
+                detail = "Finalizing files and manifest."
+              )
+              result
+            }
           )
         },
         error = function(err) err
@@ -102,6 +171,17 @@ be_app_server <- function(shared_root = NULL) {
         return("No preset selected.")
       }
       preset
+    })
+
+    output$export_busy_banner <- shiny::renderUI({
+      if (!isTRUE(export_busy())) {
+        return(NULL)
+      }
+      shiny::div(
+        class = "busy-banner",
+        shiny::span(class = "busy-banner__spinner"),
+        shiny::span(export_busy_message())
+      )
     })
 
     output$status_log <- shiny::renderText({

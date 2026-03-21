@@ -5,7 +5,44 @@ be_app_ui <- function() {
       shiny::tags$style(
         shiny::HTML(
           ".app-shell { max-width: 1200px; margin: 24px auto; }
-           .app-note { color: #495057; }"
+           .app-note { color: #495057; }
+           .busy-banner {
+             margin-top: 12px;
+             padding: 12px 14px;
+             border-radius: 10px;
+             background: #e3f6ea;
+             border: 1px solid #9fd5b3;
+             color: #184b2e;
+             display: flex;
+             align-items: center;
+             gap: 10px;
+             font-weight: 600;
+           }
+           .busy-banner__spinner {
+             width: 14px;
+             height: 14px;
+             border-radius: 999px;
+             border: 2px solid rgba(24, 75, 46, 0.25);
+             border-top-color: #184b2e;
+             animation: be-spin 0.8s linear infinite;
+             flex: 0 0 auto;
+           }
+           @keyframes be-spin {
+             from { transform: rotate(0deg); }
+             to { transform: rotate(360deg); }
+           }"
+        )
+      ),
+      shiny::tags$script(
+        shiny::HTML(
+          "Shiny.addCustomMessageHandler('be-set-button-state', function(message) {
+             var el = document.getElementById(message.id);
+             if (!el) return;
+             el.disabled = !!message.disabled;
+             if (message.label) {
+               el.textContent = message.label;
+             }
+           });"
         )
       )
     ),
@@ -15,6 +52,10 @@ be_app_ui <- function() {
       shiny::p(
         class = "app-note",
         "Shared-drive launched export tool. This build supports participants plus the first migrated screening and annual-phone slices from shared REDCap snapshots."
+      ),
+      shiny::p(
+        class = "app-note",
+        "Researcher exports read shared snapshots only. REDCap connection and refresh settings stay in the admin workflow."
       ),
       shiny::tabsetPanel(
         shiny::tabPanel(
@@ -99,7 +140,8 @@ be_app_ui <- function() {
                 choices = c("auto", "use_cache", "force"),
                 selected = "auto"
               ),
-              shiny::actionButton("run_export_btn", "Run export")
+              shiny::actionButton("run_export_btn", "Run export"),
+              shiny::uiOutput("export_busy_banner")
             )
           )
         ),
@@ -113,7 +155,7 @@ be_app_ui <- function() {
           shiny::verbatimTextOutput("preset_detail")
         ),
         shiny::tabPanel(
-          "Settings",
+          "Shared Root",
           shiny::textInput("shared_root", "Shared folder root", value = ""),
           shinyFiles::shinyDirButton(
             "browse_shared_root",
@@ -124,7 +166,7 @@ be_app_ui <- function() {
           shiny::hr(),
           shiny::p(
             class = "app-note",
-            "Researcher sessions use shared snapshots only. REDCap refresh configuration stays in the admin workflow."
+            "This screen only stores the shared-drive root for researcher exports. Admin-only REDCap refresh configuration is intentionally kept out of the researcher app."
           )
         ),
         shiny::tabPanel(
