@@ -12,6 +12,7 @@ source(file.path("..", "..", "R", "domain_screening_aux.R"))
 source(file.path("..", "..", "R", "domain_imaging.R"))
 source(file.path("..", "..", "R", "domain_surveys.R"))
 source(file.path("..", "..", "R", "domain_clinical.R"))
+source(file.path("..", "..", "R", "domain_biomarkers.R"))
 source(file.path("..", "..", "R", "domain_neuropsych.R"))
 source(file.path("..", "..", "R", "domain_sleep.R"))
 source(file.path("..", "..", "R", "domain_similarities.R"))
@@ -83,6 +84,10 @@ populate_test_shared_app <- function(shared_root, build_id = "dev") {
 make_export_shared_root <- function() {
   shared_root <- tempfile("shared-root-")
   dir.create(file.path(shared_root, "snapshots", "redcap"), recursive = TRUE)
+  dir.create(
+    file.path(shared_root, "snapshots", "biomarkers"),
+    recursive = TRUE
+  )
   dir.create(file.path(shared_root, "snapshots", "sidecars"), recursive = TRUE)
   populate_test_shared_app(shared_root)
   utils::write.csv(
@@ -653,6 +658,34 @@ make_export_shared_root <- function() {
   export_snapshot <- be_bind_rows_fill(list(export_snapshot, psg_sleepmed_rows))
 
   utils::write.csv(
+    data.frame(
+      Sample.ID = c("1", "1", "2", "2", "2"),
+      SIMOA.ID = c("SIM001", "SIM001", "SIM002", "SIM002", "SIM002"),
+      Sample.Type = c("Plasma", "CSF", "Plasma", "CSF", "DBS"),
+      AB40_mean_conc = c(200, 5000, 220, 4800, 180),
+      AB40_cv = c(3.2, 4.1, 3.5, 4.0, 5.1),
+      AB42_mean_conc = c(12, 250, 11, 230, 9),
+      AB42_cv = c(2.1, 3.0, 2.2, 3.1, 4.5),
+      GFAP_mean_conc = c(150, 80, 175, 90, 120),
+      GFAP_cv = c(5.0, 6.0, 5.5, 6.2, 6.8),
+      NfL_mean_conc = c(18, 9, 20, 10, 14),
+      NfL_cv = c(4.2, 5.1, 4.4, 5.3, 5.7),
+      pTau181_mean_conc = c(2.5, 1.3, 2.8, 1.4, 2.0),
+      pTau181_cv = c(6.1, 6.8, 6.3, 6.9, 7.0),
+      pTau217_mean_conc = c(0.8, 0.5, 0.9, 0.6, 0.7),
+      pTau217_cv = c(7.1, 7.8, 7.3, 7.9, 8.0),
+      Notes = c("", "", "", "", ""),
+      stringsAsFactors = FALSE
+    ),
+    file.path(shared_root, "snapshots", "biomarkers", "raw.csv"),
+    row.names = FALSE
+  )
+  jsonlite::write_json(
+    list(refreshed_at = "2026-03-11T00:00:00Z", source = "biomarkers"),
+    file.path(shared_root, "snapshots", "biomarkers", "metadata.json"),
+    auto_unbox = TRUE
+  )
+  utils::write.csv(
     export_snapshot,
     file.path(shared_root, "snapshots", "redcap", "raw.csv"),
     row.names = FALSE
@@ -663,7 +696,7 @@ make_export_shared_root <- function() {
     auto_unbox = TRUE
   )
   jsonlite::write_json(
-    list(families = "redcap"),
+    list(families = c("redcap", "biomarkers")),
     file.path(shared_root, "snapshots", "sidecars", "snapshot-index.json"),
     auto_unbox = TRUE
   )
@@ -2021,6 +2054,42 @@ test_that("run_export supports SES and ARIA enrichment from shared side-data", {
   expect_equal(export_df$RAcategory, c("Urban", "Rural"))
 })
 
+test_that("run_export supports biomarker domain with derived AB42/40 ratios", {
+  shared_root <- make_export_shared_root()
+  on.exit(unlink(shared_root, recursive = TRUE), add = TRUE)
+
+  output_dir <- tempfile("export-dir-")
+  dir.create(output_dir, recursive = TRUE)
+  on.exit(unlink(output_dir, recursive = TRUE), add = TRUE)
+
+  spec <- be_default_export_spec(shared_root = shared_root)
+  spec$output$path <- file.path(output_dir, "biomarkers.csv")
+  spec$domains <- c("participants", "biomarkers")
+  spec$cohort$years <- c("baseline", "year2")
+
+  result <- run_export(
+    spec,
+    refresh_mode = "auto",
+    execution_mode = "direct"
+  )
+
+  export_df <- utils::read.csv(
+    result$output,
+    stringsAsFactors = FALSE,
+    check.names = FALSE
+  )
+
+  expect_equal(export_df$participant_id, c(1, 2, 2))
+  expect_equal(export_df$ab40_mean_conc_plasma, c(200, 220, 220))
+  expect_equal(export_df$ab42_mean_conc_csf, c(250, 230, 230))
+  expect_equal(export_df$gfap_mean_conc_dbs, c(NA, 120, 120))
+  expect_equal(round(export_df$ab4240ratio_plasma, 3), c(0.06, 0.05, 0.05))
+  expect_equal(
+    round(export_df$ab4240ratio_csf, 6),
+    round(c(250 / 5000, 230 / 4800, 230 / 4800), 6)
+  )
+})
+
 test_that("run_export supports baseline clinical domains", {
   shared_root <- make_export_shared_root()
   on.exit(unlink(shared_root, recursive = TRUE), add = TRUE)
@@ -2422,6 +2491,21 @@ test_that("validation fails clearly when PSG side-data is missing", {
 
   expect_false(validation$ok)
   expect_match(validation$message, "PSG side-data is missing")
+})
+
+test_that("validation fails clearly when biomarkers snapshot is missing", {
+  shared_root <- make_export_shared_root()
+  on.exit(unlink(shared_root, recursive = TRUE), add = TRUE)
+  unlink(file.path(shared_root, "snapshots", "biomarkers", "raw.csv"))
+
+  spec <- be_default_export_spec(shared_root = shared_root)
+  spec$output$path <- tempfile(fileext = ".csv")
+  spec$domains <- c("participants", "biomarkers")
+
+  validation <- be_validate_export_spec(spec)
+
+  expect_false(validation$ok)
+  expect_match(validation$message, "Biomarkers snapshot is missing")
 })
 
 test_that("validation fails clearly when PSG power-spectral side-data is missing", {

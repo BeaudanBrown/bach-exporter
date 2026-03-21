@@ -96,6 +96,7 @@ be_app_ui <- function() {
                   "Alcohol Questionnaire" = "alcohol",
                   "CFI" = "cfi",
                   "Global Health" = "global_health",
+                  "Biomarkers" = "biomarkers",
                   "Bloods / Pathology" = "bloods",
                   "Vitals" = "vitals",
                   "24h Blood Pressure" = "bp24h",

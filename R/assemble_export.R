@@ -64,6 +64,7 @@ be_assemble_export <- function(spec, shared_root) {
     "alcohol",
     "cfi",
     "global_health",
+    "biomarkers",
     "bloods",
     "vitals",
     "bp24h",
@@ -385,6 +386,19 @@ be_assemble_export <- function(spec, shared_root) {
       participant_ids = participant_ids
     )
     output <- be_merge_event_domain(output, global_health)
+  }
+
+  if ("biomarkers" %in% domains) {
+    biomarkers <- be_build_biomarkers_domain(
+      redcap_df = redcap_df,
+      shared_root = shared_root,
+      years = spec$cohort$years %||% NULL
+    )
+    biomarkers <- be_filter_participants(
+      biomarkers,
+      participant_ids = participant_ids
+    )
+    output <- be_merge_event_domain(output, biomarkers)
   }
 
   if ("bloods" %in% domains) {

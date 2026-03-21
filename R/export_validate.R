@@ -129,6 +129,7 @@ be_validate_export_spec <- function(spec) {
     "alcohol",
     "cfi",
     "global_health",
+    "biomarkers",
     "bloods",
     "vitals",
     "bp24h",
@@ -199,6 +200,23 @@ be_validate_export_spec <- function(spec) {
         message = sprintf(
           "PSG side-data is missing from shared root side-data/: %s",
           paste(basename(missing_files), collapse = ", ")
+        )
+      ))
+    }
+  }
+
+  if ("biomarkers" %in% selected_domains) {
+    biomarker_snapshot <- be_snapshot_file_path(
+      shared_root,
+      "biomarkers",
+      "raw.csv"
+    )
+    if (!file.exists(biomarker_snapshot)) {
+      return(list(
+        ok = FALSE,
+        message = sprintf(
+          "Biomarkers snapshot is missing from shared root snapshots/: %s",
+          biomarker_snapshot
         )
       ))
     }
