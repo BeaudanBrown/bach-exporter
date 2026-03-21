@@ -119,6 +119,8 @@ be_app_ui <- function() {
                   "PSG Sleep Health" = "psg_sleephealth",
                   "PSG Sleep Medications" = "psg_sleepmed",
                   "PSG Morning Questionnaire" = "psg_morningquest",
+                  "PSG Summary" = "psg_summary",
+                  "PSG Full" = "psg_full",
                   "Actigraphy Full" = "actigraphy_full",
                   "Actigraphy Summary" = "actigraphy_summary",
                   "Similarities" = "similarities",

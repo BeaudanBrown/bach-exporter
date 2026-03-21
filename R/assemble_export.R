@@ -87,6 +87,8 @@ be_assemble_export <- function(spec, shared_root) {
     "psg_sleephealth",
     "psg_sleepmed",
     "psg_morningquest",
+    "psg_summary",
+    "psg_full",
     "actigraphy_full",
     "actigraphy_summary",
     "similarities",
@@ -613,6 +615,33 @@ be_assemble_export <- function(spec, shared_root) {
       participant_ids = participant_ids
     )
     output <- be_merge_event_domain(output, psg_morningquest)
+  }
+
+  if ("psg_summary" %in% domains) {
+    psg_summary <- be_build_psg_summary_domain(
+      redcap_df = redcap_df,
+      shared_root = shared_root,
+      years = spec$cohort$years %||% NULL
+    )
+    psg_summary <- be_filter_participants(
+      psg_summary,
+      participant_ids = participant_ids
+    )
+    output <- be_merge_event_domain(output, psg_summary)
+  }
+
+  if ("psg_full" %in% domains) {
+    psg_full <- be_build_psg_full_domain(
+      redcap_df = redcap_df,
+      shared_root = shared_root,
+      years = spec$cohort$years %||% NULL,
+      cat_labels = spec$options$cat_labels %||% "named"
+    )
+    psg_full <- be_filter_participants(
+      psg_full,
+      participant_ids = participant_ids
+    )
+    output <- be_merge_event_domain(output, psg_full)
   }
 
   if ("actigraphy_full" %in% domains) {

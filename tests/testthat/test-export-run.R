@@ -120,6 +120,31 @@ make_export_shared_root <- function() {
     file.path(shared_root, "side-data", "global_n241.csv"),
     row.names = FALSE
   )
+  utils::write.csv(
+    data.frame(
+      idno = c("BACH001", "BACH002", "10000"),
+      psg_locationsetup = c("Lab", "Home", "Test"),
+      psg_ess = c(6, 12, 99),
+      psg_height = c(170, 160, 150),
+      psg_weight = c(70, 80, 50),
+      psg_bmi = c(24.2, 31.2, 22.2),
+      psg_lights_out = c("22:30", "23:00", "00:00"),
+      psg_lights_on = c("06:30", "07:00", "08:00"),
+      psg_tot_sleep_time = c(390, 360, 100),
+      psg_sleep_effic = c(88, 76, 10),
+      psg_overall_ahi_all = c(8.1, 26.4, 99),
+      psg_nrem_ahi_all = c(7.8, 24.1, 99),
+      psg_rem_ahi_all = c(10.2, 31.0, 99),
+      psg_odi4_per = c(5.3, 18.6, 99),
+      psg_total_plmi = c(3.5, 12.2, 99),
+      psg_av_slp_hr = c(58, 64, 99),
+      psg_highest_sleep_hr = c(77, 89, 99),
+      psg_rswa = c("yes", "no", "yes"),
+      stringsAsFactors = FALSE
+    ),
+    file.path(shared_root, "side-data", "psg_data.csv"),
+    row.names = FALSE
+  )
 
   export_snapshot <- data.frame(
     idno = c("BACH001", "BACH002", "BACH002"),
@@ -1607,6 +1632,63 @@ test_that("run_export supports PSG questionnaire and screening domains", {
   )
 })
 
+test_that("run_export supports PSG summary and full domains", {
+  shared_root <- make_export_shared_root()
+  on.exit(unlink(shared_root, recursive = TRUE), add = TRUE)
+
+  output_dir <- tempfile("export-dir-")
+  dir.create(output_dir, recursive = TRUE)
+  on.exit(unlink(output_dir, recursive = TRUE), add = TRUE)
+
+  summary_spec <- be_default_export_spec(shared_root = shared_root)
+  summary_spec$output$path <- file.path(output_dir, "psg-summary.csv")
+  summary_spec$domains <- c("participants", "psg_summary")
+  summary_spec$cohort$years <- c("baseline", "year2")
+
+  summary_result <- run_export(summary_spec, refresh_mode = "auto")
+  summary_df <- utils::read.csv(
+    summary_result$output,
+    stringsAsFactors = FALSE,
+    check.names = FALSE
+  )
+
+  expect_equal(summary_df$participant_id, c(1, 2, 2))
+  expect_equal(summary_df$psg_location, c("Lab", "Home", "Home"))
+  expect_equal(summary_df$psg_ess, c(6, 12, 12))
+  expect_equal(summary_df$psg_tst, c(390, 360, 360))
+  expect_equal(summary_df$psg_ahi_total_all, c(8.1, 26.4, 26.4))
+  expect_equal(summary_df$psg_odi_4per, c(5.3, 18.6, 18.6))
+  expect_false("psg_hr_avg" %in% names(summary_df))
+  expect_false("psg_rswa" %in% names(summary_df))
+
+  full_spec <- be_default_export_spec(shared_root = shared_root)
+  full_spec$output$path <- file.path(output_dir, "psg-full.csv")
+  full_spec$domains <- c("participants", "psg_full")
+  full_spec$cohort$years <- c("baseline", "year2")
+
+  full_result <- run_export(full_spec, refresh_mode = "auto")
+  full_df <- utils::read.csv(
+    full_result$output,
+    stringsAsFactors = FALSE,
+    check.names = FALSE
+  )
+
+  expect_equal(full_df$psg_hr_avg, c(58, 64, 64))
+  expect_equal(full_df$psg_hr_highest, c(77, 89, 89))
+  expect_equal(full_df$psg_rswa, c("Yes", "No", "No"))
+
+  full_spec$options$cat_labels <- "numbered"
+  full_spec$output$path <- file.path(output_dir, "psg-full-numbered.csv")
+  numbered_result <- run_export(full_spec, refresh_mode = "auto")
+  numbered_df <- utils::read.csv(
+    numbered_result$output,
+    stringsAsFactors = FALSE,
+    check.names = FALSE
+  )
+
+  expect_equal(numbered_df$psg_rswa, c(1, 0, 0))
+})
+
 test_that("run_export supports CDR and MMSE neuropsych domains", {
   shared_root <- make_export_shared_root()
   on.exit(unlink(shared_root, recursive = TRUE), add = TRUE)
@@ -2279,6 +2361,21 @@ test_that("validation fails clearly when MRI side-data is missing", {
 
   expect_false(validation$ok)
   expect_match(validation$message, "MRI side-data is missing")
+})
+
+test_that("validation fails clearly when PSG side-data is missing", {
+  shared_root <- make_export_shared_root()
+  on.exit(unlink(shared_root, recursive = TRUE), add = TRUE)
+  unlink(file.path(shared_root, "side-data", "psg_data.csv"))
+
+  spec <- be_default_export_spec(shared_root = shared_root)
+  spec$output$path <- tempfile(fileext = ".csv")
+  spec$domains <- c("participants", "psg_summary")
+
+  validation <- be_validate_export_spec(spec)
+
+  expect_false(validation$ok)
+  expect_match(validation$message, "PSG side-data is missing")
 })
 
 test_that("run_export filters by participant_ids from the spec", {
