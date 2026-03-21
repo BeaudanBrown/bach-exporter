@@ -53,37 +53,64 @@ be_local_log_dir <- function() {
   path
 }
 
-be_local_targets_dir <- function(release_id = "dev") {
-  path <- file.path(be_local_cache_dir(), "targets", release_id)
+be_local_targets_dir <- function(build_id = "dev") {
+  build_id <- build_id %||% "dev"
+  path <- file.path(be_local_cache_dir(), "targets", build_id)
   dir.create(path, recursive = TRUE, showWarnings = FALSE)
   path
 }
 
-be_local_library_dir <- function(release_id = "dev") {
+be_local_library_dir <- function(build_id = "dev") {
+  build_id <- build_id %||% "dev"
   platform <- paste(
     R.version$platform,
     paste(R.version$major, R.version$minor, sep = "."),
     sep = "-"
   )
-  path <- file.path(be_local_cache_dir(), "renv-library", release_id, platform)
+  path <- file.path(be_local_cache_dir(), "renv-library", build_id, platform)
   dir.create(path, recursive = TRUE, showWarnings = FALSE)
   path
 }
 
-be_release_id_path <- function(shared_root) {
-  file.path(shared_root, "CURRENT_RELEASE.txt")
+be_shared_app_root <- function(shared_root) {
+  file.path(shared_root, "app")
+}
+
+be_shared_manifest_path <- function(shared_root) {
+  file.path(be_shared_app_root(shared_root), "manifest.json")
+}
+
+be_read_manifest_build_id <- function(manifest_path) {
+  if (
+    is.null(manifest_path) ||
+      !nzchar(manifest_path) ||
+      !file.exists(manifest_path)
+  ) {
+    return(NULL)
+  }
+
+  manifest <- tryCatch(
+    jsonlite::read_json(manifest_path, simplifyVector = TRUE),
+    error = function(err) NULL
+  )
+  if (is.null(manifest)) {
+    return(NULL)
+  }
+
+  build_id <- manifest$build_id %||% manifest$release_id %||% NULL
+  if (is.null(build_id) || !nzchar(build_id)) {
+    return(NULL)
+  }
+
+  as.character(build_id)
+}
+
+be_read_build_id <- function(shared_root) {
+  be_read_manifest_build_id(be_shared_manifest_path(shared_root))
 }
 
 be_read_release_id <- function(shared_root) {
-  release_file <- be_release_id_path(shared_root)
-  if (!file.exists(release_file)) {
-    return(NULL)
-  }
-  release_id <- trimws(readLines(release_file, warn = FALSE, n = 1))
-  if (!nzchar(release_id)) {
-    return(NULL)
-  }
-  release_id
+  be_read_build_id(shared_root)
 }
 
 be_shiny_roots <- function() {
@@ -97,43 +124,54 @@ be_shiny_roots <- function() {
   )
 }
 
-be_release_root <- function(shared_root, release_id = NULL) {
-  release_id <- release_id %||% be_read_release_id(shared_root)
-  if (is.null(release_id)) {
-    return(NULL)
+be_shared_runtime_root <- function(shared_root) {
+  app_root <- be_shared_app_root(shared_root)
+  if (dir.exists(app_root)) {
+    return(app_root)
   }
-  file.path(shared_root, "releases", release_id)
+
+  if (
+    file.exists(file.path(shared_root, "DESCRIPTION")) &&
+      file.exists(file.path(shared_root, "scripts", "launch_from_share.R"))
+  ) {
+    return(shared_root)
+  }
+
+  NULL
 }
 
 be_shared_paths <- function(shared_root) {
-  release_id <- be_read_release_id(shared_root)
-  if (
-    is.null(release_id) &&
-      file.exists(file.path(shared_root, "DESCRIPTION")) &&
-      file.exists(file.path(shared_root, "scripts", "launch_from_share.R"))
-  ) {
-    release_id <- "dev"
-    release_root <- shared_root
+  app_root <- be_shared_runtime_root(shared_root)
+  build_id <- if (!is.null(app_root) && !identical(app_root, shared_root)) {
+    be_read_manifest_build_id(file.path(app_root, "manifest.json"))
   } else {
-    release_root <- be_release_root(shared_root, release_id)
+    NULL
+  }
+  if (is.null(app_root)) {
+    build_id <- NULL
+  } else if (identical(app_root, shared_root) && is.null(build_id)) {
+    build_id <- "dev"
   }
 
   list(
     shared_root = shared_root,
-    release_id = release_id,
-    release_root = release_root,
-    release_launcher = if (!is.null(release_root)) {
-      file.path(release_root, "scripts", "launch_from_share.R")
+    build_id = build_id,
+    is_dev = identical(app_root, shared_root),
+    release_id = build_id,
+    app_root = app_root,
+    release_root = app_root,
+    release_launcher = if (!is.null(app_root)) {
+      file.path(app_root, "scripts", "launch_from_share.R")
     } else {
       NULL
     },
-    release_manifest = if (!is.null(release_root)) {
-      file.path(release_root, "manifest.json")
+    release_manifest = if (!is.null(app_root)) {
+      file.path(app_root, "manifest.json")
     } else {
       NULL
     },
-    presets_dir = if (!is.null(release_root)) {
-      file.path(release_root, "inst", "presets")
+    presets_dir = if (!is.null(app_root)) {
+      file.path(app_root, "inst", "presets")
     } else {
       NULL
     },

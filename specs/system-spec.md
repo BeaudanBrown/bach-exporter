@@ -5,7 +5,7 @@
 Build a researcher-facing BACH export tool with the following properties:
 
 - Simple enough for non-technical researchers to run from RStudio via a small local script.
-- Centrally maintained from a shared-drive release folder.
+- Centrally maintained from a shared-drive app folder.
 - Backed by reusable, testable R code.
 - Uses `targets` internally to cache reusable cleaned data products and avoid unnecessary recomputation.
 - Produces export tables as CSV files for downstream project-specific analysis.
@@ -27,10 +27,10 @@ Researchers should be able to:
 
 Maintainers should be able to:
 
-- Publish new backend releases to the shared drive.
+- Refresh the shared app bundle on the shared drive.
 - Update presets and side-data.
 - Run or schedule REDCap refresh jobs.
-- Validate new releases before switching researchers to them.
+- Validate the shared app bundle before researchers launch it.
 
 ## 3. Core architectural decisions
 
@@ -58,7 +58,7 @@ The backend will be an R package-like codebase with:
 The deployed runtime model will be:
 
 - Thin local launcher script on each researcher machine
-- Shared-drive release bundle containing the current backend code and non-secret assets
+- Shared-drive app bundle containing the current backend code and non-secret assets
 - User-local package library
 - User-local `targets` store
 - Shared-drive data snapshots
@@ -125,21 +125,20 @@ Recommended layout:
 
 ```text
 <shared_root>/
-  CURRENT_RELEASE.txt
-  releases/
-    2026-03-11/
-      DESCRIPTION
-      NAMESPACE
-      renv.lock
-      _targets.R
-      R/
-      inst/
-        presets/
-        side-data/
-      scripts/
-        launch_from_share.R
-        refresh_snapshots.R
-      manifest.json
+  app/
+    DESCRIPTION
+    NAMESPACE
+    renv.lock
+    _targets.R
+    R/
+    inst/
+      presets/
+      side-data/
+    scripts/
+      launch_from_share.R
+      refresh_snapshots.R
+      validate_release.R
+    manifest.json
   snapshots/
     redcap/
       raw.csv
@@ -165,12 +164,12 @@ Recommended layout:
 
 Notes:
 
-- `CURRENT_RELEASE.txt` contains the active release identifier, for example `2026-03-11`.
-- Avoid relying on symlinks for release switching because they are awkward on Windows shared drives.
+- `app/manifest.json` contains the current `build_id` used for researcher-side local reinstall and cache invalidation.
+- The shared drive should expose one mutable live app bundle rather than a dated directory tree.
 - Shared-drive snapshots are the data source for normal researcher sessions.
 - Schema-only REDCap snapshots are admin artifacts used to understand project structure and should not be confused with researcher-facing record snapshots.
 - Shared non-secret lookup tables should live under `side-data/` at the shared-root level. Current expected SES/ARIA filenames are `absdf.csv` and `RA_2016_AUST.csv`.
-- When publishing to the real shared drive, maintainers must manually copy the SES/ARIA lookup files into `side-data/` at the shared root unless a later packaging step automates that copy.
+- Admin refresh should update the app bundle and the snapshots in one maintainable workflow so the shared root stays self-consistent.
 
 ## 6. Local machine layout
 
@@ -191,10 +190,10 @@ Recommended contents:
 
 <user-cache>/
   renv-library/
-    <release-id>/
+    <build-id>/
       <platform-r-version>/
   targets/
-    <release-id>/
+    <build-id>/
   tmp/
 
 <user-data>/
@@ -220,7 +219,7 @@ It is responsible for:
 - Installing a very small bootstrap dependency set if missing
 - Reading local saved config for the shared root
 - Launching a small bootstrap Shiny app if no valid shared root is configured
-- Sourcing the shared release launcher from the shared drive
+- Sourcing the shared app launcher from the shared drive
 
 Bootstrap dependencies may include:
 
@@ -238,24 +237,24 @@ The local launcher will therefore include a tiny bootstrap Shiny app whose only 
 
 - show a text field for the shared root path
 - show a `Browse` button
-- validate that the chosen folder contains `CURRENT_RELEASE.txt` and the expected release structure
+- validate that the chosen folder contains `app/` and the expected runtime files
 - save the selected root locally
 - hand control to the shared backend launcher
 
 This bootstrap app satisfies the requirement that the initial app experience include a browse-driven selection of the shared folder root.
 
-### 7.3 Shared release launcher responsibilities
+### 7.3 Shared app launcher responsibilities
 
-The shared release launcher, stored at:
+The shared app launcher, stored at:
 
-- `releases/<release-id>/scripts/launch_from_share.R`
+- `app/scripts/launch_from_share.R`
 
 is responsible for:
 
-- reading the active release manifest
+- reading the current app manifest
 - setting or confirming local library/cache paths
 - restoring package dependencies locally
-- installing the current package locally from the release source
+- installing the current package locally from the shared app source
 - launching the main app via `bachExporter::run_app(shared_root = ...)`
 
 ## 8. Dependency management
@@ -264,14 +263,14 @@ is responsible for:
 
 The primary dependency model will be:
 
-- shared release includes `renv.lock`
+- shared app includes `renv.lock`
 - local launcher restores dependencies into a user-local library
-- current release package is installed locally from the shared release source
+- current package is installed locally from the shared app source
 
 Implementation details:
 
 - use `renv::restore()` for dependency restoration
-- use `remotes::install_local()` to install the shared release package into the same local library
+- use `remotes::install_local()` to install the shared app package into the same local library
 
 ### 8.2 Why not use a shared live library
 
@@ -338,7 +337,7 @@ Domains should be grouped at minimum into:
 
 The app must support:
 
-- loading predefined presets from the shared release
+- loading predefined presets from the shared app bundle
 - saving user presets locally
 - re-running prior export specs
 
@@ -359,7 +358,7 @@ All user choices must be represented as a structured export spec object.
 Required fields:
 
 - shared root
-- release id
+- build id
 - source mode
 - selected years
 - selected domains
@@ -372,7 +371,7 @@ Recommended shape:
 
 ```r
 list(
-  shared = list(root = "...", release_id = "..."),
+  shared = list(root = "...", build_id = "..."),
   source = list(mode = "snapshot"),
   cohort = list(years = c("baseline"), subset_file = NULL, participant_ids = NULL),
   domains = c("participants", "similarities"),
@@ -388,7 +387,7 @@ Every export must write a sidecar manifest next to the output file.
 Suggested contents:
 
 - export timestamp
-- app version / release id
+- app version / build id
 - snapshot metadata used
 - full export spec
 - local machine platform info
@@ -433,7 +432,7 @@ Do not generate a dedicated target for every possible final export spec.
 
 ### 12.3 Cache location
 
-The `targets` store must be located under the user's local cache directory, partitioned by release id.
+The `targets` store must be located under the user's local cache directory, partitioned by build id.
 
 ### 12.4 Expected target groups
 
@@ -557,7 +556,7 @@ The system is considered complete when:
 
 1. A researcher can run one local R script in RStudio.
 2. On first run, they can pick the shared root via a browse-enabled bootstrap app.
-3. The main Shiny app launches successfully from the shared release.
+3. The main Shiny app launches successfully from the shared app bundle.
 4. They can choose an output path and requested domains.
 5. The app generates a CSV and sidecar manifest.
 6. The export is assembled from cached backend components.

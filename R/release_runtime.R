@@ -40,6 +40,10 @@ be_release_validate_script_path <- function(release_root) {
   file.path(release_root, "scripts", "validate_release.R")
 }
 
+be_release_refresh_script_path <- function(release_root) {
+  file.path(release_root, "scripts", "refresh_snapshots.R")
+}
+
 be_release_required_files <- function(release_root, release_id = "dev") {
   required_paths <- c(
     be_release_description_path(release_root),
@@ -47,7 +51,8 @@ be_release_required_files <- function(release_root, release_id = "dev") {
     be_release_paths_path(release_root),
     be_release_runtime_path(release_root),
     be_release_launcher_path(release_root),
-    be_release_validate_script_path(release_root)
+    be_release_validate_script_path(release_root),
+    be_release_refresh_script_path(release_root)
   )
 
   if (!identical(release_id, "dev")) {
@@ -96,36 +101,50 @@ be_validate_release_contract <- function(shared_root, allow_dev = TRUE) {
   }
 
   paths <- be_shared_paths(shared_root)
-  if (is.null(paths$release_id)) {
+  validation_id <- if (isTRUE(paths$is_dev)) {
+    "dev"
+  } else {
+    paths$build_id
+  }
+  if (is.null(paths$app_root)) {
     return(list(
       ok = FALSE,
-      message = "Shared root is missing CURRENT_RELEASE.txt and does not look like a direct release root."
+      message = "Shared root is missing app/ and does not look like a direct app root."
     ))
   }
-  if (!allow_dev && identical(paths$release_id, "dev")) {
+  if (!allow_dev && isTRUE(paths$is_dev)) {
     return(list(
       ok = FALSE,
-      message = "Dev-mode release roots are not valid for published release validation."
+      message = "Dev-mode app roots are not valid for published release validation."
     ))
   }
-  if (is.null(paths$release_root) || !dir.exists(paths$release_root)) {
+  if (
+    !isTRUE(paths$is_dev) &&
+      (is.null(paths$build_id) || !nzchar(paths$build_id))
+  ) {
     return(list(
       ok = FALSE,
-      message = "Active release folder does not exist under releases/."
+      message = "Shared app manifest is missing a build_id."
+    ))
+  }
+  if (is.null(paths$app_root) || !dir.exists(paths$app_root)) {
+    return(list(
+      ok = FALSE,
+      message = "Shared app folder does not exist."
     ))
   }
 
   file_check <- be_validate_release_files(
-    release_root = paths$release_root,
-    release_id = paths$release_id
+    release_root = paths$app_root,
+    release_id = validation_id
   )
   if (!isTRUE(file_check$ok)) {
     return(utils::modifyList(file_check, list(paths = paths)))
   }
 
   manifest_check <- be_validate_release_manifest(
-    release_root = paths$release_root,
-    release_id = paths$release_id
+    release_root = paths$app_root,
+    release_id = validation_id
   )
   if (!isTRUE(manifest_check$ok)) {
     return(utils::modifyList(manifest_check, list(paths = paths)))
@@ -216,15 +235,15 @@ be_validate_release_manifest <- function(release_root, release_id = "dev") {
     ))
   }
 
-  manifest_release_id <- manifest$release_id %||% NULL
+  manifest_build_id <- manifest$build_id %||% manifest$release_id %||% NULL
   if (
-    !is.null(manifest_release_id) && !identical(manifest_release_id, release_id)
+    !is.null(manifest_build_id) && !identical(manifest_build_id, release_id)
   ) {
     return(list(
       ok = FALSE,
       message = sprintf(
-        "Release manifest release_id '%s' does not match active release '%s'.",
-        manifest_release_id,
+        "Release manifest build_id '%s' does not match active build '%s'.",
+        manifest_build_id,
         release_id
       )
     ))

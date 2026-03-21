@@ -9,7 +9,7 @@ Live backlog tracking now happens in the coordinator Beads graph under epic `coo
 The exporter should provide a stable researcher-facing CSV export workflow with these properties:
 
 - researchers launch a simple local R script
-- the local launcher finds a shared-drive root and loads the active backend release
+- the local launcher finds a shared-drive root and loads the shared app bundle
 - export logic lives in testable R code rather than a monolithic script
 - `targets` remains a hidden backend orchestration and caching layer
 - REDCap refresh is handled by an admin-only path that writes snapshots for researcher use
@@ -38,7 +38,7 @@ The repository already uses the intended package-style layout:
 The intended runtime model remains:
 
 - thin local launcher on each researcher machine
-- shared-drive release bundle for backend code and non-secret assets
+- shared-drive app bundle for backend code and non-secret assets
 - user-local package library
 - user-local `targets` store
 - shared-drive snapshots for normal data access
@@ -49,8 +49,8 @@ The rewrite should continue to evolve along these lanes:
 
 1. Runtime and release flow
    - keep the thin launcher model
-   - preserve the shared-drive release bootstrap path
-   - make release publication and validation repeatable
+   - preserve the shared-drive app bootstrap path
+   - make app deployment and validation repeatable
 2. Export specification and validation
    - keep export requests spec-driven rather than ad hoc UI state
    - preserve early validation with clear user-facing errors
@@ -59,7 +59,7 @@ The rewrite should continue to evolve along these lanes:
    - add domain builders as pure functions with clear inputs and outputs
 4. Hidden `targets` orchestration
    - keep caching and orchestration out of the researcher UI
-   - use user-local stores keyed by release
+   - use user-local stores keyed by build id
 5. Domain migration from `old-script.R`
    - port legacy behavior in domain clusters
    - require tests and representative output validation for each cluster
@@ -67,7 +67,7 @@ The rewrite should continue to evolve along these lanes:
    - preserve the admin-only REDCap refresh boundary
    - write snapshots and provenance back to the shared root
 7. Release and support tooling
-   - keep manifests, logging, validation, and user documentation aligned with the release flow
+   - keep manifests, logging, validation, and user documentation aligned with the shared app flow
 
 ## Recommended development order
 
@@ -75,6 +75,7 @@ When continuing implementation, prefer this sequence:
 
 1. verify the true current state against the codebase before changing plans
 2. finish runtime and release-path gaps before relying on the packaged workflow
+   - keep the admin surface simple enough that the normal operation is a one-command shared-root refresh
 3. keep export spec validation ahead of UI expansion
 4. keep `targets` parity aligned with the direct export path
 5. migrate legacy domains in coherent clusters with tests
@@ -123,7 +124,7 @@ For each cluster:
 Keep verification layered:
 
 - unit tests for path derivation, config persistence, validation, normalization, and derivations
-- integration tests for launcher path resolution, snapshot reading, and export execution
+- integration tests for launcher path resolution, shared app upgrade detection, snapshot reading, and export execution
 - regression fixtures for representative legacy output comparisons
 
 Preferred commands:

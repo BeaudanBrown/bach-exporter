@@ -1,10 +1,7 @@
-be_validate_script_release_root <- function(shared_root) {
-  release_file <- file.path(shared_root, "CURRENT_RELEASE.txt")
-  if (file.exists(release_file)) {
-    release_id <- trimws(readLines(release_file, warn = FALSE, n = 1))
-    if (nzchar(release_id)) {
-      return(file.path(shared_root, "releases", release_id))
-    }
+be_validate_script_app_root <- function(shared_root) {
+  app_root <- file.path(shared_root, "app")
+  if (dir.exists(app_root)) {
+    return(app_root)
   }
 
   if (file.exists(file.path(shared_root, "DESCRIPTION"))) {
@@ -15,12 +12,12 @@ be_validate_script_release_root <- function(shared_root) {
 }
 
 validate_release <- function(shared_root = ".", allow_dev = FALSE) {
-  release_root <- be_validate_script_release_root(shared_root)
+  app_root <- be_validate_script_app_root(shared_root)
   source_root <- if (
-    !is.null(release_root) &&
-      file.exists(file.path(release_root, "R", "paths.R"))
+    !is.null(app_root) &&
+      file.exists(file.path(app_root, "R", "paths.R"))
   ) {
-    release_root
+    app_root
   } else {
     normalizePath(file.path(getwd()), winslash = "/", mustWork = TRUE)
   }
@@ -34,7 +31,7 @@ validate_release <- function(shared_root = ".", allow_dev = FALSE) {
   )
 
   if (isTRUE(validation$ok)) {
-    cat(sprintf("Release contract valid: %s\n", validation$paths$release_root))
+    cat(sprintf("Release contract valid: %s\n", validation$paths$app_root))
   } else {
     cat(sprintf("Release contract invalid: %s\n", validation$message))
   }

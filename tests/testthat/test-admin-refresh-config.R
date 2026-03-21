@@ -1,6 +1,14 @@
 source(file.path("..", "..", "R", "paths.R"))
 source(file.path("..", "..", "R", "source_refresh_admin.R"))
 
+load_refresh_script <- function() {
+  script_env <- new.env(parent = globalenv())
+  old_wd <- setwd(file.path("..", ".."))
+  on.exit(setwd(old_wd), add = TRUE)
+  sys.source(file.path("scripts", "refresh_snapshots.R"), envir = script_env)
+  script_env
+}
+
 test_that("admin refresh config reads local config json", {
   config_dir <- tempfile("admin-config-dir-")
   dir.create(config_dir, recursive = TRUE)
@@ -403,4 +411,218 @@ test_that("admin full refresh writes schema, records, and snapshot index", {
     snapshot_index$snapshots$redcap$schema_metadata,
     file.path("schema", "metadata.json")
   )
+})
+
+test_that("refresh_snapshots script executes operator-style flow on a local shared root", {
+  script_env <- load_refresh_script()
+  shared_root <- tempfile("admin-operator-root-")
+  config_dir <- tempfile("admin-operator-config-")
+  dir.create(shared_root, recursive = TRUE)
+  dir.create(config_dir, recursive = TRUE)
+  on.exit(unlink(shared_root, recursive = TRUE), add = TRUE)
+  on.exit(unlink(config_dir, recursive = TRUE), add = TRUE)
+
+  config_path <- file.path(config_dir, "admin-refresh.json")
+  jsonlite::write_json(
+    list(
+      shared_root = shared_root,
+      redcap_url = "https://redcap.example.org/api/",
+      keyring = "bach-exporter-admin",
+      project_alias = "bach-exporter",
+      connection_name = "rcon_admin",
+      schema_snapshot_only = FALSE,
+      record_probe_only = TRUE,
+      probe_records = c("10000", "10001")
+    ),
+    config_path,
+    auto_unbox = TRUE,
+    pretty = TRUE
+  )
+
+  fake_api <- list(
+    export_project_info = function(rcon) {
+      expect_equal(rcon$label, "fake-rcon")
+      list(
+        project_id = 101,
+        project_title = "BACH",
+        project_pi_firstname = "Private",
+        project_pi_lastname = "Person",
+        project_pi_email = "private@example.org"
+      )
+    },
+    export_events = function(rcon) {
+      expect_equal(rcon$label, "fake-rcon")
+      data.frame(
+        event_name = c("Baseline", "Year 2"),
+        arm_num = c(1, 1),
+        stringsAsFactors = FALSE
+      )
+    },
+    export_instruments = function(rcon) {
+      expect_equal(rcon$label, "fake-rcon")
+      data.frame(
+        instrument_name = c("participant", "participant_screening"),
+        instrument_label = c("Participant", "Participant Screening"),
+        stringsAsFactors = FALSE
+      )
+    },
+    export_field_names = function(rcon) {
+      expect_equal(rcon$label, "fake-rcon")
+      data.frame(
+        original_field_name = c("idno", "age", "sex"),
+        export_field_name = c("idno", "age", "sex"),
+        stringsAsFactors = FALSE
+      )
+    },
+    export_metadata = function(rcon) {
+      expect_equal(rcon$label, "fake-rcon")
+      data.frame(
+        field_name = c("idno", "age", "sex"),
+        form_name = c("participant", "participant", "participant"),
+        field_type = c("text", "calc", "radio"),
+        field_label = c("ID", "Age", "Sex"),
+        stringsAsFactors = FALSE
+      )
+    },
+    export_records_typed = function(
+      rcon,
+      records = NULL,
+      cast = list(),
+      validation = list(),
+      warn_zero_coded = TRUE,
+      ...
+    ) {
+      expect_equal(rcon$label, "fake-rcon")
+      expect_equal(records, c("10000", "10001"))
+      expect_false(warn_zero_coded)
+      expect_identical(validation, redcapAPI::skip_validation)
+
+      if (identical(cast, redcapAPI::default_cast_character)) {
+        return(data.frame(
+          idno = c("BACH001", "BACH002"),
+          age = c("70", "71"),
+          sex = c("Female", "Male"),
+          stringsAsFactors = FALSE
+        ))
+      }
+
+      expect_identical(cast, redcapAPI::raw_cast)
+      data.frame(
+        idno = c("BACH001", "BACH002"),
+        age = c("70", "71"),
+        sex = c("1", "2"),
+        stringsAsFactors = FALSE
+      )
+    },
+    raw_cast = redcapAPI::raw_cast,
+    default_cast_character = redcapAPI::default_cast_character,
+    skip_validation = redcapAPI::skip_validation
+  )
+
+  unlock_calls <- 0L
+  messages <- character()
+  runtime <- list(
+    load_dotenv = function(path = ".env") FALSE,
+    read_config = function() {
+      be_admin_refresh_config(config_path = config_path)
+    },
+    validate_config = be_validate_admin_refresh_config,
+    build_plan = be_admin_refresh_plan,
+    package_available = function(package) {
+      expect_equal(package, "redcapAPI")
+      TRUE
+    },
+    init_keyring = function(config) {
+      stop("init_keyring should not be called", call. = FALSE)
+    },
+    execute_refresh = function(config) {
+      local_env <- new.env(parent = emptyenv())
+      unlocker <- function(config, envir = parent.frame()) {
+        unlock_calls <<- unlock_calls + 1L
+        assign(config$connection_name, list(label = "fake-rcon"), envir = envir)
+        invisible(NULL)
+      }
+
+      be_admin_execute_refresh(
+        config = config,
+        envir = local_env,
+        api = fake_api,
+        snapshot_time = as.POSIXct("2026-03-21 01:23:45", tz = "UTC"),
+        unlocker = unlocker
+      )
+    },
+    inform = function(...) {
+      messages <<- c(messages, paste(..., collapse = " "))
+      invisible(NULL)
+    }
+  )
+
+  result <- script_env$refresh_snapshots_main(
+    args = "--execute",
+    runtime = runtime
+  )
+
+  schema_metadata <- jsonlite::read_json(
+    result$result$schema$paths$metadata,
+    simplifyVector = TRUE
+  )
+  records_metadata <- jsonlite::read_json(
+    result$result$records$paths$metadata,
+    simplifyVector = TRUE
+  )
+  snapshot_index <- jsonlite::read_json(
+    result$result$snapshot_index$path,
+    simplifyVector = TRUE
+  )
+  raw <- utils::read.csv(
+    result$result$records$paths$raw,
+    stringsAsFactors = FALSE
+  )
+  labels <- utils::read.csv(
+    result$result$records$paths$labels,
+    stringsAsFactors = FALSE
+  )
+
+  expect_equal(result$mode, "execute")
+  expect_equal(unlock_calls, 1L)
+  expect_true(file.exists(file.path(
+    shared_root,
+    "snapshots",
+    "redcap",
+    "schema",
+    "metadata.json"
+  )))
+  expect_true(file.exists(file.path(
+    shared_root,
+    "snapshots",
+    "redcap",
+    "raw.csv"
+  )))
+  expect_true(file.exists(file.path(
+    shared_root,
+    "snapshots",
+    "sidecars",
+    "snapshot-index.json"
+  )))
+  expect_equal(schema_metadata$snapshot_type, "schema")
+  expect_equal(schema_metadata$counts$field_names, 3)
+  expect_false(
+    "project_pi_email" %in%
+      names(jsonlite::read_json(
+        result$result$schema$paths$project_info,
+        simplifyVector = TRUE
+      ))
+  )
+  expect_equal(records_metadata$snapshot_type, "records")
+  expect_equal(records_metadata$probe$probe_records, c("10000", "10001"))
+  expect_equal(snapshot_index$families, "redcap")
+  expect_equal(snapshot_index$snapshots$redcap$metadata, "metadata.json")
+  expect_equal(
+    snapshot_index$snapshots$redcap$schema_metadata,
+    file.path("schema", "metadata.json")
+  )
+  expect_equal(raw$idno, c("BACH001", "BACH002"))
+  expect_equal(labels$sex, c("Female", "Male"))
+  expect_true(any(grepl("Executing REDCap snapshot refresh\\.", messages)))
+  expect_true(any(grepl("REDCap snapshot refresh complete\\.", messages)))
 })

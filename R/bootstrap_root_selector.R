@@ -14,7 +14,7 @@ be_bootstrap_shared_root_app <- function(on_success = NULL) {
       class = "bootstrap-wrap",
       shiny::h2("Locate Shared BACH Exporter Folder"),
       shiny::p(
-        "Choose the shared-drive root folder. The app will derive the active release and snapshot paths from this root."
+        "Choose the shared-drive root folder. The app will derive the shared app bundle and snapshot paths from this root."
       ),
       shiny::textInput(
         "shared_root",
@@ -70,7 +70,7 @@ be_bootstrap_shared_root_app <- function(on_success = NULL) {
       css_class <- if (isTRUE(result$ok)) "status-ok" else "status-bad"
       shiny::tagList(
         shiny::p(class = css_class, result$message),
-        if (isTRUE(result$ok)) shiny::tags$code(result$paths$release_root)
+        if (isTRUE(result$ok)) shiny::tags$code(result$paths$app_root)
       )
     })
 
