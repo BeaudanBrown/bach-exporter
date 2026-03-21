@@ -107,18 +107,11 @@ be_build_biomarkers_domain <- function(redcap_df, shared_root, years = NULL) {
       ab40_csf <- suppressWarnings(as.numeric(row$ab40_mean_conc_csf %||% NA))
       ab42_csf <- suppressWarnings(as.numeric(row$ab42_mean_conc_csf %||% NA))
 
-      row$ab4240ratio_plasma <- if (
-        !is.na(ab40_plasma) && !identical(ab40_plasma, 0)
-      ) {
-        ab42_plasma / ab40_plasma
-      } else {
-        NA_real_
-      }
-      row$ab4240ratio_csf <- if (!is.na(ab40_csf) && !identical(ab40_csf, 0)) {
-        ab42_csf / ab40_csf
-      } else {
-        NA_real_
-      }
+      row$ab4240ratio_plasma <- be_compute_ab42_40_ratio(
+        ab42_plasma,
+        ab40_plasma
+      )
+      row$ab4240ratio_csf <- be_compute_ab42_40_ratio(ab42_csf, ab40_csf)
 
       as.data.frame(row, stringsAsFactors = FALSE)
     }

@@ -29,34 +29,6 @@ be_build_mmse_domain <- function(redcap_df, years = NULL) {
   )
 }
 
-be_sum_until_three_zeros <- function(row) {
-  if (is.character(row)) {
-    row <- ifelse(
-      row == "Yes",
-      1,
-      ifelse(
-        row == "No",
-        0,
-        suppressWarnings(as.numeric(row))
-      )
-    )
-  }
-
-  row <- suppressWarnings(as.numeric(row))
-  row[is.na(row)] <- 0
-
-  runs <- rle(row)
-  zero_runs <- which(runs$values == 0 & runs$lengths >= 3)
-  if (!length(zero_runs)) {
-    return(sum(row))
-  }
-
-  end_pos <- cumsum(runs$lengths)[zero_runs[[1]]] -
-    runs$lengths[[zero_runs[[1]]]] +
-    3
-  sum(row[seq_len(end_pos)])
-}
-
 be_build_sydbat_domain <- function(redcap_df, years = NULL) {
   be_build_event_field_domain(
     redcap_df = redcap_df,
@@ -123,8 +95,9 @@ be_build_tmt_domain <- function(redcap_df, years = NULL) {
   }
 
   if (all(c("tmt_a_time", "tmt_b_time") %in% names(tmt))) {
-    tmt$tmtbminusa <- suppressWarnings(
-      as.numeric(tmt$tmt_b_time) - as.numeric(tmt$tmt_a_time)
+    tmt$tmtbminusa <- be_compute_tmt_b_minus_a(
+      tmt$tmt_b_time,
+      tmt$tmt_a_time
     )
   }
 
@@ -227,7 +200,7 @@ be_build_topf_domain <- function(redcap_df, years = NULL) {
       }
 
       if (length(available_topf_fields)) {
-        topf$topf_total_corrected <- be_sum_until_three_zeros(
+        topf$topf_total_corrected <- be_compute_topf_total_corrected(
           vapply(
             available_topf_fields,
             function(field) as.character(be_first_nonempty(df[[field]])),

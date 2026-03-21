@@ -78,18 +78,17 @@ be_build_bloods_domain <- function(redcap_df, years = NULL) {
   }
 
   if (all(c("bloods_chol", "bloods_chol_hdl") %in% names(bloods))) {
-    bloods$bloods_cholratio <- suppressWarnings(
-      as.numeric(bloods$bloods_chol) / as.numeric(bloods$bloods_chol_hdl)
+    bloods$bloods_cholratio <- be_compute_ratio(
+      bloods$bloods_chol,
+      bloods$bloods_chol_hdl
     )
   }
 
   if (all(c("bloods_triglyc", "bloods_glucose_fasting") %in% names(bloods))) {
-    trig_mgdl <- suppressWarnings(as.numeric(bloods$bloods_triglyc)) * 88.545
-    glucose_mgdl <- suppressWarnings(as.numeric(
+    bloods$bloods_tygindex <- be_compute_tyg_index(
+      bloods$bloods_triglyc,
       bloods$bloods_glucose_fasting
-    )) *
-      18.0
-    bloods$bloods_tygindex <- log((trig_mgdl * glucose_mgdl) / 2)
+    )
   }
 
   bloods <- be_drop_empty_columns(bloods)
@@ -142,25 +141,21 @@ be_build_vitals_domain <- function(redcap_df, years = NULL) {
     return(vitals)
   }
 
-  pwv1 <- suppressWarnings(as.numeric(vitals$vitals_pwv_1 %||% NA))
-  pwv2 <- suppressWarnings(as.numeric(vitals$vitals_pwv_2 %||% NA))
-  pwv3 <- suppressWarnings(as.numeric(vitals$vitals_pwv_3 %||% NA))
-  pwv_mean <- suppressWarnings(as.numeric(vitals$vitals_pwv_mean %||% NA))
-  computed_mean <- ifelse(
-    !is.na(pwv3),
-    (pwv1 + pwv2 + pwv3) / 3,
-    ifelse(
-      !is.na(pwv2),
-      (pwv1 + pwv2) / 2,
-      pwv1
-    )
+  vitals$vitals_pwv_mean <- be_compute_pwv_mean(
+    vitals$vitals_pwv_1 %||% NA,
+    vitals$vitals_pwv_2 %||% NA,
+    vitals$vitals_pwv_3 %||% NA,
+    vitals$vitals_pwv_mean %||% NA
   )
-  vitals$vitals_pwv_mean <- ifelse(is.na(pwv_mean), computed_mean, pwv_mean)
 
-  mean_sys <- suppressWarnings(as.numeric(vitals$vitals_lying_mean_sys %||% NA))
-  mean_dia <- suppressWarnings(as.numeric(vitals$vitals_lying_mean_dia %||% NA))
-  vitals$vitals_map <- mean_dia + ((1 / 3) * (mean_sys - mean_dia))
-  vitals$vitals_pulsepressure <- mean_sys - mean_dia
+  vitals$vitals_map <- be_compute_mean_arterial_pressure(
+    vitals$vitals_lying_mean_sys %||% NA,
+    vitals$vitals_lying_mean_dia %||% NA
+  )
+  vitals$vitals_pulsepressure <- be_compute_pulse_pressure(
+    vitals$vitals_lying_mean_sys %||% NA,
+    vitals$vitals_lying_mean_dia %||% NA
+  )
 
   vitals <- be_drop_empty_columns(vitals)
   rownames(vitals) <- NULL

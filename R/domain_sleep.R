@@ -282,26 +282,6 @@ be_psg_full_field_map <- function() {
   )
 }
 
-be_normalize_psg_rswa <- function(x, cat_labels = c("named", "numbered")) {
-  cat_labels <- match.arg(cat_labels)
-  values <- trimws(as.character(x))
-  values[!nzchar(values)] <- NA_character_
-
-  if (cat_labels == "named") {
-    return(ifelse(
-      grepl("yes", values, ignore.case = TRUE),
-      "Yes",
-      ifelse(grepl("no", values, ignore.case = TRUE), "No", NA_character_)
-    ))
-  }
-
-  ifelse(
-    grepl("yes", values, ignore.case = TRUE),
-    1,
-    ifelse(grepl("no", values, ignore.case = TRUE), 0, NA_real_)
-  )
-}
-
 be_build_psg_external_domain <- function(
   redcap_df,
   shared_root,
@@ -385,20 +365,6 @@ be_build_psg_full_domain <- function(
   )
 }
 
-be_normalize_psg_powerspec_id <- function(x) {
-  values <- trimws(as.character(x))
-  values[!nzchar(values)] <- NA_character_
-  values <- gsub("^BACH", "", values, ignore.case = TRUE)
-  values <- gsub("_[0-9]{8}$", "", values)
-  values
-}
-
-be_normalize_psg_channel_name <- function(x) {
-  values <- trimws(as.character(x))
-  values[!nzchar(values)] <- NA_character_
-  gsub("_", "", values, fixed = TRUE)
-}
-
 be_build_psg_powerspec_domain <- function(
   redcap_df,
   shared_root,
@@ -436,19 +402,7 @@ be_build_psg_powerspec_domain <- function(
 
   grouped_rows <- lapply(
     split(powerspec, powerspec$participant_id),
-    function(df) {
-      row <- list(participant_id = df$participant_id[[1]])
-      for (i in seq_len(nrow(df))) {
-        suffix <- paste(df$B[[i]], df$CH[[i]], df$stage[[i]], sep = "_")
-        if ("PSD" %in% names(df)) {
-          row[[paste("PSD", suffix, sep = "_")]] <- df$PSD[[i]]
-        }
-        if ("RELPSD" %in% names(df)) {
-          row[[paste("RELPSD", suffix, sep = "_")]] <- df$RELPSD[[i]]
-        }
-      }
-      as.data.frame(row, stringsAsFactors = FALSE)
-    }
+    be_widen_psg_powerspec_rows
   )
 
   powerspec_wide <- be_bind_rows_fill(grouped_rows)
