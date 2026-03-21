@@ -25,15 +25,33 @@ be_build_core_scaffold_domain <- function(redcap_df, years = NULL) {
     return(data.frame(participant_id = character(), stringsAsFactors = FALSE))
   }
 
-  scaffold <- unique(data.frame(
-    participant_id = redcap_df$participant_id,
-    subject_id = redcap_df$participant_id,
-    event_name = redcap_df$event_name,
-    session = redcap_df$event_name,
-    year = redcap_df$year,
-    session_date = be_coalesce_columns(redcap_df, c("pa_date", "pp_date")),
-    stringsAsFactors = FALSE
-  ))
+  grouped_rows <- lapply(
+    split(
+      redcap_df,
+      interaction(
+        redcap_df$participant_id,
+        redcap_df$event_name,
+        redcap_df$year,
+        drop = TRUE
+      )
+    ),
+    function(df) {
+      data.frame(
+        participant_id = df$participant_id[[1]],
+        subject_id = df$participant_id[[1]],
+        event_name = df$event_name[[1]],
+        session = df$event_name[[1]],
+        year = df$year[[1]],
+        session_date = be_first_nonempty(be_coalesce_columns(
+          df,
+          c("pa_date", "pp_date")
+        )),
+        stringsAsFactors = FALSE
+      )
+    }
+  )
+
+  scaffold <- do.call(rbind, grouped_rows)
 
   scaffold <- be_drop_empty_columns(scaffold)
   rownames(scaffold) <- NULL

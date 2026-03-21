@@ -124,6 +124,8 @@ make_export_shared_root <- function() {
   export_snapshot <- data.frame(
     idno = c("BACH001", "BACH002", "BACH002"),
     redcap_event_name = c("Baseline", "Baseline", "Year 2"),
+    redcap_repeat_instrument = c(NA, NA, NA),
+    redcap_repeat_instance = c(NA, NA, NA),
     age = c(70, 71, NA),
     sex = c("F", "M", NA),
     highest_education = c("College", "TAFE", NA),
@@ -448,6 +450,44 @@ make_export_shared_root <- function() {
     isi_date = c("2026-01-11", "2026-01-12", "2027-01-12"),
     isi_tot_co = c(5, 11, 18),
     isi_tot_ca = c("No insomnia", "Subthreshold", "Moderate"),
+    pp_status_sleep = c("Collected", "Ineligible", "Collected"),
+    pp_status_sleep_in = c("", "Shift work", ""),
+    pp_date_sleep = c("2026-01-13", "2026-01-14", "2027-01-14"),
+    pp_time = c(2, NA, 1),
+    scr_1w_date = c("2026-01-06", "2026-01-07", "2027-01-07"),
+    scr_1w_shi_work = c("No", "Yes", "No"),
+    scr_1w_treat_ap = c("No", "Yes", "No"),
+    sleephealth_date = c("2026-01-13", "2026-01-14", "2027-01-14"),
+    sleephealth_site_adm = c("Clayton", "Alfred", "Clayton"),
+    sleephealth_ess_tot = c(6, 12, 9),
+    ms_date = c("2026-01-14", "2026-01-15", "2027-01-15"),
+    ms_bed_time = c("22:15", "23:00", "22:45"),
+    ms_lights_out = c("22:30", "23:15", "23:00"),
+    ms_slp_time = c("22:45", "23:45", "23:20"),
+    ms_wake_time = c("06:30", "07:15", "06:50"),
+    ms_lights_on = c("06:45", "07:30", "07:00"),
+    ms_slp_dur_hr = c(7, 6, 6),
+    ms_slp_dur_min = c(45, 10, 50),
+    ms_compare_slp_dur = c("Same", "Shorter", "Same"),
+    ms_light_deep = c("Moderate", "Light", "Deep"),
+    ms_short_long = c("Average", "Short", "Average"),
+    ms_restless_restful = c("Restful", "Restless", "Restful"),
+    ms_compare_slp = c("Same", "Worse", "Better"),
+    ms_diff_fall_aslp = c("No", "Yes", "No"),
+    ms_min_fall_aslp = c(15, 40, 20),
+    ms_compare_fall_dur = c("Same", "Longer", "Shorter"),
+    ms_alc = c("No", "Yes", "No"),
+    ms_alc_beer = c(0, 1, 0),
+    ms_alc_wine = c(0, 0, 0),
+    ms_alc_mixed = c(0, 1, 0),
+    ms_caffeine = c("Yes", "Yes", "No"),
+    ms_caff_coff = c(1, 2, 0),
+    ms_caff_tea = c(0, 1, 0),
+    ms_caff_soda = c(0, 0, 0),
+    ms_smk = c("No", "Yes", "No"),
+    ms_smk_freq = c(NA, "1", NA),
+    ms_discomfort = c("None", "Back pain", "None"),
+    ms_time_finish = c("06:50", "07:35", "07:05"),
     prose_passage = c("Passage A", "Passage B", "Passage A"),
     prose_time = c(90, 95, 100),
     prose_s1_imm_story = c(20, 18, 24),
@@ -548,6 +588,25 @@ make_export_shared_root <- function() {
   export_snapshot$acti_we_outb <- c(452, 425, 398)
   export_snapshot$acti_we_tot_slp <- c(420, 392, 364)
   export_snapshot$acti_we_slp_eff <- c(91, 87, 83)
+
+  psg_sleepmed_rows <- data.frame(
+    idno = c("BACH001", "BACH002", "BACH002"),
+    redcap_event_name = c("Baseline", "Baseline", "Year 2"),
+    redcap_repeat_instrument = rep(
+      "Sleep Medications In Last Two Weeks",
+      3
+    ),
+    redcap_repeat_instance = c(1, 1, 2),
+    m2w_med_name = c("Melatonin", "Temazepam", "Zolpidem"),
+    m2w_med_streng_pres = c("2 mg", "10 mg", "5 mg"),
+    m2w_med_dose_pres = c("Nightly", "PRN", "Nightly"),
+    m2w_med_freq_pres = c("1 tablet", "1 capsule", "1 tablet"),
+    m2w_med_dose_taken = c("Nightly", "PRN", "Nightly"),
+    m2w_med_freq_taken = c("1 tablet", "1 capsule", "1 tablet"),
+    m2w_med_atc = c("N05CH01", "N05CD07", "N05CF02"),
+    stringsAsFactors = FALSE
+  )
+  export_snapshot <- be_bind_rows_fill(list(export_snapshot, psg_sleepmed_rows))
 
   utils::write.csv(
     export_snapshot,
@@ -1493,6 +1552,58 @@ test_that("run_export supports LP domain", {
   expect_equal(
     export_df$lp_notes_detail,
     c(NA, "No sample collected", "Tolerated well")
+  )
+})
+
+test_that("run_export supports PSG questionnaire and screening domains", {
+  shared_root <- make_export_shared_root()
+  on.exit(unlink(shared_root, recursive = TRUE), add = TRUE)
+
+  output_dir <- tempfile("export-dir-")
+  dir.create(output_dir, recursive = TRUE)
+  on.exit(unlink(output_dir, recursive = TRUE), add = TRUE)
+
+  spec <- be_default_export_spec(shared_root = shared_root)
+  spec$output$path <- file.path(output_dir, "psg-questionnaires.csv")
+  spec$domains <- c(
+    "participants",
+    "psg_screening",
+    "psg_sleephealth",
+    "psg_sleepmed",
+    "psg_morningquest"
+  )
+  spec$cohort$years <- c("baseline", "year2")
+
+  result <- run_export(
+    spec,
+    refresh_mode = "auto"
+  )
+
+  export_df <- utils::read.csv(
+    result$output,
+    stringsAsFactors = FALSE,
+    check.names = FALSE
+  )
+
+  expect_equal(export_df$participant_id, c(1, 2, 2))
+  expect_equal(
+    export_df$psg_collected,
+    c("Collected", "Ineligible", "Collected")
+  )
+  expect_equal(export_df$psg_ineligible_detail, c(NA, "Shift work", NA))
+  expect_equal(export_df$psg_sleephealth_total, c(6, 12, 9))
+  expect_equal(export_df$psg_medication_name_med_psg_01[[1]], "Melatonin")
+  expect_equal(export_df$psg_medication_name_med_psg_01[[2]], "Temazepam")
+  expect_equal(export_df$psg_medication_name_med_psg_02[[3]], "Zolpidem")
+  expect_equal(export_df$psg_medication_atc_med_psg_02[[3]], "N05CF02")
+  expect_equal(
+    export_df$psg_morningquest_sleep_depth,
+    c("Moderate", "Light", "Deep")
+  )
+  expect_equal(export_df$psg_morningquest_caffiene_coffee, c(1, 2, 0))
+  expect_equal(
+    export_df$psg_morningquest_discomfort,
+    c("None", "Back pain", "None")
   )
 })
 

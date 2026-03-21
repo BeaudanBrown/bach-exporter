@@ -61,6 +61,185 @@ be_build_isi_domain <- function(redcap_df, years = NULL) {
   )
 }
 
+be_build_psg_screening_domain <- function(redcap_df, years = NULL) {
+  be_build_event_field_domain(
+    redcap_df = redcap_df,
+    years = years,
+    field_map = c(
+      psg_collected = "pp_status_sleep",
+      psg_ineligible_detail = "pp_status_sleep_in",
+      psg_date = "pp_date_sleep",
+      psg_acti_diff = "pp_time",
+      psg_screen_1week_date = "scr_1w_date",
+      psg_shiftwork = "scr_1w_shi_work",
+      psg_osa_treat = "scr_1w_treat_ap"
+    )
+  )
+}
+
+be_build_psg_sleephealth_domain <- function(redcap_df, years = NULL) {
+  be_build_event_field_domain(
+    redcap_df = redcap_df,
+    years = years,
+    field_map = c(
+      psg_sleephealth_date = "sleephealth_date",
+      psg_sleephealth_site = "sleephealth_site_adm",
+      psg_sleephealth_total = "sleephealth_ess_tot"
+    )
+  )
+}
+
+be_build_psg_morningquest_domain <- function(redcap_df, years = NULL) {
+  be_build_event_field_domain(
+    redcap_df = redcap_df,
+    years = years,
+    field_map = c(
+      psg_morningquest_date = "ms_date",
+      psg_morningquest_bed_time = "ms_bed_time",
+      psg_morningquest_lights_out = "ms_lights_out",
+      psg_morningquest_sleeponset = "ms_slp_time",
+      psg_morningquest_sleepoffset = "ms_wake_time",
+      psg_morningquest_lights_on = "ms_lights_on",
+      psg_morningquest_duration_hr = "ms_slp_dur_hr",
+      psg_morningquest_duration_minutes = "ms_slp_dur_min",
+      psg_morningquest_compare_normal_dur = "ms_compare_slp_dur",
+      psg_morningquest_sleep_depth = "ms_light_deep",
+      psg_morningquest_sleep_length = "ms_short_long",
+      psg_morningquest_sleep_restfulness = "ms_restless_restful",
+      psg_morningquest_compare_normal_qual = "ms_compare_slp",
+      psg_morningquest_difficulty_fall_asleep = "ms_diff_fall_aslp",
+      psg_morningquest_minutes_fall_asleep = "ms_min_fall_aslp",
+      psg_morningquest_compare_normal_fall_asleep = "ms_compare_fall_dur",
+      psg_morningquest_alcohol = "ms_alc",
+      psg_morningquest_alcohol_beer = "ms_alc_beer",
+      psg_morningquest_alcohol_wine = "ms_alc_wine",
+      psg_morningquest_alcohol_mixed = "ms_alc_mixed",
+      psg_morningquest_caffeine = "ms_caffeine",
+      psg_morningquest_caffiene_coffee = "ms_caff_coff",
+      psg_morningquest_caffiene_tea = "ms_caff_tea",
+      psg_morningquest_caffiene_soda = "ms_caff_soda",
+      psg_morningquest_smoke = "ms_smk",
+      psg_morningquest_smoke_freq = "ms_smk_freq",
+      psg_morningquest_discomfort = "ms_discomfort",
+      psg_morningquest_time = "ms_time_finish"
+    )
+  )
+}
+
+be_psg_medication_repeat_labels <- function() {
+  "Sleep Medications In Last Two Weeks"
+}
+
+be_build_psg_sleepmed_domain <- function(redcap_df, years = NULL) {
+  redcap_df <- be_prepare_redcap_snapshot(redcap_df)
+  redcap_df <- be_filter_years(redcap_df, years)
+
+  if (!"redcap_repeat_instrument" %in% names(redcap_df)) {
+    return(data.frame(participant_id = character(), stringsAsFactors = FALSE))
+  }
+
+  repeat_instrument <- trimws(as.character(redcap_df$redcap_repeat_instrument))
+  medication_rows <- redcap_df[
+    repeat_instrument %in% be_psg_medication_repeat_labels(),
+    ,
+    drop = FALSE
+  ]
+  if (!nrow(medication_rows)) {
+    return(data.frame(participant_id = character(), stringsAsFactors = FALSE))
+  }
+
+  medication_rows$repeat_instance <- if (
+    "redcap_repeat_instance" %in% names(medication_rows)
+  ) {
+    be_clean_repeat_instance(medication_rows$redcap_repeat_instance)
+  } else {
+    rep(NA_character_, nrow(medication_rows))
+  }
+
+  result <- data.frame(
+    participant_id = medication_rows$participant_id,
+    event_name = medication_rows$event_name,
+    year = medication_rows$year,
+    repeat_instance = medication_rows$repeat_instance,
+    psg_medication_name = be_column_or_na(medication_rows, "m2w_med_name"),
+    psg_medication_dose = be_column_or_na(
+      medication_rows,
+      "m2w_med_streng_pres"
+    ),
+    psg_medication_freq_presc = be_column_or_na(
+      medication_rows,
+      "m2w_med_dose_pres"
+    ),
+    psg_medication_dosenumber_presc = be_column_or_na(
+      medication_rows,
+      "m2w_med_freq_pres"
+    ),
+    psg_medication_freq_taken = be_column_or_na(
+      medication_rows,
+      "m2w_med_dose_taken"
+    ),
+    psg_medication_dosenumber_taken = be_column_or_na(
+      medication_rows,
+      "m2w_med_freq_taken"
+    ),
+    psg_medication_atc = be_column_or_na(medication_rows, "m2w_med_atc"),
+    stringsAsFactors = FALSE
+  )
+
+  grouped <- split(
+    result,
+    interaction(
+      result$participant_id,
+      result$event_name,
+      result$year,
+      drop = TRUE
+    )
+  )
+
+  wide_rows <- lapply(grouped, function(medication_rows) {
+    key <- medication_rows[
+      1,
+      c("participant_id", "event_name", "year"),
+      drop = FALSE
+    ]
+    row <- list(
+      participant_id = key$participant_id[[1]],
+      event_name = key$event_name[[1]],
+      year = key$year[[1]]
+    )
+
+    instances <- suppressWarnings(as.integer(medication_rows$repeat_instance))
+    fallback_instances <- seq_len(nrow(medication_rows))
+    normalized_instances <- ifelse(
+      is.na(instances),
+      fallback_instances,
+      instances
+    )
+    order_index <- order(normalized_instances)
+    medication_rows <- medication_rows[order_index, , drop = FALSE]
+    normalized_instances <- normalized_instances[order_index]
+
+    value_columns <- setdiff(
+      names(medication_rows),
+      c("participant_id", "event_name", "year", "repeat_instance")
+    )
+    for (i in seq_len(nrow(medication_rows))) {
+      suffix <- sprintf("med_psg_%02d", normalized_instances[[i]])
+      for (column in value_columns) {
+        row[[paste(column, suffix, sep = "_")]] <- medication_rows[[column]][[
+          i
+        ]]
+      }
+    }
+
+    as.data.frame(row, stringsAsFactors = FALSE)
+  })
+
+  wide <- be_bind_rows_fill(wide_rows)
+  wide <- be_drop_empty_columns(wide)
+  unique(wide)
+}
+
 be_actigraphy_summary_field_map <- function() {
   c(
     acti_nightsrecorded = "acti_watch_num",
