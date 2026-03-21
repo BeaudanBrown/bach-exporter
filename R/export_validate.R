@@ -112,6 +112,7 @@ be_validate_export_spec <- function(spec) {
     "mri_screening",
     "mri",
     "lp_screening",
+    "lp",
     "moca",
     "ad8",
     "ucla",

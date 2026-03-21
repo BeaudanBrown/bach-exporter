@@ -64,3 +64,19 @@ be_build_mri_domain <- function(redcap_df, shared_root, years = NULL) {
   mri <- be_drop_empty_columns(mri)
   unique(mri)
 }
+
+be_build_lp_domain <- function(redcap_df, years = NULL) {
+  be_build_event_field_domain(
+    redcap_df,
+    years = years,
+    field_map = c(
+      lp_complete = "lp_successful",
+      lp_date = "lp_date",
+      lp_time = "lp_time",
+      lp_fail_reason = "lp_successful_n",
+      lp_fail_other = "lp_successful_n_other",
+      lp_notes = "lp_notes",
+      lp_notes_detail = "lp_notes_y"
+    )
+  )
+}

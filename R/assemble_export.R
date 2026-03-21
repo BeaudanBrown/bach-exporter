@@ -47,6 +47,7 @@ be_assemble_export <- function(spec, shared_root) {
     "mri_screening",
     "mri",
     "lp_screening",
+    "lp",
     "moca",
     "ad8",
     "ucla",
@@ -189,6 +190,20 @@ be_assemble_export <- function(spec, shared_root) {
       lp_screening
     } else {
       be_merge_event_domain(output, lp_screening)
+    }
+  }
+
+  if ("lp" %in% domains) {
+    lp <- be_build_lp_domain(
+      redcap_df = redcap_df,
+      years = spec$cohort$years %||% NULL
+    )
+    lp <- be_filter_participants(lp, participant_ids = participant_ids)
+
+    output <- if (is.null(output)) {
+      lp
+    } else {
+      be_merge_event_domain(output, lp)
     }
   }
 

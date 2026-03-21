@@ -79,6 +79,7 @@ be_app_ui <- function() {
                   "MRI Screening" = "mri_screening",
                   "MRI" = "mri",
                   "LP Screening" = "lp_screening",
+                  "Lumbar Puncture" = "lp",
                   "MoCA" = "moca",
                   "AD8" = "ad8",
                   "UCLA Loneliness" = "ucla",

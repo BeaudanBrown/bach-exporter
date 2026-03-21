@@ -138,6 +138,13 @@ make_export_shared_root <- function() {
     tele_total = c(28, 27, 26),
     mri_date = c("2026-01-06", "2026-01-07", NA),
     mri_time = c("10:00", "10:30", NA),
+    lp_successful = c("Yes", "No", "Yes"),
+    lp_date = c("2026-01-08", "2026-01-09", "2027-01-09"),
+    lp_time = c("11:00", "11:30", "11:15"),
+    lp_successful_n = c(NA, "Participant declined", NA),
+    lp_successful_n_other = c(NA, "Too anxious", NA),
+    lp_notes = c("Clear CSF", "", "Repeat procedure"),
+    lp_notes_y = c("", "No sample collected", "Tolerated well"),
     moca_total = c(25, 24, 23),
     ad8_who = c("Self", "Spouse", "Child"),
     ad8_date = c("2026-01-01", "2026-01-02", "2027-01-02"),
@@ -864,6 +871,31 @@ test_that("MRI domain merges baseline REDCap fields with shared side-data", {
   expect_equal(result$hippo_left, c(3.2, 2.9))
 })
 
+test_that("LP domain maps REDCap event fields using legacy names", {
+  shared_root <- make_export_shared_root()
+  on.exit(unlink(shared_root, recursive = TRUE), add = TRUE)
+
+  redcap_df <- utils::read.csv(
+    file.path(shared_root, "snapshots", "redcap", "raw.csv"),
+    stringsAsFactors = FALSE
+  )
+
+  result <- be_build_lp_domain(
+    redcap_df = redcap_df,
+    years = c("baseline", "year2")
+  )
+
+  expect_equal(result$participant_id, c("001", "002", "002"))
+  expect_equal(result$year, c("baseline", "baseline", "year2"))
+  expect_equal(result$lp_complete, c("Yes", "No", "Yes"))
+  expect_equal(result$lp_fail_reason, c(NA, "Participant declined", NA))
+  expect_equal(result$lp_fail_other, c(NA, "Too anxious", NA))
+  expect_equal(
+    result$lp_notes_detail,
+    c(NA, "No sample collected", "Tolerated well")
+  )
+})
+
 test_that("annual-phone MoCA, AD8, and UCLA domains map legacy fields by year", {
   redcap_df <- data.frame(
     idno = c("BACH001", "BACH001", "BACH002"),
@@ -1424,6 +1456,44 @@ test_that("run_export supports MRI domain with baseline-wide side-data merge", {
   expect_equal(export_df$brainvol_novent, c(1100.5, 1048.2, NA))
   expect_equal(export_df$hippo_right, c(3.4, 3.0, NA))
   expect_equal(export_df$wm_hypoint, c(12.1, 18.4, NA))
+})
+
+test_that("run_export supports LP domain", {
+  shared_root <- make_export_shared_root()
+  on.exit(unlink(shared_root, recursive = TRUE), add = TRUE)
+
+  output_dir <- tempfile("export-dir-")
+  dir.create(output_dir, recursive = TRUE)
+  on.exit(unlink(output_dir, recursive = TRUE), add = TRUE)
+
+  spec <- be_default_export_spec(shared_root = shared_root)
+  spec$output$path <- file.path(output_dir, "lp.csv")
+  spec$domains <- c("participants", "lp")
+  spec$cohort$years <- c("baseline", "year2")
+
+  result <- run_export(
+    spec,
+    refresh_mode = "auto"
+  )
+
+  export_df <- utils::read.csv(
+    result$output,
+    stringsAsFactors = FALSE,
+    check.names = FALSE
+  )
+
+  expect_equal(export_df$participant_id, c(1, 2, 2))
+  expect_equal(export_df$year, c("baseline", "baseline", "year2"))
+  expect_equal(export_df$lp_complete, c("Yes", "No", "Yes"))
+  expect_equal(export_df$lp_date, c("2026-01-08", "2026-01-09", "2027-01-09"))
+  expect_equal(export_df$lp_time, c("11:00", "11:30", "11:15"))
+  expect_equal(export_df$lp_fail_reason, c(NA, "Participant declined", NA))
+  expect_equal(export_df$lp_fail_other, c(NA, "Too anxious", NA))
+  expect_equal(export_df$lp_notes, c("Clear CSF", NA, "Repeat procedure"))
+  expect_equal(
+    export_df$lp_notes_detail,
+    c(NA, "No sample collected", "Tolerated well")
+  )
 })
 
 test_that("run_export supports CDR and MMSE neuropsych domains", {
