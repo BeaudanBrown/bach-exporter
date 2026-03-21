@@ -25,7 +25,7 @@ run_export <- function(
       spec = spec,
       shared_root = validation$paths$shared_root,
       refresh_mode = refresh_mode,
-      release_id = validation$paths$release_id
+      build_id = validation$paths$build_id
     )
   } else {
     list(

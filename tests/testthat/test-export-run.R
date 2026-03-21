@@ -22,48 +22,66 @@ source(file.path("..", "..", "R", "targets_graph.R"))
 source(file.path("..", "..", "R", "export_pipeline.R"))
 source(file.path("..", "..", "R", "export_run.R"))
 
+populate_test_shared_app <- function(shared_root, build_id = "dev") {
+  app_root <- file.path(shared_root, "app")
+  dir.create(file.path(app_root, "R"), recursive = TRUE, showWarnings = FALSE)
+  dir.create(
+    file.path(app_root, "scripts"),
+    recursive = TRUE,
+    showWarnings = FALSE
+  )
+  dir.create(
+    file.path(shared_root, "side-data"),
+    recursive = TRUE,
+    showWarnings = FALSE
+  )
+
+  writeLines(
+    c("Package: bachExporter", "Version: 0.0.1"),
+    file.path(app_root, "DESCRIPTION")
+  )
+  writeLines("{}", file.path(app_root, "renv.lock"))
+  jsonlite::write_json(
+    list(
+      build_id = build_id,
+      package = list(name = "bachExporter", version = "0.0.1")
+    ),
+    file.path(app_root, "manifest.json"),
+    auto_unbox = TRUE
+  )
+  file.copy(
+    file.path("..", "..", "NAMESPACE"),
+    file.path(app_root, "NAMESPACE")
+  )
+  file.copy(
+    file.path("..", "..", "R", "paths.R"),
+    file.path(app_root, "R", "paths.R")
+  )
+  file.copy(
+    file.path("..", "..", "R", "release_runtime.R"),
+    file.path(app_root, "R", "release_runtime.R")
+  )
+  file.copy(
+    file.path("..", "..", "scripts", "launch_from_share.R"),
+    file.path(app_root, "scripts", "launch_from_share.R")
+  )
+  file.copy(
+    file.path("..", "..", "scripts", "validate_release.R"),
+    file.path(app_root, "scripts", "validate_release.R")
+  )
+  file.copy(
+    file.path("..", "..", "scripts", "refresh_snapshots.R"),
+    file.path(app_root, "scripts", "refresh_snapshots.R")
+  )
+
+  invisible(app_root)
+}
+
 make_export_shared_root <- function() {
   shared_root <- tempfile("shared-root-")
   dir.create(file.path(shared_root, "snapshots", "redcap"), recursive = TRUE)
   dir.create(file.path(shared_root, "snapshots", "sidecars"), recursive = TRUE)
-
-  writeLines("dev", file.path(shared_root, "CURRENT_RELEASE.txt"))
-  dir.create(
-    file.path(shared_root, "releases", "dev", "R"),
-    recursive = TRUE
-  )
-  dir.create(
-    file.path(shared_root, "side-data"),
-    recursive = TRUE
-  )
-  dir.create(
-    file.path(shared_root, "releases", "dev", "scripts"),
-    recursive = TRUE
-  )
-  writeLines(
-    c("Package: bachExporter", "Version: 0.0.1"),
-    file.path(shared_root, "releases", "dev", "DESCRIPTION")
-  )
-  file.copy(
-    file.path("..", "..", "NAMESPACE"),
-    file.path(shared_root, "releases", "dev", "NAMESPACE")
-  )
-  file.copy(
-    file.path("..", "..", "R", "paths.R"),
-    file.path(shared_root, "releases", "dev", "R", "paths.R")
-  )
-  file.copy(
-    file.path("..", "..", "R", "release_runtime.R"),
-    file.path(shared_root, "releases", "dev", "R", "release_runtime.R")
-  )
-  file.copy(
-    file.path("..", "..", "scripts", "launch_from_share.R"),
-    file.path(shared_root, "releases", "dev", "scripts", "launch_from_share.R")
-  )
-  file.copy(
-    file.path("..", "..", "scripts", "validate_release.R"),
-    file.path(shared_root, "releases", "dev", "scripts", "validate_release.R")
-  )
+  populate_test_shared_app(shared_root)
   utils::write.csv(
     data.frame(
       POA_CODE_2016 = c("3000", "3001"),
@@ -340,44 +358,7 @@ make_medications_export_shared_root <- function() {
   shared_root <- tempfile("shared-root-meds-")
   dir.create(file.path(shared_root, "snapshots", "redcap"), recursive = TRUE)
   dir.create(file.path(shared_root, "snapshots", "sidecars"), recursive = TRUE)
-
-  writeLines("dev", file.path(shared_root, "CURRENT_RELEASE.txt"))
-  dir.create(
-    file.path(shared_root, "releases", "dev", "R"),
-    recursive = TRUE
-  )
-  dir.create(
-    file.path(shared_root, "side-data"),
-    recursive = TRUE
-  )
-  dir.create(
-    file.path(shared_root, "releases", "dev", "scripts"),
-    recursive = TRUE
-  )
-  writeLines(
-    c("Package: bachExporter", "Version: 0.0.1"),
-    file.path(shared_root, "releases", "dev", "DESCRIPTION")
-  )
-  file.copy(
-    file.path("..", "..", "NAMESPACE"),
-    file.path(shared_root, "releases", "dev", "NAMESPACE")
-  )
-  file.copy(
-    file.path("..", "..", "R", "paths.R"),
-    file.path(shared_root, "releases", "dev", "R", "paths.R")
-  )
-  file.copy(
-    file.path("..", "..", "R", "release_runtime.R"),
-    file.path(shared_root, "releases", "dev", "R", "release_runtime.R")
-  )
-  file.copy(
-    file.path("..", "..", "scripts", "launch_from_share.R"),
-    file.path(shared_root, "releases", "dev", "scripts", "launch_from_share.R")
-  )
-  file.copy(
-    file.path("..", "..", "scripts", "validate_release.R"),
-    file.path(shared_root, "releases", "dev", "scripts", "validate_release.R")
-  )
+  populate_test_shared_app(shared_root)
   utils::write.csv(
     data.frame(
       POA_CODE_2016 = c("3000", "3001"),
@@ -477,38 +458,7 @@ make_medical_history_export_shared_root <- function() {
   shared_root <- tempfile("shared-root-medhx-")
   dir.create(file.path(shared_root, "snapshots", "redcap"), recursive = TRUE)
   dir.create(file.path(shared_root, "snapshots", "sidecars"), recursive = TRUE)
-
-  writeLines("dev", file.path(shared_root, "CURRENT_RELEASE.txt"))
-  dir.create(file.path(shared_root, "releases", "dev", "R"), recursive = TRUE)
-  dir.create(
-    file.path(shared_root, "releases", "dev", "scripts"),
-    recursive = TRUE
-  )
-  dir.create(file.path(shared_root, "side-data"), recursive = TRUE)
-  writeLines(
-    c("Package: bachExporter", "Version: 0.0.1"),
-    file.path(shared_root, "releases", "dev", "DESCRIPTION")
-  )
-  file.copy(
-    file.path("..", "..", "NAMESPACE"),
-    file.path(shared_root, "releases", "dev", "NAMESPACE")
-  )
-  file.copy(
-    file.path("..", "..", "R", "paths.R"),
-    file.path(shared_root, "releases", "dev", "R", "paths.R")
-  )
-  file.copy(
-    file.path("..", "..", "R", "release_runtime.R"),
-    file.path(shared_root, "releases", "dev", "R", "release_runtime.R")
-  )
-  file.copy(
-    file.path("..", "..", "scripts", "launch_from_share.R"),
-    file.path(shared_root, "releases", "dev", "scripts", "launch_from_share.R")
-  )
-  file.copy(
-    file.path("..", "..", "scripts", "validate_release.R"),
-    file.path(shared_root, "releases", "dev", "scripts", "validate_release.R")
-  )
+  populate_test_shared_app(shared_root)
 
   utils::write.csv(
     data.frame(
@@ -1138,6 +1088,7 @@ test_that("run_export writes a snapshot-backed participants csv and manifest", {
   expect_equal(manifest$domains, "participants")
   expect_equal(manifest$snapshot_metadata$redcap$source, "redcap")
   expect_equal(manifest$source$mode, "snapshot")
+  expect_named(manifest$source, "mode")
   expect_equal(manifest$execution_mode, "targets")
 })
 
@@ -1454,6 +1405,43 @@ test_that("export validation rejects unsupported source modes and years", {
   expect_match(year_result$message, "not supported")
 })
 
+test_that("export validation rejects extra researcher source settings", {
+  shared_root <- make_export_shared_root()
+  on.exit(unlink(shared_root, recursive = TRUE), add = TRUE)
+
+  spec <- be_default_export_spec(shared_root = shared_root)
+  spec$output$path <- tempfile(fileext = ".csv")
+  spec$source$redcap_url <- "https://redcap.example.org/api/"
+  spec$source$api_token <- "not-allowed"
+
+  validation <- be_validate_export_spec(spec)
+
+  expect_false(validation$ok)
+  expect_match(validation$message, "snapshot-only")
+  expect_match(validation$message, "api_token")
+  expect_match(validation$message, "redcap_url")
+})
+
+test_that("export validation rejects duplicate domains and empty years", {
+  shared_root <- make_export_shared_root()
+  on.exit(unlink(shared_root, recursive = TRUE), add = TRUE)
+
+  spec <- be_default_export_spec(shared_root = shared_root)
+  spec$output$path <- tempfile(fileext = ".csv")
+  spec$cohort$years <- character()
+
+  no_years <- be_validate_export_spec(spec)
+  expect_false(no_years$ok)
+  expect_match(no_years$message, "at least one cohort year")
+
+  spec$cohort$years <- "baseline"
+  spec$domains <- c("participants", "participants")
+
+  duplicate_domains <- be_validate_export_spec(spec)
+  expect_false(duplicate_domains$ok)
+  expect_match(duplicate_domains$message, "domains must be unique")
+})
+
 test_that("run_export merges participant screening onto participants output", {
   shared_root <- make_export_shared_root()
   on.exit(unlink(shared_root, recursive = TRUE), add = TRUE)
@@ -1684,6 +1672,30 @@ test_that("run_export filters by participant IDs from a subset file", {
   )
 
   expect_equal(unique(export_df$participant_id), "002")
+})
+
+test_that("manifest strips unsupported source placeholders from researcher export", {
+  shared_root <- make_export_shared_root()
+  on.exit(unlink(shared_root, recursive = TRUE), add = TRUE)
+
+  output_dir <- tempfile("export-dir-")
+  dir.create(output_dir, recursive = TRUE)
+  on.exit(unlink(output_dir, recursive = TRUE), add = TRUE)
+
+  spec <- be_default_export_spec(shared_root = shared_root)
+  spec$output$path <- file.path(output_dir, "participants.csv")
+  spec$domains <- "participants"
+  spec$cohort$years <- "year2"
+
+  manifest <- be_build_export_manifest(
+    spec = spec,
+    shared_root = shared_root,
+    refresh_mode = "auto",
+    execution_mode = "direct"
+  )
+
+  expect_equal(manifest$source$mode, "snapshot")
+  expect_named(manifest$source, "mode")
 })
 
 test_that("validation fails clearly when subset_file is missing", {

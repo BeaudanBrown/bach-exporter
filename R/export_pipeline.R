@@ -1,3 +1,12 @@
+be_export_manifest_source <- function(source) {
+  source_check <- be_researcher_source_spec(source)
+  if (!isTRUE(source_check$ok)) {
+    return(list(mode = "snapshot"))
+  }
+
+  source_check$source
+}
+
 be_build_export_manifest <- function(
   spec,
   shared_root,
@@ -29,7 +38,7 @@ be_build_export_manifest <- function(
     refresh_mode = refresh_mode,
     execution_mode = execution_mode,
     shared_root = spec$shared$root,
-    release_id = shared_paths$release_id,
+    build_id = shared_paths$build_id,
     snapshot_metadata = snapshot_metadata,
     app = list(
       package = "bachExporter",
@@ -39,7 +48,7 @@ be_build_export_manifest <- function(
       r_version = R.version.string,
       platform = R.version$platform
     ),
-    source = spec$source,
+    source = be_export_manifest_source(spec$source),
     cohort = spec$cohort,
     domains = spec$domains,
     options = spec$options,
@@ -112,12 +121,12 @@ be_run_export_pipeline <- function(
   spec,
   shared_root,
   refresh_mode = "auto",
-  release_id = "dev",
+  build_id = "dev",
   project_root = getwd()
 ) {
-  release_id <- release_id %||% "dev"
+  build_id <- build_id %||% "dev"
   targets_dir <- file.path(
-    be_local_targets_dir(release_id),
+    be_local_targets_dir(build_id),
     "export-pipeline"
   )
   dir.create(targets_dir, recursive = TRUE, showWarnings = FALSE)

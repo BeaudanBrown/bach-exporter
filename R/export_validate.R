@@ -1,3 +1,40 @@
+be_researcher_source_spec <- function(source) {
+  source <- source %||% list()
+  if (!is.list(source)) {
+    return(list(
+      ok = FALSE,
+      message = "Export source settings must be a list."
+    ))
+  }
+
+  source_mode <- source$mode %||% "snapshot"
+  if (!identical(source_mode, "snapshot")) {
+    return(list(
+      ok = FALSE,
+      message = sprintf(
+        "Unsupported source mode '%s'. Researcher exports must use snapshot mode.",
+        source_mode
+      )
+    ))
+  }
+
+  extra_fields <- setdiff(names(source), "mode")
+  if (length(extra_fields)) {
+    return(list(
+      ok = FALSE,
+      message = sprintf(
+        "Researcher export source settings must stay snapshot-only. Remove unsupported fields: %s",
+        paste(sort(extra_fields), collapse = ", ")
+      )
+    ))
+  }
+
+  list(
+    ok = TRUE,
+    source = list(mode = "snapshot")
+  )
+}
+
 be_validate_export_spec <- function(spec) {
   if (!is.list(spec)) {
     return(list(ok = FALSE, message = "Export spec must be a list."))
@@ -18,19 +55,32 @@ be_validate_export_spec <- function(spec) {
     return(list(ok = FALSE, message = "Choose at least one data domain."))
   }
 
-  source_mode <- spec$source$mode %||% "snapshot"
-  if (!identical(source_mode, "snapshot")) {
+  source_check <- be_researcher_source_spec(spec$source)
+  if (!isTRUE(source_check$ok)) {
+    return(source_check)
+  }
+
+  if (!identical(spec$output$format %||% "csv", "csv")) {
     return(list(
       ok = FALSE,
-      message = sprintf(
-        "Unsupported source mode '%s'. Researcher exports must use snapshot mode.",
-        source_mode
-      )
+      message = "Researcher exports currently support CSV output only."
     ))
   }
 
   supported_years <- c("baseline", "year2", "year3")
   years <- spec$cohort$years %||% character()
+  if (!length(years)) {
+    return(list(
+      ok = FALSE,
+      message = "Choose at least one cohort year."
+    ))
+  }
+  if (anyDuplicated(years)) {
+    return(list(
+      ok = FALSE,
+      message = "Selected years must be unique."
+    ))
+  }
   unsupported_years <- setdiff(years, supported_years)
   if (length(unsupported_years)) {
     return(list(
@@ -42,17 +92,17 @@ be_validate_export_spec <- function(spec) {
     ))
   }
 
-  if (
-    !is.null(spec$cohort$subset_file) &&
-      nzchar(spec$cohort$subset_file) &&
-      !file.exists(spec$cohort$subset_file)
-  ) {
+  domains <- spec$domains %||% character()
+  if (!is.character(domains)) {
     return(list(
       ok = FALSE,
-      message = sprintf(
-        "Subset file does not exist: %s",
-        spec$cohort$subset_file
-      )
+      message = "Selected domains must be character values."
+    ))
+  }
+  if (anyDuplicated(domains)) {
+    return(list(
+      ok = FALSE,
+      message = "Selected domains must be unique."
     ))
   }
 
@@ -86,7 +136,7 @@ be_validate_export_spec <- function(spec) {
     "cognitive_screening",
     "medications"
   )
-  unsupported_domains <- setdiff(spec$domains, supported_domains)
+  unsupported_domains <- setdiff(domains, supported_domains)
   if (length(unsupported_domains)) {
     return(list(
       ok = FALSE,
@@ -97,7 +147,7 @@ be_validate_export_spec <- function(spec) {
     ))
   }
 
-  selected_domains <- spec$domains %||% character()
+  selected_domains <- domains
   if (any(c("ses", "aria") %in% selected_domains)) {
     side_data_dir <- root_check$paths$side_data_dir %||% NULL
     required_files <- file.path(
@@ -123,6 +173,39 @@ be_validate_export_spec <- function(spec) {
       message = sprintf(
         "Unsupported categorical label mode '%s'.",
         cat_labels
+      )
+    ))
+  }
+
+  participant_ids <- spec$cohort$participant_ids %||% NULL
+  if (!is.null(participant_ids) && !is.character(participant_ids)) {
+    return(list(
+      ok = FALSE,
+      message = "Participant IDs must be provided as text values."
+    ))
+  }
+
+  subset_file <- spec$cohort$subset_file %||% NULL
+  if (!is.null(subset_file) && !is.character(subset_file)) {
+    return(list(
+      ok = FALSE,
+      message = "Subset file path must be a text value."
+    ))
+  }
+  if (!is.null(subset_file) && length(subset_file) != 1) {
+    return(list(
+      ok = FALSE,
+      message = "Subset file path must be a single path."
+    ))
+  }
+  if (
+    !is.null(subset_file) && nzchar(subset_file) && !file.exists(subset_file)
+  ) {
+    return(list(
+      ok = FALSE,
+      message = sprintf(
+        "Subset file does not exist: %s",
+        subset_file
       )
     ))
   }
