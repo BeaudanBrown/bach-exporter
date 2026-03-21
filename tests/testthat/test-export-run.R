@@ -9,8 +9,11 @@ source(file.path("..", "..", "R", "split_events.R"))
 source(file.path("..", "..", "R", "domain_participants.R"))
 source(file.path("..", "..", "R", "domain_annual_phone_aux.R"))
 source(file.path("..", "..", "R", "domain_screening_aux.R"))
+source(file.path("..", "..", "R", "domain_imaging.R"))
 source(file.path("..", "..", "R", "domain_surveys.R"))
 source(file.path("..", "..", "R", "domain_clinical.R"))
+source(file.path("..", "..", "R", "domain_neuropsych.R"))
+source(file.path("..", "..", "R", "domain_sleep.R"))
 source(file.path("..", "..", "R", "domain_similarities.R"))
 source(file.path("..", "..", "R", "domain_prose_passages.R"))
 source(file.path("..", "..", "R", "domain_cognitive_screening.R"))
@@ -105,238 +108,442 @@ make_export_shared_root <- function() {
     file.path(shared_root, "side-data", "RA_2016_AUST.csv"),
     row.names = FALSE
   )
-
   utils::write.csv(
     data.frame(
-      idno = c("BACH001", "BACH002", "BACH002"),
-      redcap_event_name = c("Baseline", "Baseline", "Year 2"),
-      age = c(70, 71, NA),
-      sex = c("F", "M", NA),
-      highest_education = c("College", "TAFE", NA),
-      education = c(NA, NA, NA),
-      pp_date = c("2026-01-01", "2026-01-02", "2027-01-02"),
-      similarities1 = c(1, 1, 1),
-      similarities2 = c(1, 1, 1),
-      similarities3 = c(1, 1, 1),
-      similarities4 = c(0, 0, 0),
-      similarities5 = c(0, 0, 0),
-      similarities6 = c(0, 0, 0),
-      tele_total = c(28, 27, 26),
-      moca_total = c(25, 24, 23),
-      ad8_who = c("Self", "Spouse", "Child"),
-      ad8_date = c("2026-01-01", "2026-01-02", "2027-01-02"),
-      ad8_total = c(1, 2, 3),
-      ucla1_v2 = c(NA, 1, 2),
-      ucla2_v2 = c(NA, 2, 3),
-      ucla3_v2 = c(NA, 3, 4),
-      ucla_total_v2 = c(NA, 6, 9),
-      demographics_date = c("2026-01-01", "2026-01-02", NA),
-      race = c("White", "Asian", NA),
-      race_other = c("", "", NA),
-      ethnicity = c("No", "Yes", NA),
-      english_first = c("Yes", "No", NA),
-      english_first_n = c(0, 10, NA),
-      first_language = c("English", "Mandarin", NA),
-      employment = c("Retired", "Part-time", NA),
-      retire_age = c(65, NA, NA),
-      occupation = c("Teacher", "Accountant", NA),
-      personal_income = c("50-60k", "40-50k", NA),
-      household_income = c("80-100k", "60-80k", NA),
-      current_postcode = c("3000", "3001", NA),
-      postcode_longest = c("3000", "3001", NA),
-      postcode_longest_length = c(20, 15, NA),
-      living_arrangements = c("Partner", "Family", NA),
-      living_arrangements_other = c("", "", NA),
-      number_household = c(2, 4, NA),
-      relationship_status = c("Married", "Single", NA),
-      ses_family = c("Average", "Low", NA),
-      father_occ = c("Trades", "Farmer", NA),
-      father_recent_occ = c("Manager", "Retired", NA),
-      cesd_date = c("2026-01-03", "2026-01-04", NA),
-      cesd_total = c(5, 7, NA),
-      stai_date = c("2026-01-03", "2026-01-04", NA),
-      stai_y1_tot = c(20, 25, NA),
-      stai_y2_tot = c(30, 35, NA),
-      pss_date = c("2026-01-03", "2026-01-04", NA),
-      pss_total = c(10, 12, NA),
-      cd_risc_date = c("2026-01-03", "2026-01-04", NA),
-      cd_risc_total = c(28, 26, NA),
-      ipaq_date = c("2026-01-03", "2026-01-04", NA),
-      ipaq_vig_met = c(100, 200, NA),
-      ipaq_mod_met = c(50, 80, NA),
-      ipaq_walk_met = c(30, 40, NA),
-      ipaq_tot_pa = c(180, 320, NA),
-      ipaq_category = c("Moderate", "High", NA),
-      rhhi_date = c("2026-01-03", "2026-01-04", NA),
-      rhhi_total = c(2, 5, NA),
-      mind_date = c("2026-01-03", "2026-01-04", NA),
-      mind_total = c(8, 9, NA),
-      alcohol_date = c("2026-01-03", "2026-01-04", NA),
-      alcohol1 = c("Weekly", "Monthly", NA),
-      alcohol1a = c(6, 4, NA),
-      alcohol2 = c(1, 0, NA),
-      alcohol3 = c("Rarely", "Never", NA),
-      cfi_date = c("2026-01-03", "2026-01-04", NA),
-      cfi_total = c(1, 3, NA),
-      global_date = c("2026-01-03", "2026-01-04", NA),
-      global_tot_physical = c(45, 40, NA),
-      global_tot_mental = c(50, 42, NA),
-      euro_qol = c(0.92, 0.81, NA),
-      bloods_successful = c("Yes", "No", NA),
-      bloods_date = c("2026-01-05", "2026-01-06", NA),
-      bloods_time = c("08:00", "08:30", NA),
-      bloods_who = c("Nurse", "Phleb", NA),
-      bloods_ra = c("", "RA1", NA),
-      bloods_notes = c("Fasted", "", NA),
-      bloods_notes_y = c("", "", NA),
-      bloods_glucose = c(5.1, 6.0, NA),
-      bloods_chol = c(5.5, 4.8, NA),
-      bloods_chol_hdl = c(1.5, 1.2, NA),
-      bloods_non_hdl = c(4.0, 3.6, NA),
-      bloods_ldl = c(3.1, 2.8, NA),
-      bloods_trigly = c(1.3, 1.8, NA),
-      bloods_hb = c(140, 135, NA),
-      bloods_wbc = c(5.0, 6.0, NA),
-      bloods_platelets = c(250, 275, NA),
-      bloods_hematocrit = c(0.42, 0.41, NA),
-      bloods_mcv = c(90, 88, NA),
-      bloods_mch = c(30, 29, NA),
-      bloods_mchc = c(333, 330, NA),
-      bloods_rbc = c(4.7, 4.6, NA),
-      bloods_rdw = c(12.5, 13.1, NA),
-      bloods_neutrophils = c(2.5, 3.2, NA),
-      bloods_lymphocytes = c(1.8, 2.0, NA),
-      bloods_monocytes = c(0.4, 0.5, NA),
-      bloods_eosinophils = c(0.1, 0.2, NA),
-      bloods_basophils = c(0.0, 0.1, NA),
-      bloods_inr = c(1.0, 1.1, NA),
-      bloods_egfr = c(88, 79, NA),
-      vitals_date = c("2026-01-05", "2026-01-06", NA),
-      vitals_time = c("09:00", "09:15", NA),
-      vitals_breakfast = c("Yes", "No", NA),
-      vitals_breakfast_caff = c("No", "Yes", NA),
-      vitals_breakfast_f = c("Toast", "", NA),
-      vitals_breakfast_d = c("Tea", "Coffee", NA),
-      height = c(170, 160, NA),
-      weight = c(70, 80, NA),
-      bmi = c(24.2, 31.2, NA),
-      waist_circ = c(90, 100, NA),
-      lying_hr1 = c(60, 70, NA),
-      lying_systolic_bp1 = c(130, 145, NA),
-      lying_diastolic_bp1 = c(80, 90, NA),
-      lying_hr2 = c(62, 72, NA),
-      lying_systolic_bp2 = c(128, 142, NA),
-      lying_diastolic_bp2 = c(78, 88, NA),
-      lying_hr3 = c(61, 71, NA),
-      lying_systolic_bp3 = c(129, 141, NA),
-      lying_diastolic_bp3 = c(79, 87, NA),
-      lying_hr_av = c(61, 71, NA),
-      lying_systolic_bp_av = c(129, 143, NA),
-      lying_diastolic_bp_av = c(79, 88, NA),
-      standing_hr_1m = c(68, 78, NA),
-      standing_systolic_bp_1m = c(126, 138, NA),
-      standing_diastolic_bp_1m = c(77, 86, NA),
-      standing_hr_3m = c(66, 76, NA),
-      standing_systolic_bp_3m = c(124, 136, NA),
-      standing_diastolic_bp_3m = c(76, 85, NA),
-      pwv = c(8.0, 9.0, NA),
-      pwv2 = c(8.2, 9.3, NA),
-      pwv_mean = c(NA, 9.1, NA),
-      pwv3 = c(8.4, NA, NA),
-      pwv_median = c(8.2, 9.0, NA),
-      twenty4bp_start_datetime = c("2026-01-05 08:00", "2026-01-06 08:00", NA),
-      twenty4bp_end_datetime = c("2026-01-06 08:00", "2026-01-07 08:00", NA),
-      twenty4bp_overall_count = c(50, 48, NA),
-      twenty4bp_awake_sys_ab_threshold = c(5, 6, NA),
-      twenty4bp_awake_dia_ab_threshold = c(4, 5, NA),
-      twenty4bp_awake_sys_load = c(10, 12, NA),
-      twenty4bp_awake_dia_load = c(8, 9, NA),
-      twenty4bp_asleep_sys_ab_threshold = c(3, 4, NA),
-      twenty4bp_asleep_dia_ab_threshold = c(2, 3, NA),
-      twenty4bp_asleep_sys_load = c(6, 7, NA),
-      twenty4bp_asleep_dia_load = c(5, 6, NA),
-      twenty4bp_total_sys_load = c(9, 10, NA),
-      twenty4bp_total_dia_load = c(7, 8, NA),
-      twenty4bp_awake_sys_mean = c(130, 142, NA),
-      twenty4bp_awake_sys_max = c(150, 160, NA),
-      twenty4bp_awake_sys_min = c(110, 120, NA),
-      twenty4bp_awake_sys_sd = c(10, 11, NA),
-      twenty4bp_asleep_sys_mean = c(115, 132, NA),
-      twenty4bp_asleep_sys_max = c(130, 145, NA),
-      twenty4bp_asleep_sys_min = c(100, 118, NA),
-      twenty4bp_asleep_sys_sd = c(8, 9, NA),
-      twenty4bp_total_sys_mean = c(123, 138, NA),
-      twenty4bp_total_sys_max = c(150, 160, NA),
-      twenty4bp_total_sys_min = c(100, 118, NA),
-      twenty4bp_total_sys_sd = c(9, 10, NA),
-      twenty4bp_awake_dia_mean = c(80, 88, NA),
-      twenty4bp_awake_dia_max = c(95, 100, NA),
-      twenty4bp_awake_dia_min = c(65, 70, NA),
-      twenty4bp_awake_dia_sd = c(7, 8, NA),
-      twenty4bp_asleep_dia_mean = c(70, 78, NA),
-      twenty4bp_asleep_dia_max = c(82, 88, NA),
-      twenty4bp_asleep_dia_min = c(60, 66, NA),
-      twenty4bp_asleep_dia_sd = c(6, 7, NA),
-      twenty4bp_total_dia_mean = c(76, 83, NA),
-      twenty4bp_total_dia_max = c(95, 100, NA),
-      twenty4bp_total_dia_min = c(60, 66, NA),
-      twenty4bp_total_dia_sd = c(7, 8, NA),
-      twenty4bp_awake_hr_mean = c(68, 74, NA),
-      twenty4bp_awake_hr_max = c(90, 96, NA),
-      twenty4bp_awake_hr_min = c(55, 60, NA),
-      twenty4bp_awake_hr_sd = c(6, 7, NA),
-      twenty4bp_asleep_hr_mean = c(58, 64, NA),
-      twenty4bp_asleep_hr_max = c(72, 78, NA),
-      twenty4bp_asleep_hr_min = c(48, 52, NA),
-      twenty4bp_asleep_hr_sd = c(5, 6, NA),
-      twenty4bp_total_hr_mean = c(64, 70, NA),
-      twenty4bp_total_hr_max = c(90, 96, NA),
-      twenty4bp_total_hr_min = c(48, 52, NA),
-      twenty4bp_total_hr_sd = c(6, 7, NA),
-      twenty4bp_awake_map_mean = c(97, 106, NA),
-      twenty4bp_awake_map_max = c(112, 118, NA),
-      twenty4bp_awake_map_min = c(82, 88, NA),
-      twenty4bp_awake_map_sd = c(7, 8, NA),
-      twenty4bp_asleep_map_mean = c(85, 96, NA),
-      twenty4bp_asleep_map_max = c(95, 105, NA),
-      twenty4bp_asleep_map_min = c(74, 84, NA),
-      twenty4bp_asleep_map_sd = c(6, 7, NA),
-      twenty4bp_total_map_mean = c(92, 101, NA),
-      twenty4bp_total_map_max = c(112, 118, NA),
-      twenty4bp_total_map_min = c(74, 84, NA),
-      twenty4bp_total_map_sd = c(7, 8, NA),
-      twenty4bp_awake_pulse_mean = c(50, 54, NA),
-      twenty4bp_awake_pulse_max = c(65, 70, NA),
-      twenty4bp_awake_pulse_min = c(40, 44, NA),
-      twenty4bp_awake_pulse_sd = c(5, 5, NA),
-      twenty4bp_asleep_pulse_mean = c(45, 48, NA),
-      twenty4bp_asleep_pulse_max = c(55, 58, NA),
-      twenty4bp_asleep_pulse_min = c(35, 38, NA),
-      twenty4bp_asleep_pulse_sd = c(4, 4, NA),
-      twenty4bp_total_pulse_mean = c(48, 51, NA),
-      twenty4bp_total_pulse_max = c(65, 70, NA),
-      twenty4bp_total_pulse_min = c(35, 38, NA),
-      twenty4bp_total_pulse_sd = c(5, 5, NA),
-      twenty4bp_sys_asleep_dip = c(11, 8, NA),
-      twenty4bp_dia_asleep_dip = c(12, 7, NA),
-      prose_passage = c("Passage A", "Passage B", "Passage A"),
-      prose_time = c(90, 95, 100),
-      prose_s1_imm_story = c(20, 18, 24),
-      prose_s1_imm_theme = c(4, 3, 5),
-      prose_s2_imm_story = c(21, 20, 22),
-      prose_s2_imm_theme = c(4, 3, 5),
-      prose_del_time = c(
-        "2026-01-01 10:10:00",
-        "2026-01-02 10:20:00",
-        "2027-01-02 10:15:00"
-      ),
-      prose_timediff = c(15, 20, 25),
-      prose_s1_del_story = c(19, 17, 20),
-      prose_s1_del_theme = c(4, 2, 4),
-      prose_s2_del_story = c(20, 18, 21),
-      prose_s2_del_theme = c(4, 3, 4),
+      subject_id = c("sub-BACH001", "sub-BACH002"),
+      brainvol_novent = c(1100.5, 1048.2),
+      hippo_left = c(3.2, 2.9),
+      hippo_right = c(3.4, 3.0),
+      wm_hypoint = c(12.1, 18.4),
       stringsAsFactors = FALSE
     ),
+    file.path(shared_root, "side-data", "global_n241.csv"),
+    row.names = FALSE
+  )
+
+  export_snapshot <- data.frame(
+    idno = c("BACH001", "BACH002", "BACH002"),
+    redcap_event_name = c("Baseline", "Baseline", "Year 2"),
+    age = c(70, 71, NA),
+    sex = c("F", "M", NA),
+    highest_education = c("College", "TAFE", NA),
+    education = c(NA, NA, NA),
+    pp_date = c("2026-01-01", "2026-01-02", "2027-01-02"),
+    similarities1 = c(1, 1, 1),
+    similarities2 = c(1, 1, 1),
+    similarities3 = c(1, 1, 1),
+    similarities4 = c(0, 0, 0),
+    similarities5 = c(0, 0, 0),
+    similarities6 = c(0, 0, 0),
+    tele_total = c(28, 27, 26),
+    mri_date = c("2026-01-06", "2026-01-07", NA),
+    mri_time = c("10:00", "10:30", NA),
+    moca_total = c(25, 24, 23),
+    ad8_who = c("Self", "Spouse", "Child"),
+    ad8_date = c("2026-01-01", "2026-01-02", "2027-01-02"),
+    ad8_total = c(1, 2, 3),
+    ucla1_v2 = c(NA, 1, 2),
+    ucla2_v2 = c(NA, 2, 3),
+    ucla3_v2 = c(NA, 3, 4),
+    ucla_total_v2 = c(NA, 6, 9),
+    demographics_date = c("2026-01-01", "2026-01-02", NA),
+    race = c("White", "Asian", NA),
+    race_other = c("", "", NA),
+    ethnicity = c("No", "Yes", NA),
+    english_first = c("Yes", "No", NA),
+    english_first_n = c(0, 10, NA),
+    first_language = c("English", "Mandarin", NA),
+    employment = c("Retired", "Part-time", NA),
+    retire_age = c(65, NA, NA),
+    occupation = c("Teacher", "Accountant", NA),
+    personal_income = c("50-60k", "40-50k", NA),
+    household_income = c("80-100k", "60-80k", NA),
+    current_postcode = c("3000", "3001", NA),
+    postcode_longest = c("3000", "3001", NA),
+    postcode_longest_length = c(20, 15, NA),
+    living_arrangements = c("Partner", "Family", NA),
+    living_arrangements_other = c("", "", NA),
+    number_household = c(2, 4, NA),
+    relationship_status = c("Married", "Single", NA),
+    ses_family = c("Average", "Low", NA),
+    father_occ = c("Trades", "Farmer", NA),
+    father_recent_occ = c("Manager", "Retired", NA),
+    cesd_date = c("2026-01-03", "2026-01-04", NA),
+    cesd_total = c(5, 7, NA),
+    stai_date = c("2026-01-03", "2026-01-04", NA),
+    stai_y1_tot = c(20, 25, NA),
+    stai_y2_tot = c(30, 35, NA),
+    pss_date = c("2026-01-03", "2026-01-04", NA),
+    pss_total = c(10, 12, NA),
+    cd_risc_date = c("2026-01-03", "2026-01-04", NA),
+    cd_risc_total = c(28, 26, NA),
+    ipaq_date = c("2026-01-03", "2026-01-04", NA),
+    ipaq_vig_met = c(100, 200, NA),
+    ipaq_mod_met = c(50, 80, NA),
+    ipaq_walk_met = c(30, 40, NA),
+    ipaq_tot_pa = c(180, 320, NA),
+    ipaq_category = c("Moderate", "High", NA),
+    rhhi_date = c("2026-01-03", "2026-01-04", NA),
+    rhhi_total = c(2, 5, NA),
+    mind_date = c("2026-01-03", "2026-01-04", NA),
+    mind_total = c(8, 9, NA),
+    alcohol_date = c("2026-01-03", "2026-01-04", NA),
+    alcohol1 = c("Weekly", "Monthly", NA),
+    alcohol1a = c(6, 4, NA),
+    alcohol2 = c(1, 0, NA),
+    alcohol3 = c("Rarely", "Never", NA),
+    cfi_date = c("2026-01-03", "2026-01-04", NA),
+    cfi_total = c(1, 3, NA),
+    global_date = c("2026-01-03", "2026-01-04", NA),
+    global_tot_physical = c(45, 40, NA),
+    global_tot_mental = c(50, 42, NA),
+    euro_qol = c(0.92, 0.81, NA),
+    bloods_successful = c("Yes", "No", NA),
+    bloods_date = c("2026-01-05", "2026-01-06", NA),
+    bloods_time = c("08:00", "08:30", NA),
+    bloods_who = c("Nurse", "Phleb", NA),
+    bloods_ra = c("", "RA1", NA),
+    bloods_notes = c("Fasted", "", NA),
+    bloods_notes_y = c("", "", NA),
+    bloods_glucose = c(5.1, 6.0, NA),
+    bloods_chol = c(5.5, 4.8, NA),
+    bloods_chol_hdl = c(1.5, 1.2, NA),
+    bloods_non_hdl = c(4.0, 3.6, NA),
+    bloods_ldl = c(3.1, 2.8, NA),
+    bloods_trigly = c(1.3, 1.8, NA),
+    bloods_hb = c(140, 135, NA),
+    bloods_wbc = c(5.0, 6.0, NA),
+    bloods_platelets = c(250, 275, NA),
+    bloods_hematocrit = c(0.42, 0.41, NA),
+    bloods_mcv = c(90, 88, NA),
+    bloods_mch = c(30, 29, NA),
+    bloods_mchc = c(333, 330, NA),
+    bloods_rbc = c(4.7, 4.6, NA),
+    bloods_rdw = c(12.5, 13.1, NA),
+    bloods_neutrophils = c(2.5, 3.2, NA),
+    bloods_lymphocytes = c(1.8, 2.0, NA),
+    bloods_monocytes = c(0.4, 0.5, NA),
+    bloods_eosinophils = c(0.1, 0.2, NA),
+    bloods_basophils = c(0.0, 0.1, NA),
+    bloods_inr = c(1.0, 1.1, NA),
+    bloods_egfr = c(88, 79, NA),
+    vitals_date = c("2026-01-05", "2026-01-06", NA),
+    vitals_time = c("09:00", "09:15", NA),
+    vitals_breakfast = c("Yes", "No", NA),
+    vitals_breakfast_caff = c("No", "Yes", NA),
+    vitals_breakfast_f = c("Toast", "", NA),
+    vitals_breakfast_d = c("Tea", "Coffee", NA),
+    height = c(170, 160, NA),
+    weight = c(70, 80, NA),
+    bmi = c(24.2, 31.2, NA),
+    waist_circ = c(90, 100, NA),
+    lying_hr1 = c(60, 70, NA),
+    lying_systolic_bp1 = c(130, 145, NA),
+    lying_diastolic_bp1 = c(80, 90, NA),
+    lying_hr2 = c(62, 72, NA),
+    lying_systolic_bp2 = c(128, 142, NA),
+    lying_diastolic_bp2 = c(78, 88, NA),
+    lying_hr3 = c(61, 71, NA),
+    lying_systolic_bp3 = c(129, 141, NA),
+    lying_diastolic_bp3 = c(79, 87, NA),
+    lying_hr_av = c(61, 71, NA),
+    lying_systolic_bp_av = c(129, 143, NA),
+    lying_diastolic_bp_av = c(79, 88, NA),
+    standing_hr_1m = c(68, 78, NA),
+    standing_systolic_bp_1m = c(126, 138, NA),
+    standing_diastolic_bp_1m = c(77, 86, NA),
+    standing_hr_3m = c(66, 76, NA),
+    standing_systolic_bp_3m = c(124, 136, NA),
+    standing_diastolic_bp_3m = c(76, 85, NA),
+    pwv = c(8.0, 9.0, NA),
+    pwv2 = c(8.2, 9.3, NA),
+    pwv_mean = c(NA, 9.1, NA),
+    pwv3 = c(8.4, NA, NA),
+    pwv_median = c(8.2, 9.0, NA),
+    twenty4bp_start_datetime = c("2026-01-05 08:00", "2026-01-06 08:00", NA),
+    twenty4bp_end_datetime = c("2026-01-06 08:00", "2026-01-07 08:00", NA),
+    twenty4bp_overall_count = c(50, 48, NA),
+    twenty4bp_awake_sys_ab_threshold = c(5, 6, NA),
+    twenty4bp_awake_dia_ab_threshold = c(4, 5, NA),
+    twenty4bp_awake_sys_load = c(10, 12, NA),
+    twenty4bp_awake_dia_load = c(8, 9, NA),
+    twenty4bp_asleep_sys_ab_threshold = c(3, 4, NA),
+    twenty4bp_asleep_dia_ab_threshold = c(2, 3, NA),
+    twenty4bp_asleep_sys_load = c(6, 7, NA),
+    twenty4bp_asleep_dia_load = c(5, 6, NA),
+    twenty4bp_total_sys_load = c(9, 10, NA),
+    twenty4bp_total_dia_load = c(7, 8, NA),
+    twenty4bp_awake_sys_mean = c(130, 142, NA),
+    twenty4bp_awake_sys_max = c(150, 160, NA),
+    twenty4bp_awake_sys_min = c(110, 120, NA),
+    twenty4bp_awake_sys_sd = c(10, 11, NA),
+    twenty4bp_asleep_sys_mean = c(115, 132, NA),
+    twenty4bp_asleep_sys_max = c(130, 145, NA),
+    twenty4bp_asleep_sys_min = c(100, 118, NA),
+    twenty4bp_asleep_sys_sd = c(8, 9, NA),
+    twenty4bp_total_sys_mean = c(123, 138, NA),
+    twenty4bp_total_sys_max = c(150, 160, NA),
+    twenty4bp_total_sys_min = c(100, 118, NA),
+    twenty4bp_total_sys_sd = c(9, 10, NA),
+    twenty4bp_awake_dia_mean = c(80, 88, NA),
+    twenty4bp_awake_dia_max = c(95, 100, NA),
+    twenty4bp_awake_dia_min = c(65, 70, NA),
+    twenty4bp_awake_dia_sd = c(7, 8, NA),
+    twenty4bp_asleep_dia_mean = c(70, 78, NA),
+    twenty4bp_asleep_dia_max = c(82, 88, NA),
+    twenty4bp_asleep_dia_min = c(60, 66, NA),
+    twenty4bp_asleep_dia_sd = c(6, 7, NA),
+    twenty4bp_total_dia_mean = c(76, 83, NA),
+    twenty4bp_total_dia_max = c(95, 100, NA),
+    twenty4bp_total_dia_min = c(60, 66, NA),
+    twenty4bp_total_dia_sd = c(7, 8, NA),
+    twenty4bp_awake_hr_mean = c(68, 74, NA),
+    twenty4bp_awake_hr_max = c(90, 96, NA),
+    twenty4bp_awake_hr_min = c(55, 60, NA),
+    twenty4bp_awake_hr_sd = c(6, 7, NA),
+    twenty4bp_asleep_hr_mean = c(58, 64, NA),
+    twenty4bp_asleep_hr_max = c(72, 78, NA),
+    twenty4bp_asleep_hr_min = c(48, 52, NA),
+    twenty4bp_asleep_hr_sd = c(5, 6, NA),
+    twenty4bp_total_hr_mean = c(64, 70, NA),
+    twenty4bp_total_hr_max = c(90, 96, NA),
+    twenty4bp_total_hr_min = c(48, 52, NA),
+    twenty4bp_total_hr_sd = c(6, 7, NA),
+    twenty4bp_awake_map_mean = c(97, 106, NA),
+    twenty4bp_awake_map_max = c(112, 118, NA),
+    twenty4bp_awake_map_min = c(82, 88, NA),
+    twenty4bp_awake_map_sd = c(7, 8, NA),
+    twenty4bp_asleep_map_mean = c(85, 96, NA),
+    twenty4bp_asleep_map_max = c(95, 105, NA),
+    twenty4bp_asleep_map_min = c(74, 84, NA),
+    twenty4bp_asleep_map_sd = c(6, 7, NA),
+    twenty4bp_total_map_mean = c(92, 101, NA),
+    twenty4bp_total_map_max = c(112, 118, NA),
+    twenty4bp_total_map_min = c(74, 84, NA),
+    twenty4bp_total_map_sd = c(7, 8, NA),
+    twenty4bp_awake_pulse_mean = c(50, 54, NA),
+    twenty4bp_awake_pulse_max = c(65, 70, NA),
+    twenty4bp_awake_pulse_min = c(40, 44, NA),
+    twenty4bp_awake_pulse_sd = c(5, 5, NA),
+    twenty4bp_asleep_pulse_mean = c(45, 48, NA),
+    twenty4bp_asleep_pulse_max = c(55, 58, NA),
+    twenty4bp_asleep_pulse_min = c(35, 38, NA),
+    twenty4bp_asleep_pulse_sd = c(4, 4, NA),
+    twenty4bp_total_pulse_mean = c(48, 51, NA),
+    twenty4bp_total_pulse_max = c(65, 70, NA),
+    twenty4bp_total_pulse_min = c(35, 38, NA),
+    twenty4bp_total_pulse_sd = c(5, 5, NA),
+    twenty4bp_sys_asleep_dip = c(11, 8, NA),
+    twenty4bp_dia_asleep_dip = c(12, 7, NA),
+    neuropsych_date = c("2026-01-07", "2026-01-08", "2027-01-08"),
+    cdr_memory = c(0, 0.5, 1),
+    cdr_orient = c(0, 0, 0.5),
+    cdr_judgment = c(0, 0.5, 0.5),
+    cdr_community = c(0, 0, 1),
+    cdr_hobbies = c(0, 0.5, 1),
+    cdr_personal = c(0, 0, 0),
+    cdr_sob = c(0, 1.5, 4),
+    cdr_global = c(0, 0.5, 1),
+    mmse_tot = c(29, 27, 24),
+    mmse_comment = c("", "Needed prompting", "Fatigued"),
+    mmse_comment_y = c("", "Serial sevens slow", "Attention drift"),
+    sydbat_date = c("2026-01-07", "2026-01-08", "2027-01-08"),
+    sydbat_naming_total = c(27, 24, 21),
+    sydbat_repetition_total = c(28, 25, 22),
+    sydbat_comprehension_total = c(29, 26, 23),
+    sydbat_semantic_total = c(30, 27, 24),
+    lmi_time = c("09:00", "09:10", "09:20"),
+    lmi_b_total = c(12, 11, 10),
+    lmi_c_total = c(13, 12, 11),
+    lmi_total_raw = c(25, 23, 21),
+    lmii_time = c("09:30", "09:40", "09:50"),
+    lmii_timediff = c(30, 30, 30),
+    lmii_bcue = c(1, 0, 1),
+    lmii_b_total = c(10, 9, 8),
+    lmii_ccue = c(1, 1, 0),
+    lmii_c_total = c(11, 10, 9),
+    lmii_total_raw = c(21, 19, 17),
+    vri_time = c("09:05", "09:15", "09:25"),
+    vri_total_raw = c(35, 30, 28),
+    vrii_time = c("09:35", "09:45", "09:55"),
+    vrii_timediff = c(30, 30, 30),
+    vrii_total_raw = c(18, 16, 14),
+    tmt_date = c("2026-01-07", "2026-01-08", "2027-01-08"),
+    tmt_a_total_sec = c(35, 42, 55),
+    tmt_a_err = c(0, 1, 1),
+    tmt_b_total_sec = c(80, 95, 120),
+    tmt_b_err = c(1, 2, 3),
+    fab_date = c("2026-01-07", "2026-01-08", "2027-01-08"),
+    fab_similarities = c(3, 2, 2),
+    fab_lexical_fluency = c(3, 2, 1),
+    fab_motor = c(3, 3, 2),
+    fab_conflicting_instrx = c(3, 2, 2),
+    fab_go_nogo = c(3, 2, 1),
+    fab_prehension = c(3, 3, 2),
+    fab_total = c(18, 14, 10),
+    cowat_date = c("2026-01-07", "2026-01-08", "2027-01-08"),
+    cowat_f_total = c(14, 12, 10),
+    cowat_a_total = c(13, 11, 9),
+    cowat_s_total = c(15, 10, 8),
+    cowat_fas_total = c(42, 33, 27),
+    cowat_animals_total = c(20, 18, 14),
+    hvot_date = c("2026-01-07", "2026-01-08", "2027-01-08"),
+    hvot_total = c(25, 22, 18),
+    tasit_date = c("2026-01-07", "2026-01-08", "2027-01-08"),
+    tasit_p2_sin = c(8, 7, 6),
+    tasit_p2_sar = c(7, 6, 5),
+    tasit_p2_total = c(15, 13, 11),
+    topf_date = c("2026-01-07", "2026-01-08", "2027-01-08"),
+    topf1 = c(1, 1, 1),
+    topf2 = c(1, 1, 1),
+    topf3 = c(1, 0, 1),
+    topf4 = c(0, 0, 1),
+    topf5 = c(0, 0, 0),
+    topf6 = c(0, 0, 0),
+    ds_adju_date = c("2026-01-09", "2026-01-10", "2027-01-10"),
+    ds_status = c("No dementia", "MCI", "Dementia"),
+    ds_onset_date = c("", "2025-06-01", "2026-06-01"),
+    ds_cog_int_date = c("2026-01-09", "2025-05-01", "2026-05-01"),
+    ds_notes = c("", "Monitor progression", "Consensus adjudication"),
+    psqi_date = c("2026-01-11", "2026-01-12", "2027-01-12"),
+    psqi_tot = c(4, 8, 11),
+    psqi_bed_tim = c("22:00", "23:00", "23:30"),
+    psqi_f_aslp_m = c(15, 35, 50),
+    psqi_tim_wake = c("06:30", "07:00", "08:00"),
+    psqi_tot_slp_h = c(7.5, 6.0, 5.0),
+    psqi_not30m = c(0, 2, 3),
+    psqi_midnight = c(0, 1, 2),
+    psqi_bathroom = c(1, 2, 2),
+    psqi_breathe = c(0, 1, 2),
+    psqi_cough = c(0, 0, 1),
+    psqi_cold = c(0, 1, 1),
+    psqi_hot = c(0, 0, 1),
+    psqi_dreams = c(1, 2, 2),
+    psqi_pain = c(0, 1, 2),
+    psqi_oth = c(0, 1, 2),
+    psqi_oth_sp = c("", "Noise", "Leg cramps"),
+    psqi_slp_med = c(0, 1, 2),
+    psqi_tro_awk = c(0, 1, 2),
+    psqi_enthusi = c(0, 1, 2),
+    psqi_slp_qual = c(0, 1, 2),
+    psqi_c1 = c(0, 1, 2),
+    psqi_c2 = c(1, 2, 3),
+    psqi_c2_sub = c(0, 1, 2),
+    psqi_c3 = c(0, 1, 2),
+    psqi_c4 = c(0, 1, 2),
+    psqi_c4_sub = c(0, 1, 2),
+    psqi_c5 = c(1, 2, 3),
+    psqi_c5_sub = c(2, 4, 6),
+    psqi_c6 = c(0, 1, 2),
+    psqi_c7 = c(0, 1, 2),
+    ess_date = c("2026-01-11", "2026-01-12", "2027-01-12"),
+    ess_tot = c(4, 9, 14),
+    isi_date = c("2026-01-11", "2026-01-12", "2027-01-12"),
+    isi_tot_co = c(5, 11, 18),
+    isi_tot_ca = c("No insomnia", "Subthreshold", "Moderate"),
+    prose_passage = c("Passage A", "Passage B", "Passage A"),
+    prose_time = c(90, 95, 100),
+    prose_s1_imm_story = c(20, 18, 24),
+    prose_s1_imm_theme = c(4, 3, 5),
+    prose_s2_imm_story = c(21, 20, 22),
+    prose_s2_imm_theme = c(4, 3, 5),
+    prose_del_time = c(
+      "2026-01-01 10:10:00",
+      "2026-01-02 10:20:00",
+      "2027-01-02 10:15:00"
+    ),
+    prose_timediff = c(15, 20, 25),
+    prose_s1_del_story = c(19, 17, 20),
+    prose_s1_del_theme = c(4, 2, 4),
+    prose_s2_del_story = c(20, 18, 21),
+    prose_s2_del_theme = c(4, 3, 4),
+    stringsAsFactors = FALSE
+  )
+
+  for (night in seq_len(14)) {
+    export_snapshot[[paste0("acti_type", night)]] <- c(
+      ifelse(night %% 7 %in% c(0, 6), "Weekend", "Weekday"),
+      ifelse((night + 1) %% 7 %in% c(0, 6), "Weekend", "Weekday"),
+      ifelse((night + 2) %% 7 %in% c(0, 6), "Weekend", "Weekday")
+    )
+    export_snapshot[[paste0("acti_slp", night)]] <- c(
+      sprintf("%02d:%02d", 21 + (night %% 2), night %% 6 * 5),
+      sprintf("%02d:%02d", 22 + (night %% 2), night %% 6 * 5),
+      sprintf("%02d:%02d", 22 + ((night + 1) %% 2), night %% 6 * 5)
+    )
+    export_snapshot[[paste0("acti_sot", night)]] <- c(
+      sprintf("%02d:%02d", 22 + (night %% 2), 10 + (night %% 5) * 3),
+      sprintf("%02d:%02d", 23, 15 + (night %% 5) * 3),
+      sprintf("%02d:%02d", 23, 20 + (night %% 5) * 3)
+    )
+    export_snapshot[[paste0("acti_aslp", night)]] <- c(
+      10 + night,
+      15 + night,
+      20 + night
+    )
+    export_snapshot[[paste0("acti_awk", night)]] <- c(
+      night %% 3,
+      (night + 1) %% 4,
+      (night + 2) %% 4
+    )
+    export_snapshot[[paste0("acti_awkd", night)]] <- c(
+      20 + night,
+      30 + night,
+      40 + night
+    )
+    export_snapshot[[paste0("acti_fin", night)]] <- c(
+      sprintf("%02d:%02d", 6 + (night %% 2), 20 + (night %% 4) * 5),
+      sprintf("%02d:%02d", 7 + (night %% 2), 15 + (night %% 4) * 5),
+      sprintf("%02d:%02d", 7 + ((night + 1) %% 2), 10 + (night %% 4) * 5)
+    )
+    export_snapshot[[paste0("acti_outb", night)]] <- c(
+      450 - night * 2,
+      420 - night * 2,
+      390 - night * 2
+    )
+    export_snapshot[[paste0("acti_tot_slp", night)]] <- c(
+      420 - night * 2,
+      390 - night * 2,
+      360 - night * 2
+    )
+    export_snapshot[[paste0("acti_slp_eff", night)]] <- c(
+      93 - night * 0.3,
+      89 - night * 0.3,
+      85 - night * 0.3
+    )
+  }
+
+  export_snapshot$acti_watch_num <- c(14, 12, 10)
+  export_snapshot$acti_av_slp <- c("22:15", "22:45", "23:10")
+  export_snapshot$acti_av_sot <- c("22:30", "23:05", "23:35")
+  export_snapshot$acti_av_aslp <- c(18, 24, 31)
+  export_snapshot$acti_av_awk <- c(1, 2, 3)
+  export_snapshot$acti_av_awkd <- c(28, 42, 55)
+  export_snapshot$acti_av_fin <- c("06:40", "07:05", "07:20")
+  export_snapshot$acti_av_outb <- c(445, 418, 392)
+  export_snapshot$acti_av_tot_slp <- c(418, 390, 362)
+  export_snapshot$acti_av_slp_eff <- c(92, 88, 84)
+  export_snapshot$acti_wd_slp <- c("22:05", "22:35", "23:00")
+  export_snapshot$acti_wd_sot <- c("22:20", "22:55", "23:25")
+  export_snapshot$acti_wd_aslp <- c(15, 20, 28)
+  export_snapshot$acti_wd_awk <- c(1, 2, 2)
+  export_snapshot$acti_wd_awkd <- c(25, 36, 48)
+  export_snapshot$acti_wd_fin <- c("06:30", "06:55", "07:10")
+  export_snapshot$acti_wd_outb <- c(440, 412, 386)
+  export_snapshot$acti_wd_tot_slp <- c(415, 388, 360)
+  export_snapshot$acti_wd_slp_eff <- c(93, 89, 85)
+  export_snapshot$acti_we_slp <- c("22:40", "23:10", "23:40")
+  export_snapshot$acti_we_sot <- c("22:55", "23:25", "23:55")
+  export_snapshot$acti_we_aslp <- c(24, 30, 36)
+  export_snapshot$acti_we_awk <- c(2, 3, 4)
+  export_snapshot$acti_we_awkd <- c(34, 48, 62)
+  export_snapshot$acti_we_fin <- c("06:55", "07:20", "07:40")
+  export_snapshot$acti_we_outb <- c(452, 425, 398)
+  export_snapshot$acti_we_tot_slp <- c(420, 392, 364)
+  export_snapshot$acti_we_slp_eff <- c(91, 87, 83)
+
+  utils::write.csv(
+    export_snapshot,
     file.path(shared_root, "snapshots", "redcap", "raw.csv"),
     row.names = FALSE
   )
@@ -633,6 +840,28 @@ test_that("MRI and LP screening domains map baseline-only legacy fields", {
   expect_equal(lp_result$participant_id, c("001", "002"))
   expect_equal(lp_result$year, c("baseline", "baseline"))
   expect_equal(lp_result$lp_interest, c("Interested", "Declined"))
+})
+
+test_that("MRI domain merges baseline REDCap fields with shared side-data", {
+  shared_root <- make_export_shared_root()
+  on.exit(unlink(shared_root, recursive = TRUE), add = TRUE)
+
+  redcap_df <- utils::read.csv(
+    file.path(shared_root, "snapshots", "redcap", "raw.csv"),
+    stringsAsFactors = FALSE
+  )
+
+  result <- be_build_mri_domain(
+    redcap_df = redcap_df,
+    shared_root = shared_root,
+    years = c("baseline", "year2")
+  )
+
+  expect_equal(result$participant_id, c("001", "002"))
+  expect_equal(result$year, c("baseline", "baseline"))
+  expect_equal(result$mri_date, c("2026-01-06", "2026-01-07"))
+  expect_equal(result$brainvol_novent, c(1100.5, 1048.2))
+  expect_equal(result$hippo_left, c(3.2, 2.9))
 })
 
 test_that("annual-phone MoCA, AD8, and UCLA domains map legacy fields by year", {
@@ -1165,6 +1394,239 @@ test_that("run_export supports annual-phone MoCA, AD8, and UCLA domains", {
   expect_equal(export_df$tele_date, "2027-01-02")
 })
 
+test_that("run_export supports MRI domain with baseline-wide side-data merge", {
+  shared_root <- make_export_shared_root()
+  on.exit(unlink(shared_root, recursive = TRUE), add = TRUE)
+
+  output_dir <- tempfile("export-dir-")
+  dir.create(output_dir, recursive = TRUE)
+  on.exit(unlink(output_dir, recursive = TRUE), add = TRUE)
+
+  spec <- be_default_export_spec(shared_root = shared_root)
+  spec$output$path <- file.path(output_dir, "mri.csv")
+  spec$domains <- c("participants", "mri")
+  spec$cohort$years <- c("baseline", "year2")
+
+  result <- run_export(
+    spec,
+    refresh_mode = "auto"
+  )
+
+  export_df <- utils::read.csv(
+    result$output,
+    stringsAsFactors = FALSE,
+    check.names = FALSE
+  )
+
+  expect_equal(export_df$participant_id, c(1, 2, 2))
+  expect_equal(export_df$year, c("baseline", "baseline", "year2"))
+  expect_equal(export_df$mri_date, c("2026-01-06", "2026-01-07", NA))
+  expect_equal(export_df$brainvol_novent, c(1100.5, 1048.2, NA))
+  expect_equal(export_df$hippo_right, c(3.4, 3.0, NA))
+  expect_equal(export_df$wm_hypoint, c(12.1, 18.4, NA))
+})
+
+test_that("run_export supports CDR and MMSE neuropsych domains", {
+  shared_root <- make_export_shared_root()
+  on.exit(unlink(shared_root, recursive = TRUE), add = TRUE)
+
+  output_dir <- tempfile("export-dir-")
+  dir.create(output_dir, recursive = TRUE)
+  on.exit(unlink(output_dir, recursive = TRUE), add = TRUE)
+
+  spec <- be_default_export_spec(shared_root = shared_root)
+  spec$output$path <- file.path(output_dir, "neuropsych.csv")
+  spec$domains <- c("participants", "cdr", "mmse")
+  spec$cohort$years <- c("baseline", "year2")
+
+  result <- run_export(
+    spec,
+    refresh_mode = "auto"
+  )
+
+  export_df <- utils::read.csv(
+    result$output,
+    stringsAsFactors = FALSE,
+    check.names = FALSE
+  )
+
+  expect_equal(export_df$participant_id, c(1, 2, 2))
+  expect_equal(export_df$year, c("baseline", "baseline", "year2"))
+  expect_equal(
+    export_df$neuropsych_date,
+    c("2026-01-07", "2026-01-08", "2027-01-08")
+  )
+  expect_equal(export_df$cdr_sobscore, c(0, 1.5, 4))
+  expect_equal(export_df$cdr_globalscore, c(0, 0.5, 1))
+  expect_equal(export_df$mmse_total, c(29, 27, 24))
+  expect_equal(export_df$mmse_notes, c(NA, "Needed prompting", "Fatigued"))
+  expect_equal(
+    export_df$mmse_notes_detail,
+    c(NA, "Serial sevens slow", "Attention drift")
+  )
+})
+
+test_that("run_export supports extended neuropsych battery domains", {
+  shared_root <- make_export_shared_root()
+  on.exit(unlink(shared_root, recursive = TRUE), add = TRUE)
+
+  output_dir <- tempfile("export-dir-")
+  dir.create(output_dir, recursive = TRUE)
+  on.exit(unlink(output_dir, recursive = TRUE), add = TRUE)
+
+  spec <- be_default_export_spec(shared_root = shared_root)
+  spec$output$path <- file.path(output_dir, "neuropsych-battery.csv")
+  spec$domains <- c(
+    "participants",
+    "sydbat",
+    "logical_memory",
+    "visual_reproduction",
+    "tmt",
+    "fab",
+    "cowat",
+    "hvot",
+    "tasit",
+    "topf"
+  )
+  spec$cohort$years <- c("baseline", "year2")
+
+  result <- run_export(
+    spec,
+    refresh_mode = "auto"
+  )
+
+  export_df <- utils::read.csv(
+    result$output,
+    stringsAsFactors = FALSE,
+    check.names = FALSE
+  )
+
+  expect_equal(export_df$participant_id, c(1, 2, 2))
+  expect_equal(export_df$sydbat_naming, c(27, 24, 21))
+  expect_equal(export_df$logicalmem_delay_total, c(21, 19, 17))
+  expect_equal(export_df$visualrepro2_total, c(18, 16, 14))
+  expect_equal(export_df$tmtbminusa, c(45, 53, 65))
+  expect_equal(export_df$fab_total, c(18, 14, 10))
+  expect_equal(export_df$cowat_total, c(42, 33, 27))
+  expect_equal(export_df$hvot_total, c(25, 22, 18))
+  expect_equal(export_df$tasit_total, c(15, 13, 11))
+  expect_equal(export_df$topf_total_corrected, c(3, 2, 4))
+})
+
+test_that("run_export supports dementia status domain", {
+  shared_root <- make_export_shared_root()
+  on.exit(unlink(shared_root, recursive = TRUE), add = TRUE)
+
+  output_dir <- tempfile("export-dir-")
+  dir.create(output_dir, recursive = TRUE)
+  on.exit(unlink(output_dir, recursive = TRUE), add = TRUE)
+
+  spec <- be_default_export_spec(shared_root = shared_root)
+  spec$output$path <- file.path(output_dir, "dementia-status.csv")
+  spec$domains <- c("participants", "dementia_status")
+  spec$cohort$years <- c("baseline", "year2")
+
+  result <- run_export(
+    spec,
+    refresh_mode = "auto"
+  )
+
+  export_df <- utils::read.csv(
+    result$output,
+    stringsAsFactors = FALSE,
+    check.names = FALSE
+  )
+
+  expect_equal(export_df$participant_id, c(1, 2, 2))
+  expect_equal(
+    export_df$demreview_date,
+    c("2026-01-09", "2026-01-10", "2027-01-10")
+  )
+  expect_equal(export_df$demreview_status, c("No dementia", "MCI", "Dementia"))
+  expect_equal(export_df$demreview_onset, c(NA, "2025-06-01", "2026-06-01"))
+  expect_equal(
+    export_df$demreview_intactdate,
+    c("2026-01-09", "2025-05-01", "2026-05-01")
+  )
+  expect_equal(
+    export_df$demreview_notes,
+    c(NA, "Monitor progression", "Consensus adjudication")
+  )
+})
+
+test_that("run_export supports sleep questionnaire domains", {
+  shared_root <- make_export_shared_root()
+  on.exit(unlink(shared_root, recursive = TRUE), add = TRUE)
+
+  output_dir <- tempfile("export-dir-")
+  dir.create(output_dir, recursive = TRUE)
+  on.exit(unlink(output_dir, recursive = TRUE), add = TRUE)
+
+  spec <- be_default_export_spec(shared_root = shared_root)
+  spec$output$path <- file.path(output_dir, "sleep-questionnaires.csv")
+  spec$domains <- c("participants", "psqi", "ess", "isi")
+  spec$cohort$years <- c("baseline", "year2")
+
+  result <- run_export(
+    spec,
+    refresh_mode = "auto"
+  )
+
+  export_df <- utils::read.csv(
+    result$output,
+    stringsAsFactors = FALSE,
+    check.names = FALSE
+  )
+
+  expect_equal(export_df$participant_id, c(1, 2, 2))
+  expect_equal(export_df$psqi_total, c(4, 8, 11))
+  expect_equal(export_df$psqi_q5j_other_detail, c(NA, "Noise", "Leg cramps"))
+  expect_equal(export_df$psqi_comp5_sub, c(2, 4, 6))
+  expect_equal(export_df$ess_total, c(4, 9, 14))
+  expect_equal(export_df$isi_cont_score, c(5, 11, 18))
+  expect_equal(
+    export_df$isi_cat_score,
+    c("No insomnia", "Subthreshold", "Moderate")
+  )
+})
+
+test_that("run_export supports actigraphy full and summary domains", {
+  shared_root <- make_export_shared_root()
+  on.exit(unlink(shared_root, recursive = TRUE), add = TRUE)
+
+  output_dir <- tempfile("export-dir-")
+  dir.create(output_dir, recursive = TRUE)
+  on.exit(unlink(output_dir, recursive = TRUE), add = TRUE)
+
+  spec <- be_default_export_spec(shared_root = shared_root)
+  spec$output$path <- file.path(output_dir, "actigraphy.csv")
+  spec$domains <- c("participants", "actigraphy_full", "actigraphy_summary")
+  spec$cohort$years <- c("baseline", "year2")
+
+  result <- run_export(
+    spec,
+    refresh_mode = "auto"
+  )
+
+  export_df <- utils::read.csv(
+    result$output,
+    stringsAsFactors = FALSE,
+    check.names = FALSE
+  )
+
+  expect_equal(export_df$participant_id, c(1, 2, 2))
+  expect_equal(
+    export_df$acti_night1_daytype,
+    c("Weekday", "Weekday", "Weekday")
+  )
+  expect_equal(export_df$acti_night1_onset_latency, c(11, 16, 21))
+  expect_equal(export_df$acti_night14_TST, c(392, 362, 332))
+  expect_equal(export_df$acti_nightsrecorded, c(14, 12, 10))
+  expect_equal(export_df$acti_avg_TST, c(418, 390, 362))
+  expect_equal(export_df$acti_weekday_avg_SE, c(93, 89, 85))
+  expect_equal(export_df$acti_weekend_total_WASO, c(34, 48, 62))
+})
+
 test_that("run_export supports baseline survey and demographics domains", {
   shared_root <- make_export_shared_root()
   on.exit(unlink(shared_root, recursive = TRUE), add = TRUE)
@@ -1621,6 +2083,21 @@ test_that("unsupported domains fail validation clearly", {
 
   expect_false(validation$ok)
   expect_match(validation$message, "not implemented yet")
+})
+
+test_that("validation fails clearly when MRI side-data is missing", {
+  shared_root <- make_export_shared_root()
+  on.exit(unlink(shared_root, recursive = TRUE), add = TRUE)
+  unlink(file.path(shared_root, "side-data", "global_n241.csv"))
+
+  spec <- be_default_export_spec(shared_root = shared_root)
+  spec$output$path <- tempfile(fileext = ".csv")
+  spec$domains <- c("participants", "mri")
+
+  validation <- be_validate_export_spec(spec)
+
+  expect_false(validation$ok)
+  expect_match(validation$message, "MRI side-data is missing")
 })
 
 test_that("run_export filters by participant_ids from the spec", {

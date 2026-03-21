@@ -45,6 +45,7 @@ be_assemble_export <- function(spec, shared_root) {
     "participants",
     "participant_screening",
     "mri_screening",
+    "mri",
     "lp_screening",
     "moca",
     "ad8",
@@ -66,6 +67,23 @@ be_assemble_export <- function(spec, shared_root) {
     "vitals",
     "bp24h",
     "medical_history",
+    "cdr",
+    "mmse",
+    "sydbat",
+    "logical_memory",
+    "visual_reproduction",
+    "tmt",
+    "fab",
+    "cowat",
+    "hvot",
+    "tasit",
+    "topf",
+    "dementia_status",
+    "psqi",
+    "ess",
+    "isi",
+    "actigraphy_full",
+    "actigraphy_summary",
     "similarities",
     "prose_passages",
     "cognitive_screening",
@@ -136,6 +154,24 @@ be_assemble_export <- function(spec, shared_root) {
       mri_screening
     } else {
       be_merge_event_domain(output, mri_screening)
+    }
+  }
+
+  if ("mri" %in% domains) {
+    mri <- be_build_mri_domain(
+      redcap_df = redcap_df,
+      shared_root = shared_root,
+      years = spec$cohort$years %||% NULL
+    )
+    mri <- be_filter_participants(
+      mri,
+      participant_ids = participant_ids
+    )
+
+    output <- if (is.null(output)) {
+      mri
+    } else {
+      be_merge_event_domain(output, mri)
     }
   }
 
@@ -366,6 +402,174 @@ be_assemble_export <- function(spec, shared_root) {
       participant_ids = participant_ids
     )
     output <- be_merge_event_domain(output, medical_history)
+  }
+
+  if ("cdr" %in% domains) {
+    cdr <- be_build_cdr_domain(
+      redcap_df = redcap_df,
+      years = spec$cohort$years %||% NULL
+    )
+    cdr <- be_filter_participants(cdr, participant_ids = participant_ids)
+    output <- be_merge_event_domain(output, cdr)
+  }
+
+  if ("mmse" %in% domains) {
+    mmse <- be_build_mmse_domain(
+      redcap_df = redcap_df,
+      years = spec$cohort$years %||% NULL
+    )
+    mmse <- be_filter_participants(mmse, participant_ids = participant_ids)
+    output <- be_merge_event_domain(output, mmse)
+  }
+
+  if ("sydbat" %in% domains) {
+    sydbat <- be_build_sydbat_domain(
+      redcap_df = redcap_df,
+      years = spec$cohort$years %||% NULL
+    )
+    sydbat <- be_filter_participants(sydbat, participant_ids = participant_ids)
+    output <- be_merge_event_domain(output, sydbat)
+  }
+
+  if ("logical_memory" %in% domains) {
+    logical_memory <- be_build_logical_memory_domain(
+      redcap_df = redcap_df,
+      years = spec$cohort$years %||% NULL
+    )
+    logical_memory <- be_filter_participants(
+      logical_memory,
+      participant_ids = participant_ids
+    )
+    output <- be_merge_event_domain(output, logical_memory)
+  }
+
+  if ("visual_reproduction" %in% domains) {
+    visual_reproduction <- be_build_visual_reproduction_domain(
+      redcap_df = redcap_df,
+      years = spec$cohort$years %||% NULL
+    )
+    visual_reproduction <- be_filter_participants(
+      visual_reproduction,
+      participant_ids = participant_ids
+    )
+    output <- be_merge_event_domain(output, visual_reproduction)
+  }
+
+  if ("tmt" %in% domains) {
+    tmt <- be_build_tmt_domain(
+      redcap_df = redcap_df,
+      years = spec$cohort$years %||% NULL
+    )
+    tmt <- be_filter_participants(tmt, participant_ids = participant_ids)
+    output <- be_merge_event_domain(output, tmt)
+  }
+
+  if ("fab" %in% domains) {
+    fab <- be_build_fab_domain(
+      redcap_df = redcap_df,
+      years = spec$cohort$years %||% NULL
+    )
+    fab <- be_filter_participants(fab, participant_ids = participant_ids)
+    output <- be_merge_event_domain(output, fab)
+  }
+
+  if ("cowat" %in% domains) {
+    cowat <- be_build_cowat_domain(
+      redcap_df = redcap_df,
+      years = spec$cohort$years %||% NULL
+    )
+    cowat <- be_filter_participants(cowat, participant_ids = participant_ids)
+    output <- be_merge_event_domain(output, cowat)
+  }
+
+  if ("hvot" %in% domains) {
+    hvot <- be_build_hvot_domain(
+      redcap_df = redcap_df,
+      years = spec$cohort$years %||% NULL
+    )
+    hvot <- be_filter_participants(hvot, participant_ids = participant_ids)
+    output <- be_merge_event_domain(output, hvot)
+  }
+
+  if ("tasit" %in% domains) {
+    tasit <- be_build_tasit_domain(
+      redcap_df = redcap_df,
+      years = spec$cohort$years %||% NULL
+    )
+    tasit <- be_filter_participants(tasit, participant_ids = participant_ids)
+    output <- be_merge_event_domain(output, tasit)
+  }
+
+  if ("topf" %in% domains) {
+    topf <- be_build_topf_domain(
+      redcap_df = redcap_df,
+      years = spec$cohort$years %||% NULL
+    )
+    topf <- be_filter_participants(topf, participant_ids = participant_ids)
+    output <- be_merge_event_domain(output, topf)
+  }
+
+  if ("dementia_status" %in% domains) {
+    dementia_status <- be_build_dementia_status_domain(
+      redcap_df = redcap_df,
+      years = spec$cohort$years %||% NULL
+    )
+    dementia_status <- be_filter_participants(
+      dementia_status,
+      participant_ids = participant_ids
+    )
+    output <- be_merge_event_domain(output, dementia_status)
+  }
+
+  if ("psqi" %in% domains) {
+    psqi <- be_build_psqi_domain(
+      redcap_df = redcap_df,
+      years = spec$cohort$years %||% NULL
+    )
+    psqi <- be_filter_participants(psqi, participant_ids = participant_ids)
+    output <- be_merge_event_domain(output, psqi)
+  }
+
+  if ("ess" %in% domains) {
+    ess <- be_build_ess_domain(
+      redcap_df = redcap_df,
+      years = spec$cohort$years %||% NULL
+    )
+    ess <- be_filter_participants(ess, participant_ids = participant_ids)
+    output <- be_merge_event_domain(output, ess)
+  }
+
+  if ("isi" %in% domains) {
+    isi <- be_build_isi_domain(
+      redcap_df = redcap_df,
+      years = spec$cohort$years %||% NULL
+    )
+    isi <- be_filter_participants(isi, participant_ids = participant_ids)
+    output <- be_merge_event_domain(output, isi)
+  }
+
+  if ("actigraphy_full" %in% domains) {
+    actigraphy_full <- be_build_actigraphy_full_domain(
+      redcap_df = redcap_df,
+      years = spec$cohort$years %||% NULL
+    )
+    actigraphy_full <- be_filter_participants(
+      actigraphy_full,
+      participant_ids = participant_ids
+    )
+    output <- be_merge_event_domain(output, actigraphy_full)
+  }
+
+  if ("actigraphy_summary" %in% domains) {
+    actigraphy_summary <- be_build_actigraphy_summary_domain(
+      redcap_df = redcap_df,
+      years = spec$cohort$years %||% NULL
+    )
+    actigraphy_summary <- be_filter_participants(
+      actigraphy_summary,
+      participant_ids = participant_ids
+    )
+    output <- be_merge_event_domain(output, actigraphy_summary)
   }
 
   if ("similarities" %in% domains) {

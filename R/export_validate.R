@@ -110,6 +110,7 @@ be_validate_export_spec <- function(spec) {
     "participants",
     "participant_screening",
     "mri_screening",
+    "mri",
     "lp_screening",
     "moca",
     "ad8",
@@ -131,6 +132,23 @@ be_validate_export_spec <- function(spec) {
     "vitals",
     "bp24h",
     "medical_history",
+    "cdr",
+    "mmse",
+    "sydbat",
+    "logical_memory",
+    "visual_reproduction",
+    "tmt",
+    "fab",
+    "cowat",
+    "hvot",
+    "tasit",
+    "topf",
+    "dementia_status",
+    "psqi",
+    "ess",
+    "isi",
+    "actigraphy_full",
+    "actigraphy_summary",
     "similarities",
     "prose_passages",
     "cognitive_screening",
@@ -148,6 +166,21 @@ be_validate_export_spec <- function(spec) {
   }
 
   selected_domains <- domains
+  if ("mri" %in% selected_domains) {
+    side_data_dir <- root_check$paths$side_data_dir %||% NULL
+    required_files <- file.path(side_data_dir, "global_n241.csv")
+    missing_files <- required_files[!file.exists(required_files)]
+    if (length(missing_files)) {
+      return(list(
+        ok = FALSE,
+        message = sprintf(
+          "MRI side-data is missing from shared root side-data/: %s",
+          paste(basename(missing_files), collapse = ", ")
+        )
+      ))
+    }
+  }
+
   if (any(c("ses", "aria") %in% selected_domains)) {
     side_data_dir <- root_check$paths$side_data_dir %||% NULL
     required_files <- file.path(
