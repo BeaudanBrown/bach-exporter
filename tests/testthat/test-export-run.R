@@ -1,6 +1,7 @@
 source(file.path("..", "..", "R", "paths.R"))
 source(file.path("..", "..", "R", "release_runtime.R"))
 source(file.path("..", "..", "R", "config.R"))
+source(file.path("..", "..", "R", "export_history.R"))
 source(file.path("..", "..", "R", "source_snapshots.R"))
 source(file.path("..", "..", "R", "source_side_data.R"))
 source(file.path("..", "..", "R", "normalize_redcap.R"))
@@ -1463,9 +1464,20 @@ test_that("medications wide domain keeps one row per participant year", {
 
 test_that("run_export writes a snapshot-backed participants csv and manifest", {
   cache_dir <- tempfile("bach-cache-")
+  data_dir <- tempfile("bach-data-")
   old_cache_option <- getOption("bachExporter.local_cache_dir")
-  options(bachExporter.local_cache_dir = cache_dir)
-  on.exit(options(bachExporter.local_cache_dir = old_cache_option), add = TRUE)
+  old_data_option <- getOption("bachExporter.local_data_dir")
+  options(
+    bachExporter.local_cache_dir = cache_dir,
+    bachExporter.local_data_dir = data_dir
+  )
+  on.exit(
+    options(
+      bachExporter.local_cache_dir = old_cache_option,
+      bachExporter.local_data_dir = old_data_option
+    ),
+    add = TRUE
+  )
 
   shared_root <- make_export_shared_root()
   on.exit(unlink(shared_root, recursive = TRUE), add = TRUE)
@@ -1490,6 +1502,8 @@ test_that("run_export writes a snapshot-backed participants csv and manifest", {
     )
   )
   manifest <- jsonlite::read_json(result$manifest, simplifyVector = TRUE)
+  log_lines <- readLines(result$log, warn = FALSE)
+  history <- be_read_export_history(limit = 1)
 
   expect_equal(export_df$participant_id, "002")
   expect_equal(export_df$subject_id, "002")
@@ -1500,9 +1514,18 @@ test_that("run_export writes a snapshot-backed participants csv and manifest", {
   expect_equal(export_df$education, "TAFE")
   expect_equal(manifest$domains, "participants")
   expect_equal(manifest$snapshot_metadata$redcap$source, "redcap")
+  expect_equal(manifest$snapshot_metadata$biomarkers$source, "biomarkers")
   expect_equal(manifest$source$mode, "snapshot")
   expect_named(manifest$source, "mode")
   expect_equal(manifest$execution_mode, "targets")
+  expect_equal(manifest$app$shared_manifest$build_id, manifest$build_id)
+  expect_equal(manifest$run$run_id, result$run_id)
+  expect_equal(manifest$output$row_count, 1)
+  expect_true(file.exists(result$log))
+  expect_true(length(log_lines) >= 3)
+  expect_equal(history$run_id[[1]], result$run_id)
+  expect_equal(history$status[[1]], "success")
+  expect_equal(history$row_count[[1]], 1L)
 })
 
 test_that("run_export adds core scaffold columns to medications-only exports", {

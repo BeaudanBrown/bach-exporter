@@ -200,6 +200,16 @@ be_app_ui <- function() {
         shiny::tabPanel(
           "Status",
           shiny::verbatimTextOutput("status_log")
+        ),
+        shiny::tabPanel(
+          "History",
+          shiny::p(
+            class = "app-note",
+            "Recent exports are recorded locally on this machine, including their output path, row count, and log file."
+          ),
+          shiny::tableOutput("export_history"),
+          shiny::hr(),
+          shiny::verbatimTextOutput("history_detail")
         )
       )
     )

@@ -41,16 +41,7 @@ be_target_graph <- function(
     ),
     targets::tar_target(
       snapshot_metadata,
-      list(
-        redcap = tryCatch(
-          be_read_snapshot_metadata(export_shared_root, "redcap"),
-          error = function(err) list(error = conditionMessage(err))
-        ),
-        snapshot_index = tryCatch(
-          be_read_snapshot_index(export_shared_root),
-          error = function(err) list(error = conditionMessage(err))
-        )
-      )
+      be_collect_snapshot_metadata(export_shared_root)
     ),
     targets::tar_target(
       export_manifest,

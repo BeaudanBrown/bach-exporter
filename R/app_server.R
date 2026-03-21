@@ -35,6 +35,7 @@ be_app_server <- function(shared_root = NULL, export_runner = run_export) {
     status_log <- shiny::reactiveVal("App started.")
     export_busy <- shiny::reactiveVal(FALSE)
     export_busy_message <- shiny::reactiveVal(NULL)
+    history_nonce <- shiny::reactiveVal(0)
 
     initial_shared_root <- shared_root %||% be_load_shared_root() %||% ""
     shiny::updateTextInput(session, "shared_root", value = initial_shared_root)
@@ -70,6 +71,7 @@ be_app_server <- function(shared_root = NULL, export_runner = run_export) {
       }
       be_save_shared_root(input$shared_root)
       status_log(sprintf("Shared root saved: %s", input$shared_root))
+      history_nonce(history_nonce() + 1)
     })
 
     shiny::observeEvent(
@@ -163,6 +165,12 @@ be_app_server <- function(shared_root = NULL, export_runner = run_export) {
       } else {
         status_log(sprintf("Export completed: %s", result$output))
       }
+      history_nonce(history_nonce() + 1)
+    })
+
+    export_history <- shiny::reactive({
+      history_nonce()
+      be_read_export_history()
     })
 
     output$preset_detail <- shiny::renderPrint({
@@ -186,6 +194,39 @@ be_app_server <- function(shared_root = NULL, export_runner = run_export) {
 
     output$status_log <- shiny::renderText({
       status_log()
+    })
+
+    output$export_history <- shiny::renderTable(
+      {
+        history <- export_history()
+        if (!nrow(history)) {
+          return(NULL)
+        }
+
+        history[,
+          c(
+            "completed_at",
+            "status",
+            "domains",
+            "row_count",
+            "output_path",
+            "build_id"
+          ),
+          drop = FALSE
+        ]
+      },
+      striped = TRUE,
+      bordered = TRUE,
+      spacing = "xs"
+    )
+
+    output$history_detail <- shiny::renderPrint({
+      history <- export_history()
+      if (!nrow(history)) {
+        return("No local export history recorded yet.")
+      }
+
+      as.list(history[1, , drop = FALSE])
     })
   }
 }

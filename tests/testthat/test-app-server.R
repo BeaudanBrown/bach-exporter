@@ -1,5 +1,6 @@
 app_env <- new.env(parent = globalenv())
 sys.source(file.path("..", "..", "R", "paths.R"), envir = app_env)
+sys.source(file.path("..", "..", "R", "export_history.R"), envir = app_env)
 sys.source(file.path("..", "..", "R", "app_server.R"), envir = app_env)
 
 test_that("app server uses exported shinyFiles save helper", {
@@ -21,6 +22,22 @@ test_that("app server wraps exports in progress feedback and button busy state",
   app_env$be_save_shared_root <- function(shared_root) NULL
   app_env$be_default_presets <- function() {
     list(baseline_core = list(years = "baseline", domains = "participants"))
+  }
+  app_env$be_read_export_history <- function(limit = 20, history_path = NULL) {
+    data.frame(
+      run_id = "run-1",
+      status = "success",
+      started_at = "2026-03-21T07:59:59Z",
+      completed_at = "2026-03-21T08:00:00Z",
+      output_path = "/tmp/export.csv",
+      row_count = 2L,
+      domains = "participants",
+      build_id = "build-1",
+      error_message = NA_character_,
+      log_path = "/tmp/export.log",
+      manifest_path = "/tmp/export.csv.manifest.json",
+      stringsAsFactors = FALSE
+    )
   }
   app_env$be_default_export_spec <- function(shared_root = NULL) {
     list(
@@ -77,6 +94,7 @@ test_that("app server wraps exports in progress feedback and button busy state",
         c(TRUE, FALSE)
       )
       expect_equal(output$status_log, "Export completed: /tmp/export.csv")
+      expect_match(output$history_detail, "run-1")
     }
   )
 })
@@ -91,6 +109,22 @@ test_that("app server reports export failures and restores idle button state", {
   app_env$be_save_shared_root <- function(shared_root) NULL
   app_env$be_default_presets <- function() {
     list(baseline_core = list(years = "baseline", domains = "participants"))
+  }
+  app_env$be_read_export_history <- function(limit = 20, history_path = NULL) {
+    data.frame(
+      run_id = "run-1",
+      status = "failed",
+      started_at = "2026-03-21T07:59:59Z",
+      completed_at = "2026-03-21T08:00:00Z",
+      output_path = "/tmp/export.csv",
+      row_count = NA_integer_,
+      domains = "participants",
+      build_id = "build-1",
+      error_message = "boom",
+      log_path = "/tmp/export.log",
+      manifest_path = "/tmp/export.csv.manifest.json",
+      stringsAsFactors = FALSE
+    )
   }
   app_env$be_default_export_spec <- function(shared_root = NULL) {
     list(
@@ -140,6 +174,7 @@ test_that("app server reports export failures and restores idle button state", {
         c(TRUE, FALSE)
       )
       expect_equal(output$status_log, "Export failed: boom")
+      expect_match(output$history_detail, "boom")
     }
   )
 })

@@ -80,7 +80,7 @@ be_shared_manifest_path <- function(shared_root) {
   file.path(be_shared_app_root(shared_root), "manifest.json")
 }
 
-be_read_manifest_build_id <- function(manifest_path) {
+be_read_manifest <- function(manifest_path) {
   if (
     is.null(manifest_path) ||
       !nzchar(manifest_path) ||
@@ -89,10 +89,14 @@ be_read_manifest_build_id <- function(manifest_path) {
     return(NULL)
   }
 
-  manifest <- tryCatch(
+  tryCatch(
     jsonlite::read_json(manifest_path, simplifyVector = TRUE),
     error = function(err) NULL
   )
+}
+
+be_read_manifest_build_id <- function(manifest_path) {
+  manifest <- be_read_manifest(manifest_path)
   if (is.null(manifest)) {
     return(NULL)
   }
@@ -103,6 +107,10 @@ be_read_manifest_build_id <- function(manifest_path) {
   }
 
   as.character(build_id)
+}
+
+be_read_shared_manifest <- function(shared_root) {
+  be_read_manifest(be_shared_manifest_path(shared_root))
 }
 
 be_read_build_id <- function(shared_root) {

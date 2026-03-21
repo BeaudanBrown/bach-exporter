@@ -15,19 +15,11 @@ be_build_export_manifest <- function(
   execution_mode = "direct"
 ) {
   if (is.null(snapshot_metadata)) {
-    snapshot_metadata <- list(
-      redcap = tryCatch(
-        be_read_snapshot_metadata(shared_root, "redcap"),
-        error = function(err) list(error = conditionMessage(err))
-      ),
-      snapshot_index = tryCatch(
-        be_read_snapshot_index(shared_root),
-        error = function(err) list(error = conditionMessage(err))
-      )
-    )
+    snapshot_metadata <- be_collect_snapshot_metadata(shared_root)
   }
 
   shared_paths <- be_shared_paths(shared_root)
+  shared_manifest <- be_read_shared_manifest(shared_root)
   app_version <- tryCatch(
     as.character(utils::packageVersion("bachExporter")),
     error = function(err) "0.0.1"
@@ -42,7 +34,8 @@ be_build_export_manifest <- function(
     snapshot_metadata = snapshot_metadata,
     app = list(
       package = "bachExporter",
-      version = app_version
+      version = app_version,
+      shared_manifest = shared_manifest
     ),
     platform = list(
       r_version = R.version.string,

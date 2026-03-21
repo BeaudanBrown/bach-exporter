@@ -74,6 +74,33 @@ be_read_snapshot_index <- function(shared_root) {
   jsonlite::read_json(path, simplifyVector = TRUE)
 }
 
+be_collect_snapshot_metadata <- function(shared_root) {
+  snapshot_index <- tryCatch(
+    be_read_snapshot_index(shared_root),
+    error = function(err) list(error = conditionMessage(err))
+  )
+
+  families <- c("redcap")
+  if (is.null(snapshot_index$error)) {
+    if (!is.null(snapshot_index$families)) {
+      families <- union(families, as.character(snapshot_index$families))
+    }
+    if (!is.null(snapshot_index$snapshots)) {
+      families <- union(families, names(snapshot_index$snapshots))
+    }
+  }
+
+  metadata <- list(snapshot_index = snapshot_index)
+  for (family in families) {
+    metadata[[family]] <- tryCatch(
+      be_read_snapshot_metadata(shared_root, family),
+      error = function(err) list(error = conditionMessage(err))
+    )
+  }
+
+  metadata
+}
+
 be_read_redcap_snapshot <- function(shared_root) {
   be_read_snapshot_csv(shared_root, "redcap", "raw.csv")
 }
