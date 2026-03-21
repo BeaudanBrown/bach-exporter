@@ -97,6 +97,7 @@ be_app_ui <- function() {
                   "CFI" = "cfi",
                   "Global Health" = "global_health",
                   "Biomarkers" = "biomarkers",
+                  "Genomics" = "genomics",
                   "Bloods / Pathology" = "bloods",
                   "Vitals" = "vitals",
                   "24h Blood Pressure" = "bp24h",

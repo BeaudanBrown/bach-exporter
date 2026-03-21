@@ -13,6 +13,7 @@ source(file.path("..", "..", "R", "domain_imaging.R"))
 source(file.path("..", "..", "R", "domain_surveys.R"))
 source(file.path("..", "..", "R", "domain_clinical.R"))
 source(file.path("..", "..", "R", "domain_biomarkers.R"))
+source(file.path("..", "..", "R", "domain_genomics.R"))
 source(file.path("..", "..", "R", "domain_neuropsych.R"))
 source(file.path("..", "..", "R", "domain_sleep.R"))
 source(file.path("..", "..", "R", "domain_similarities.R"))
@@ -256,6 +257,16 @@ make_export_shared_root <- function() {
     global_tot_physical = c(45, 40, NA),
     global_tot_mental = c(50, 42, NA),
     euro_qol = c(0.92, 0.81, NA),
+    aqp4_allele1 = c("AA", "AG", NA),
+    aqp4_dosage1 = c("major", "mixed", NA),
+    aqp4_allele2 = c("AA", "AC", NA),
+    aqp4_dosage2 = c("major", "mixed", NA),
+    aqp4_allele3 = c("TT", "TG", NA),
+    aqp4_dosage3 = c("major", "mixed", NA),
+    apoe_allele1 = c("CC", "CT", NA),
+    apoe_dosage1 = c("1", "1", NA),
+    apoe_allele2 = c("TT", "TC", NA),
+    apoe_dosage2 = c("1", "1", NA),
     bloods_successful = c("Yes", "No", NA),
     bloods_date = c("2026-01-05", "2026-01-06", NA),
     bloods_time = c("08:00", "08:30", NA),
@@ -2088,6 +2099,42 @@ test_that("run_export supports biomarker domain with derived AB42/40 ratios", {
     round(export_df$ab4240ratio_csf, 6),
     round(c(250 / 5000, 230 / 4800, 230 / 4800), 6)
   )
+})
+
+test_that("run_export supports genomics domain with derived status fields", {
+  shared_root <- make_export_shared_root()
+  on.exit(unlink(shared_root, recursive = TRUE), add = TRUE)
+
+  output_dir <- tempfile("export-dir-")
+  dir.create(output_dir, recursive = TRUE)
+  on.exit(unlink(output_dir, recursive = TRUE), add = TRUE)
+
+  spec <- be_default_export_spec(shared_root = shared_root)
+  spec$output$path <- file.path(output_dir, "genomics.csv")
+  spec$domains <- c("participants", "genomics")
+  spec$cohort$years <- c("baseline", "year2")
+
+  result <- run_export(
+    spec,
+    refresh_mode = "auto",
+    execution_mode = "direct"
+  )
+
+  export_df <- utils::read.csv(
+    result$output,
+    stringsAsFactors = FALSE,
+    check.names = FALSE
+  )
+
+  expect_equal(export_df$participant_id, c(1, 2, 2))
+  expect_equal(export_df$aqp4_allele1, c("AA", "AG", "AG"))
+  expect_equal(
+    export_df$aqp4_genotype,
+    c("homozygous_major", "heterozygous", "heterozygous")
+  )
+  expect_equal(export_df$aqp4_status, c("noncarrier", "carrier", "carrier"))
+  expect_equal(export_df$apoe_genotype, c("e3e3", "e2e4", "e2e4"))
+  expect_equal(export_df$apoe_e4_status, c("noncarrier", "carrier", "carrier"))
 })
 
 test_that("run_export supports baseline clinical domains", {

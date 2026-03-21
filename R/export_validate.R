@@ -130,6 +130,7 @@ be_validate_export_spec <- function(spec) {
     "cfi",
     "global_health",
     "biomarkers",
+    "genomics",
     "bloods",
     "vitals",
     "bp24h",
