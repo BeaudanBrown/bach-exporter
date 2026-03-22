@@ -49,7 +49,11 @@ be_resolve_output_save_path <- function(selected) {
   NULL
 }
 
-be_app_server <- function(shared_root = NULL, export_runner = run_export) {
+be_app_server <- function(
+  shared_root = NULL,
+  export_runner = run_export,
+  notification_runner = shiny::showNotification
+) {
   function(input, output, session) {
     roots <- be_shiny_roots()
     shinyFiles::shinyDirChoose(
@@ -69,6 +73,7 @@ be_app_server <- function(shared_root = NULL, export_runner = run_export) {
     status_log <- shiny::reactiveVal("App started.")
     export_busy <- shiny::reactiveVal(FALSE)
     export_busy_message <- shiny::reactiveVal(NULL)
+    export_error_message <- shiny::reactiveVal(NULL)
     history_nonce <- shiny::reactiveVal(0)
 
     initial_shared_root <- shared_root %||% be_load_shared_root() %||% ""
@@ -139,6 +144,7 @@ be_app_server <- function(shared_root = NULL, export_runner = run_export) {
       export_busy_message(
         "Export in progress. Keep this window open until the result appears."
       )
+      export_error_message(NULL)
       status_log(
         "Export started. Preparing shared snapshots and export output."
       )
@@ -191,8 +197,16 @@ be_app_server <- function(shared_root = NULL, export_runner = run_export) {
       )
 
       if (inherits(result, "error")) {
-        status_log(sprintf("Export failed: %s", conditionMessage(result)))
+        error_message <- conditionMessage(result)
+        export_error_message(error_message)
+        status_log(sprintf("Export failed: %s", error_message))
+        notification_runner(
+          ui = paste("Export failed:", error_message),
+          type = "error",
+          duration = NULL
+        )
       } else {
+        export_error_message(NULL)
         status_log(sprintf("Export completed: %s", result$output))
       }
       history_nonce(history_nonce() + 1)
@@ -222,6 +236,19 @@ be_app_server <- function(shared_root = NULL, export_runner = run_export) {
         class = "busy-banner",
         shiny::span(class = "busy-banner__spinner"),
         shiny::span(export_busy_message())
+      )
+    })
+
+    output$export_error_banner <- shiny::renderUI({
+      message <- export_error_message()
+      if (is.null(message) || !nzchar(message)) {
+        return(NULL)
+      }
+
+      shiny::div(
+        class = "error-banner",
+        shiny::strong("Export failed."),
+        shiny::span(message)
       )
     })
 

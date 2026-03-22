@@ -27,6 +27,18 @@ be_app_ui <- function() {
              animation: be-spin 0.8s linear infinite;
              flex: 0 0 auto;
            }
+           .error-banner {
+             margin-top: 12px;
+             padding: 12px 14px;
+             border-radius: 10px;
+             background: #fce8e6;
+             border: 1px solid #e09b93;
+             color: #7a1f17;
+             display: flex;
+             flex-direction: column;
+             gap: 4px;
+             font-weight: 600;
+           }
            @keyframes be-spin {
              from { transform: rotate(0deg); }
              to { transform: rotate(360deg); }
@@ -169,7 +181,8 @@ be_app_ui <- function() {
                 selected = "auto"
               ),
               shiny::actionButton("run_export_btn", "Run export"),
-              shiny::uiOutput("export_busy_banner")
+              shiny::uiOutput("export_busy_banner"),
+              shiny::uiOutput("export_error_banner")
             )
           )
         ),

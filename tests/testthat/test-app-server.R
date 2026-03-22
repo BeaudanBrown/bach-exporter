@@ -38,6 +38,7 @@ test_that("app server save-path resolver avoids duplicating the filename", {
 test_that("app server wraps exports in progress feedback and button busy state", {
   button_messages <- list()
   export_calls <- list()
+  notifications <- list()
 
   app_env$be_load_shared_root <- function() NULL
   app_env$be_validate_shared_root <- function(shared_root) {
@@ -89,6 +90,14 @@ test_that("app server wraps exports in progress feedback and button busy state",
 
   shiny::testServer(
     app_env$be_app_server(
+      notification_runner = function(ui, type = "default", duration = 5, ...) {
+        notifications[[length(notifications) + 1]] <<- list(
+          ui = ui,
+          type = type,
+          duration = duration
+        )
+        NULL
+      },
       export_runner = function(spec, refresh_mode) {
         export_calls[[length(export_calls) + 1]] <<- list(
           spec = spec,
@@ -117,14 +126,17 @@ test_that("app server wraps exports in progress feedback and button busy state",
         vapply(button_messages, `[[`, logical(1), "busy"),
         c(TRUE, FALSE)
       )
+      expect_length(notifications, 0)
       expect_equal(output$status_log, "Export completed: /tmp/export.csv")
       expect_match(output$history_detail, "run-1")
+      expect_null(output$export_error_banner)
     }
   )
 })
 
 test_that("app server reports export failures and restores idle button state", {
   button_messages <- list()
+  notifications <- list()
 
   app_env$be_load_shared_root <- function() NULL
   app_env$be_validate_shared_root <- function(shared_root) {
@@ -176,6 +188,14 @@ test_that("app server reports export failures and restores idle button state", {
 
   shiny::testServer(
     app_env$be_app_server(
+      notification_runner = function(ui, type = "default", duration = 5, ...) {
+        notifications[[length(notifications) + 1]] <<- list(
+          ui = ui,
+          type = type,
+          duration = duration
+        )
+        NULL
+      },
       export_runner = function(spec, refresh_mode) {
         stop("boom", call. = FALSE)
       }
@@ -197,7 +217,17 @@ test_that("app server reports export failures and restores idle button state", {
         vapply(button_messages, `[[`, logical(1), "busy"),
         c(TRUE, FALSE)
       )
+      expect_length(notifications, 1)
+      expect_equal(notifications[[1]]$type, "error")
+      expect_true(is.null(notifications[[1]]$duration))
+      expect_match(notifications[[1]]$ui, "Export failed: boom")
       expect_equal(output$status_log, "Export failed: boom")
+      error_banner <- paste(
+        as.character(output$export_error_banner),
+        collapse = "\n"
+      )
+      expect_match(error_banner, "Export failed")
+      expect_match(error_banner, "boom")
       expect_match(output$history_detail, "boom")
     }
   )
