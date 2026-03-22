@@ -43,4 +43,5 @@ If the app code changed, the new `build_id` causes researcher machines to instal
 - Validate a shared root explicitly with `just validate-shared-root /path/to/shared/root`.
 - The maintainer shared root persists in local `admin-refresh.json`.
 - The researcher shared root persists in local `shared-root.json`.
+- `BACH_SHARED_ROOT` is intentionally not used as a normal config source. Keep `.env` for REDCap connection settings and use `set-admin-shared-root` or `--shared-root` for the shared folder path.
 - Local package libraries and `targets` stores stay per-user and are keyed by `build_id`.

@@ -65,7 +65,7 @@ be_admin_refresh_config <- function(config_path = NULL) {
 
   list(
     config_path = config_path,
-    shared_root = env_or_file("BACH_SHARED_ROOT", "shared_root", NULL),
+    shared_root = file_config[["shared_root"]] %||% NULL,
     redcap_url = env_or_file(
       "BACH_REDCAP_URL",
       "redcap_url",
@@ -139,7 +139,7 @@ be_validate_admin_refresh_config <- function(config) {
     return(list(
       ok = FALSE,
       message = sprintf(
-        "Admin refresh shared_root is missing. Set BACH_SHARED_ROOT or populate %s.",
+        "Admin refresh shared_root is missing. Use set-admin-shared-root, populate %s, or pass --shared-root.",
         config$config_path
       )
     ))

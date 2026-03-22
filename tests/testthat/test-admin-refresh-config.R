@@ -78,7 +78,6 @@ test_that("admin refresh dotenv loader populates environment variables", {
   dotenv_path <- file.path(config_dir, ".env")
   writeLines(
     c(
-      "BACH_SHARED_ROOT=/tmp/dotenv-shared-root",
       "BACH_REDCAP_URL=https://dotenv.example.org/api/",
       "BACH_REDCAP_KEYRING=dotenv-keyring",
       "BACH_REDCAP_PROJECT_ALIAS=dotenv-project",
@@ -92,7 +91,6 @@ test_that("admin refresh dotenv loader populates environment variables", {
 
   old_env <- Sys.getenv(
     c(
-      "BACH_SHARED_ROOT",
       "BACH_REDCAP_URL",
       "BACH_REDCAP_KEYRING",
       "BACH_REDCAP_PROJECT_ALIAS",
@@ -122,7 +120,7 @@ test_that("admin refresh dotenv loader populates environment variables", {
 
   config <- be_admin_refresh_config(config_path = tempfile("unused-config-"))
 
-  expect_equal(config$shared_root, "/tmp/dotenv-shared-root")
+  expect_null(config$shared_root)
   expect_equal(config$redcap_url, "https://dotenv.example.org/api/")
   expect_equal(config$keyring, "dotenv-keyring")
   expect_equal(config$project_alias, "dotenv-project")
@@ -130,6 +128,42 @@ test_that("admin refresh dotenv loader populates environment variables", {
   expect_false(config$schema_snapshot_only)
   expect_true(config$record_probe_only)
   expect_equal(config$probe_records, c("10000", "10001"))
+})
+
+test_that("admin refresh config ignores BACH_SHARED_ROOT env overrides", {
+  config_dir <- tempfile("admin-config-dir-")
+  dir.create(config_dir, recursive = TRUE)
+  on.exit(unlink(config_dir, recursive = TRUE), add = TRUE)
+
+  config_path <- file.path(config_dir, "admin-refresh.json")
+  jsonlite::write_json(
+    list(
+      shared_root = "/tmp/configured-shared-root",
+      redcap_url = "https://redcap.example.org/api/",
+      keyring = "bach-exporter-admin",
+      project_alias = "bach-exporter",
+      connection_name = "rcon_admin"
+    ),
+    config_path,
+    auto_unbox = TRUE
+  )
+
+  old_env <- Sys.getenv("BACH_SHARED_ROOT", unset = NA_character_)
+  on.exit(
+    {
+      if (is.na(old_env)) {
+        Sys.unsetenv("BACH_SHARED_ROOT")
+      } else {
+        Sys.setenv(BACH_SHARED_ROOT = old_env)
+      }
+    },
+    add = TRUE
+  )
+  Sys.setenv(BACH_SHARED_ROOT = "/tmp/env-shared-root")
+
+  config <- be_admin_refresh_config(config_path = config_path)
+
+  expect_equal(config$shared_root, "/tmp/configured-shared-root")
 })
 
 test_that("admin schema snapshot paths follow shared-root layout", {

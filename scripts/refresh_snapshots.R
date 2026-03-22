@@ -41,7 +41,7 @@ refresh_snapshots_main <- function(
   runtime$inform(
     paste(
       "Populate admin settings with env vars",
-      "BACH_SHARED_ROOT, BACH_REDCAP_URL, BACH_REDCAP_KEYRING,",
+      "BACH_REDCAP_URL, BACH_REDCAP_KEYRING,",
       "BACH_REDCAP_PROJECT_ALIAS, BACH_REDCAP_CONNECTION_NAME,",
       "BACH_SCHEMA_SNAPSHOT_ONLY, BACH_RECORD_PROBE_ONLY, BACH_PROBE_RECORDS"
     )

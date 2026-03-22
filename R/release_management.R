@@ -368,7 +368,7 @@ be_resolve_admin_shared_root <- function(
   resolved <- config$shared_root %||% NULL
   if (is.null(resolved) || !nzchar(resolved)) {
     stop(
-      "Shared root is not configured. Set BACH_SHARED_ROOT, populate admin-refresh.json, or pass --shared-root.",
+      "Shared root is not configured. Use set-admin-shared-root, populate admin-refresh.json, or pass --shared-root.",
       call. = FALSE
     )
   }
