@@ -1,4 +1,5 @@
 source("R/paths.R")
+source("R/config.R")
 source("R/source_refresh_admin.R")
 source("R/release_management.R")
 
