@@ -3,12 +3,22 @@ source(file.path("..", "..", "R", "release_runtime.R"))
 source(file.path("..", "..", "R", "source_refresh_admin.R"))
 source(file.path("..", "..", "R", "release_management.R"))
 
+list_side_data_files <- function(path) {
+  if (!dir.exists(path)) {
+    return(character())
+  }
+
+  list.files(path, no.. = TRUE)
+}
+
 test_that("stage_shared_app stages a valid shared app bundle", {
   repo_root <- normalizePath(
     file.path("..", ".."),
     winslash = "/",
     mustWork = TRUE
   )
+  source_side_data_dir <- file.path(repo_root, "shared", "side-data")
+  expected_side_data <- list_side_data_files(source_side_data_dir)
   output_root <- tempfile("prepared-app-root-")
   on.exit(unlink(output_root, recursive = TRUE), add = TRUE)
 
@@ -30,7 +40,10 @@ test_that("stage_shared_app stages a valid shared app bundle", {
     "scripts",
     "refresh_snapshots.R"
   )))
-  expect_true(file.exists(file.path(output_root, "side-data", "absdf.csv")))
+  expect_equal(
+    sort(list_side_data_files(file.path(output_root, "side-data"))),
+    sort(expected_side_data)
+  )
   expect_true(result$validation$ok)
   expect_equal(manifest$build_id, "build-20260321")
   expect_equal(manifest$package$name, "bachExporter")
@@ -43,6 +56,8 @@ test_that("publish_shared_app deploys the staged app to the fixed app directory"
     winslash = "/",
     mustWork = TRUE
   )
+  source_side_data_dir <- file.path(repo_root, "shared", "side-data")
+  expected_side_data <- list_side_data_files(source_side_data_dir)
   staged_root <- tempfile("staged-app-root-")
   shared_root <- tempfile("published-app-root-")
   dir.create(shared_root, recursive = TRUE)
@@ -69,11 +84,10 @@ test_that("publish_shared_app deploys the staged app to the fixed app directory"
     "scripts",
     "refresh_snapshots.R"
   )))
-  expect_true(file.exists(file.path(
-    shared_root,
-    "side-data",
-    "RA_2016_AUST.csv"
-  )))
+  expect_equal(
+    sort(list_side_data_files(file.path(shared_root, "side-data"))),
+    sort(expected_side_data)
+  )
 })
 
 test_that("publish_shared_app reports the previous build id when overwriting", {
