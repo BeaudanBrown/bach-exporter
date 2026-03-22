@@ -15,6 +15,40 @@ be_set_button_busy_state <- function(
   )
 }
 
+be_resolve_output_save_path <- function(selected) {
+  if (is.null(selected) || !nrow(selected)) {
+    return(NULL)
+  }
+
+  name <- if ("name" %in% names(selected)) selected$name[[1]] else ""
+  datapath <- if ("datapath" %in% names(selected)) {
+    selected$datapath[[1]]
+  } else {
+    ""
+  }
+  path <- if ("path" %in% names(selected)) selected$path[[1]] else ""
+
+  if (nzchar(datapath)) {
+    if (nzchar(name) && identical(basename(datapath), name)) {
+      return(datapath)
+    }
+    if (!nzchar(name)) {
+      return(datapath)
+    }
+    return(file.path(datapath, name))
+  }
+
+  if (nzchar(path) && nzchar(name)) {
+    return(file.path(path, name))
+  }
+
+  if (nzchar(path)) {
+    return(path)
+  }
+
+  NULL
+}
+
 be_app_server <- function(shared_root = NULL, export_runner = run_export) {
   function(input, output, session) {
     roots <- be_shiny_roots()
@@ -49,12 +83,8 @@ be_app_server <- function(shared_root = NULL, export_runner = run_export) {
 
     shiny::observeEvent(input$browse_output, {
       selected <- shinyFiles::parseSavePath(roots, input$browse_output)
-      if (nrow(selected) == 1) {
-        output_path <- if ("datapath" %in% names(selected)) {
-          file.path(selected$datapath[1], selected$name[1])
-        } else {
-          file.path(selected$path[1], selected$name[1])
-        }
+      output_path <- be_resolve_output_save_path(selected)
+      if (!is.null(output_path) && nzchar(output_path)) {
         shiny::updateTextInput(
           session,
           "output_path",
@@ -178,7 +208,10 @@ be_app_server <- function(shared_root = NULL, export_runner = run_export) {
       if (is.null(preset)) {
         return("No preset selected.")
       }
-      preset
+      list(
+        note = "Choosing a preset updates the Export tab years and domains; it does not run an export by itself.",
+        preset = preset
+      )
     })
 
     output$export_busy_banner <- shiny::renderUI({

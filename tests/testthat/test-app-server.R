@@ -11,6 +11,30 @@ test_that("app server uses exported shinyFiles save helper", {
   expect_false(grepl("shinyFiles::shinySaveFile", server_body, fixed = TRUE))
 })
 
+test_that("app server save-path resolver avoids duplicating the filename", {
+  expect_equal(
+    app_env$be_resolve_output_save_path(
+      data.frame(
+        datapath = "/home/beau/test.csv",
+        name = "test.csv",
+        stringsAsFactors = FALSE
+      )
+    ),
+    "/home/beau/test.csv"
+  )
+
+  expect_equal(
+    app_env$be_resolve_output_save_path(
+      data.frame(
+        path = "/home/beau",
+        name = "test.csv",
+        stringsAsFactors = FALSE
+      )
+    ),
+    "/home/beau/test.csv"
+  )
+})
+
 test_that("app server wraps exports in progress feedback and button busy state", {
   button_messages <- list()
   export_calls <- list()

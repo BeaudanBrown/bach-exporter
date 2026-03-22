@@ -27,7 +27,12 @@ set_admin_shared_root_main <- function(
     shared_root = shared_root,
     config_path = config_path
   )
+  be_save_shared_root(shared_root)
   message(sprintf("Admin shared root saved to %s", config_path))
+  message(sprintf(
+    "Launcher/app shared root saved to %s",
+    be_shared_root_config_path()
+  ))
   message(sprintf(
     "Shared root: %s",
     normalizePath(shared_root, winslash = "/", mustWork = FALSE)
