@@ -24,6 +24,67 @@ be_launcher_use_tmp_dir <- function(workdir = getwd()) {
   path
 }
 
+be_launcher_current_tempdir <- function() {
+  normalizePath(tempdir(), winslash = "/", mustWork = FALSE)
+}
+
+be_launcher_tempdir_ready <- function(
+  workdir = getwd(),
+  current_tempdir = be_launcher_current_tempdir()
+) {
+  desired <- be_launcher_tmp_dir(workdir = workdir)
+  identical(current_tempdir, desired) ||
+    startsWith(current_tempdir, paste0(desired, "/"))
+}
+
+be_launcher_script_path <- function(
+  command_args = commandArgs(trailingOnly = FALSE)
+) {
+  file_arg <- command_args[grepl("^--file=", command_args)]
+  if (!length(file_arg)) {
+    stop("Could not resolve launcher script path.", call. = FALSE)
+  }
+
+  normalizePath(
+    sub("^--file=", "", file_arg[[1]]),
+    winslash = "/",
+    mustWork = TRUE
+  )
+}
+
+be_launcher_reexec_status <- function(
+  workdir = getwd(),
+  command_args = commandArgs(trailingOnly = FALSE),
+  trailing_args = commandArgs(trailingOnly = TRUE),
+  current_tempdir = be_launcher_current_tempdir(),
+  system2_runner = system2
+) {
+  if (
+    be_launcher_tempdir_ready(
+      workdir = workdir,
+      current_tempdir = current_tempdir
+    )
+  ) {
+    return(NULL)
+  }
+
+  desired <- be_launcher_tmp_dir(workdir = workdir)
+  script_path <- be_launcher_script_path(command_args = command_args)
+  rscript <- file.path(R.home("bin"), "Rscript")
+  status <- system2_runner(
+    rscript,
+    args = c(script_path, trailing_args),
+    env = c(
+      sprintf("TMPDIR=%s", desired),
+      sprintf("TMP=%s", desired),
+      sprintf("TEMP=%s", desired)
+    ),
+    wait = TRUE
+  )
+
+  as.integer(status %||% 0L)
+}
+
 be_launcher_config_path <- function() {
   config_dir <- tools::R_user_dir("bachExporter", which = "config")
   dir.create(config_dir, recursive = TRUE, showWarnings = FALSE)
@@ -274,5 +335,10 @@ launch_bach_exporter <- function() {
 }
 
 if (sys.nframe() == 0) {
-  launch_bach_exporter()
+  reexec_status <- be_launcher_reexec_status()
+  if (is.null(reexec_status)) {
+    launch_bach_exporter()
+  } else {
+    quit(save = "no", status = reexec_status)
+  }
 }

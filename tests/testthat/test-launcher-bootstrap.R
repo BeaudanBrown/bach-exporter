@@ -66,38 +66,99 @@ test_that("launcher status text is always length-one character output", {
   expect_length(env$be_launcher_status_text(c("a", "b", "c")), 1)
 })
 
-test_that("launcher temp dir is repo-local and exported to the session", {
+test_that("launcher tempdir readiness checks for repo-local tmp roots", {
   workdir <- tempfile("launcher-workdir-")
   dir.create(workdir, recursive = TRUE, showWarnings = FALSE)
   on.exit(unlink(workdir, recursive = TRUE), add = TRUE)
 
-  old_env <- Sys.getenv(c("TMPDIR", "TMP", "TEMP"), unset = NA_character_)
-  on.exit(
-    {
-      for (env_name in names(old_env)) {
-        env_value <- old_env[[env_name]]
-        if (is.na(env_value)) {
-          Sys.unsetenv(env_name)
-        } else {
-          do.call(Sys.setenv, stats::setNames(list(env_value), env_name))
-        }
-      }
-    },
-    add = TRUE
-  )
-
-  path <- env$be_launcher_use_tmp_dir(workdir = workdir)
   expected <- normalizePath(
     file.path(workdir, ".cache", "tmp"),
     winslash = "/",
     mustWork = FALSE
   )
 
-  expect_true(dir.exists(path))
-  expect_equal(path, expected)
-  expect_equal(Sys.getenv("TMPDIR"), expected)
-  expect_equal(Sys.getenv("TMP"), expected)
-  expect_equal(Sys.getenv("TEMP"), expected)
+  expect_true(
+    env$be_launcher_tempdir_ready(
+      workdir = workdir,
+      current_tempdir = file.path(expected, "Rtmp123")
+    )
+  )
+  expect_false(
+    env$be_launcher_tempdir_ready(
+      workdir = workdir,
+      current_tempdir = "/tmp/Rtmp123"
+    )
+  )
+})
+
+test_that("launcher re-execs itself with repo-local tmpdir when needed", {
+  workdir <- tempfile("launcher-workdir-")
+  dir.create(workdir, recursive = TRUE, showWarnings = FALSE)
+  on.exit(unlink(workdir, recursive = TRUE), add = TRUE)
+  launcher_path <- normalizePath(
+    file.path("..", "..", "launch_bach_exporter.R"),
+    winslash = "/",
+    mustWork = TRUE
+  )
+
+  calls <- list()
+  status <- env$be_launcher_reexec_status(
+    workdir = workdir,
+    command_args = sprintf("--file=%s", launcher_path),
+    trailing_args = c("--example", "value"),
+    current_tempdir = "/tmp/Rtmp123",
+    system2_runner = function(command, args, env, wait) {
+      calls[[length(calls) + 1]] <<- list(
+        command = command,
+        args = args,
+        env = env,
+        wait = wait
+      )
+      0L
+    }
+  )
+
+  expected <- normalizePath(
+    file.path(workdir, ".cache", "tmp"),
+    winslash = "/",
+    mustWork = FALSE
+  )
+
+  expect_equal(status, 0L)
+  expect_length(calls, 1)
+  expect_match(calls[[1]]$command, "Rscript$")
+  expect_equal(
+    calls[[1]]$args,
+    c(launcher_path, "--example", "value")
+  )
+  expect_true(calls[[1]]$wait)
+  expect_equal(
+    calls[[1]]$env,
+    c(
+      sprintf("TMPDIR=%s", expected),
+      sprintf("TMP=%s", expected),
+      sprintf("TEMP=%s", expected)
+    )
+  )
+})
+
+test_that("launcher skips re-exec when tempdir is already repo-local", {
+  workdir <- tempfile("launcher-workdir-")
+  dir.create(workdir, recursive = TRUE, showWarnings = FALSE)
+  on.exit(unlink(workdir, recursive = TRUE), add = TRUE)
+
+  expected <- normalizePath(
+    file.path(workdir, ".cache", "tmp", "Rtmp123"),
+    winslash = "/",
+    mustWork = FALSE
+  )
+
+  expect_null(
+    env$be_launcher_reexec_status(
+      workdir = workdir,
+      current_tempdir = expected
+    )
+  )
 })
 
 test_that("launcher bootstrap validation uses canonical release contract", {
