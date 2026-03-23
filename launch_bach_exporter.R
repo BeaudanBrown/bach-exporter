@@ -7,6 +7,23 @@ be_launcher_status_text <- function(text) {
   paste(as.character(text), collapse = "\n")
 }
 
+be_launcher_tmp_dir <- function(workdir = getwd()) {
+  root <- normalizePath(workdir, winslash = "/", mustWork = FALSE)
+  path <- file.path(root, ".cache", "tmp")
+  dir.create(path, recursive = TRUE, showWarnings = FALSE)
+  normalizePath(path, winslash = "/", mustWork = FALSE)
+}
+
+be_launcher_use_tmp_dir <- function(workdir = getwd()) {
+  path <- be_launcher_tmp_dir(workdir = workdir)
+  Sys.setenv(
+    TMPDIR = path,
+    TMP = path,
+    TEMP = path
+  )
+  path
+}
+
 be_launcher_config_path <- function() {
   config_dir <- tools::R_user_dir("bachExporter", which = "config")
   dir.create(config_dir, recursive = TRUE, showWarnings = FALSE)
@@ -144,6 +161,8 @@ be_launcher_validate_shared_root <- function(shared_root, allow_dev = TRUE) {
 }
 
 launch_bach_exporter <- function() {
+  be_launcher_use_tmp_dir()
+
   ensure_bootstrap_package <- function(pkg) {
     if (!requireNamespace(pkg, quietly = TRUE)) {
       install.packages(pkg, repos = "https://cloud.r-project.org")

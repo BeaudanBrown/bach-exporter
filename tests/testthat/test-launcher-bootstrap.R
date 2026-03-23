@@ -66,6 +66,40 @@ test_that("launcher status text is always length-one character output", {
   expect_length(env$be_launcher_status_text(c("a", "b", "c")), 1)
 })
 
+test_that("launcher temp dir is repo-local and exported to the session", {
+  workdir <- tempfile("launcher-workdir-")
+  dir.create(workdir, recursive = TRUE, showWarnings = FALSE)
+  on.exit(unlink(workdir, recursive = TRUE), add = TRUE)
+
+  old_env <- Sys.getenv(c("TMPDIR", "TMP", "TEMP"), unset = NA_character_)
+  on.exit(
+    {
+      for (env_name in names(old_env)) {
+        env_value <- old_env[[env_name]]
+        if (is.na(env_value)) {
+          Sys.unsetenv(env_name)
+        } else {
+          do.call(Sys.setenv, stats::setNames(list(env_value), env_name))
+        }
+      }
+    },
+    add = TRUE
+  )
+
+  path <- env$be_launcher_use_tmp_dir(workdir = workdir)
+  expected <- normalizePath(
+    file.path(workdir, ".cache", "tmp"),
+    winslash = "/",
+    mustWork = FALSE
+  )
+
+  expect_true(dir.exists(path))
+  expect_equal(path, expected)
+  expect_equal(Sys.getenv("TMPDIR"), expected)
+  expect_equal(Sys.getenv("TMP"), expected)
+  expect_equal(Sys.getenv("TEMP"), expected)
+})
+
 test_that("launcher bootstrap validation uses canonical release contract", {
   shared_root <- make_launcher_packaged_shared_root()
   on.exit(unlink(shared_root, recursive = TRUE), add = TRUE)
