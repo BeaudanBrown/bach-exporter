@@ -1601,6 +1601,38 @@ test_that("run_export supports annual-phone MoCA, AD8, and UCLA domains", {
   expect_equal(export_df$tele_date, "2027-01-02")
 })
 
+test_that("run_export handles empty LP screening alongside annual-phone domains", {
+  shared_root <- make_export_shared_root()
+  on.exit(unlink(shared_root, recursive = TRUE), add = TRUE)
+
+  output_dir <- tempfile("export-dir-")
+  dir.create(output_dir, recursive = TRUE)
+  on.exit(unlink(output_dir, recursive = TRUE), add = TRUE)
+
+  spec <- be_default_export_spec(shared_root = shared_root)
+  spec$output$path <- file.path(output_dir, "annual-phone-lp-screening.csv")
+  spec$domains <- c("lp_screening", "moca", "ucla")
+  spec$cohort$years <- "year2"
+
+  result <- run_export(
+    spec,
+    refresh_mode = "auto",
+    execution_mode = "direct"
+  )
+
+  export_df <- utils::read.csv(
+    result$output,
+    stringsAsFactors = FALSE,
+    colClasses = c(participant_id = "character")
+  )
+
+  expect_true("participant_id" %in% names(export_df))
+  expect_false("lp_interest" %in% names(export_df))
+  expect_equal(export_df$participant_id, "002")
+  expect_equal(export_df$moca_total, 23)
+  expect_equal(export_df$ucla_total, 9)
+})
+
 test_that("run_export supports MRI domain with baseline-wide side-data merge", {
   shared_root <- make_export_shared_root()
   on.exit(unlink(shared_root, recursive = TRUE), add = TRUE)

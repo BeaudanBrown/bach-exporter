@@ -1,7 +1,53 @@
+be_event_key_columns <- function() {
+  c("participant_id", "event_name", "year")
+}
+
+be_standardize_event_domain <- function(domain_df) {
+  key_columns <- be_event_key_columns()
+  missing_keys <- setdiff(key_columns, names(domain_df))
+
+  if (!length(missing_keys)) {
+    return(domain_df)
+  }
+
+  if (nrow(domain_df)) {
+    stop(
+      sprintf(
+        "Event domain is missing required key columns: %s",
+        paste(missing_keys, collapse = ", ")
+      ),
+      call. = FALSE
+    )
+  }
+
+  for (column in missing_keys) {
+    domain_df[[column]] <- character()
+  }
+
+  domain_df[,
+    c(key_columns, setdiff(names(domain_df), key_columns)),
+    drop = FALSE
+  ]
+}
+
 be_merge_event_domain <- function(output, domain_df) {
-  key_columns <- c("participant_id", "event_name", "year")
+  key_columns <- be_event_key_columns()
+
+  if (is.null(domain_df)) {
+    return(output)
+  }
+
+  domain_df <- be_standardize_event_domain(domain_df)
+  if (!nrow(domain_df)) {
+    return(output)
+  }
 
   if (is.null(output)) {
+    return(domain_df)
+  }
+
+  output <- be_standardize_event_domain(output)
+  if (!nrow(output)) {
     return(domain_df)
   }
 
