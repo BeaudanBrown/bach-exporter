@@ -212,7 +212,7 @@ be_app_server <- function(
         notification_runner(
           ui = paste("Export failed:", error_message),
           type = "error",
-          duration = NULL
+          duration = 10
         )
       } else {
         export_error_message(NULL)

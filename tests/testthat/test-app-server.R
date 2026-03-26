@@ -302,7 +302,7 @@ test_that("app server reports export failures and restores idle button state", {
       )
       expect_length(notifications, 1)
       expect_equal(notifications[[1]]$type, "error")
-      expect_true(is.null(notifications[[1]]$duration))
+      expect_equal(notifications[[1]]$duration, 10)
       expect_match(notifications[[1]]$ui, "Export failed: boom")
       expect_equal(output$status_log, "Export failed: boom")
       error_banner <- paste(
