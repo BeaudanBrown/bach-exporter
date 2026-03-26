@@ -66,35 +66,69 @@ test_that("launcher status text is always length-one character output", {
   expect_length(env$be_launcher_status_text(c("a", "b", "c")), 1)
 })
 
-test_that("launcher tempdir readiness checks for repo-local tmp roots", {
-  workdir <- tempfile("launcher-workdir-")
-  dir.create(workdir, recursive = TRUE, showWarnings = FALSE)
-  on.exit(unlink(workdir, recursive = TRUE), add = TRUE)
+test_that("launcher tempdir uses the user-local cache root by default", {
+  local_cache <- tempfile("launcher-cache-")
+  dir.create(local_cache, recursive = TRUE, showWarnings = FALSE)
+  Sys.setenv(BACH_EXPORTER_LOCAL_CACHE_DIR = local_cache)
+  on.exit(
+    {
+      Sys.unsetenv("BACH_EXPORTER_LOCAL_CACHE_DIR")
+      unlink(local_cache, recursive = TRUE)
+    },
+    add = TRUE
+  )
 
   expected <- normalizePath(
-    file.path(workdir, ".cache", "tmp"),
+    file.path(local_cache, "tmp"),
+    winslash = "/",
+    mustWork = FALSE
+  )
+
+  expect_equal(env$be_launcher_local_cache_root(), local_cache)
+  expect_equal(env$be_launcher_tmp_dir(), expected)
+})
+
+test_that("launcher tempdir readiness checks for user-local tmp roots", {
+  local_cache <- tempfile("launcher-cache-")
+  dir.create(local_cache, recursive = TRUE, showWarnings = FALSE)
+  Sys.setenv(BACH_EXPORTER_LOCAL_CACHE_DIR = local_cache)
+  on.exit(
+    {
+      Sys.unsetenv("BACH_EXPORTER_LOCAL_CACHE_DIR")
+      unlink(local_cache, recursive = TRUE)
+    },
+    add = TRUE
+  )
+
+  expected <- normalizePath(
+    file.path(local_cache, "tmp"),
     winslash = "/",
     mustWork = FALSE
   )
 
   expect_true(
     env$be_launcher_tempdir_ready(
-      workdir = workdir,
       current_tempdir = file.path(expected, "Rtmp123")
     )
   )
   expect_false(
     env$be_launcher_tempdir_ready(
-      workdir = workdir,
       current_tempdir = "/tmp/Rtmp123"
     )
   )
 })
 
-test_that("launcher re-execs itself with repo-local tmpdir when needed", {
-  workdir <- tempfile("launcher-workdir-")
-  dir.create(workdir, recursive = TRUE, showWarnings = FALSE)
-  on.exit(unlink(workdir, recursive = TRUE), add = TRUE)
+test_that("launcher re-execs itself with user-local tmpdir when needed", {
+  local_cache <- tempfile("launcher-cache-")
+  dir.create(local_cache, recursive = TRUE, showWarnings = FALSE)
+  Sys.setenv(BACH_EXPORTER_LOCAL_CACHE_DIR = local_cache)
+  on.exit(
+    {
+      Sys.unsetenv("BACH_EXPORTER_LOCAL_CACHE_DIR")
+      unlink(local_cache, recursive = TRUE)
+    },
+    add = TRUE
+  )
   launcher_path <- normalizePath(
     file.path("..", "..", "launch_bach_exporter.R"),
     winslash = "/",
@@ -103,7 +137,6 @@ test_that("launcher re-execs itself with repo-local tmpdir when needed", {
 
   calls <- list()
   status <- env$be_launcher_reexec_status(
-    workdir = workdir,
     command_args = sprintf("--file=%s", launcher_path),
     trailing_args = c("--example", "value"),
     current_tempdir = "/tmp/Rtmp123",
@@ -119,7 +152,7 @@ test_that("launcher re-execs itself with repo-local tmpdir when needed", {
   )
 
   expected <- normalizePath(
-    file.path(workdir, ".cache", "tmp"),
+    file.path(local_cache, "tmp"),
     winslash = "/",
     mustWork = FALSE
   )
@@ -142,23 +175,50 @@ test_that("launcher re-execs itself with repo-local tmpdir when needed", {
   )
 })
 
-test_that("launcher skips re-exec when tempdir is already repo-local", {
-  workdir <- tempfile("launcher-workdir-")
-  dir.create(workdir, recursive = TRUE, showWarnings = FALSE)
-  on.exit(unlink(workdir, recursive = TRUE), add = TRUE)
+test_that("launcher skips re-exec when tempdir is already user-local", {
+  local_cache <- tempfile("launcher-cache-")
+  dir.create(local_cache, recursive = TRUE, showWarnings = FALSE)
+  Sys.setenv(BACH_EXPORTER_LOCAL_CACHE_DIR = local_cache)
+  on.exit(
+    {
+      Sys.unsetenv("BACH_EXPORTER_LOCAL_CACHE_DIR")
+      unlink(local_cache, recursive = TRUE)
+    },
+    add = TRUE
+  )
 
   expected <- normalizePath(
-    file.path(workdir, ".cache", "tmp", "Rtmp123"),
+    file.path(local_cache, "tmp", "Rtmp123"),
     winslash = "/",
     mustWork = FALSE
   )
 
   expect_null(
     env$be_launcher_reexec_status(
-      workdir = workdir,
       current_tempdir = expected
     )
   )
+})
+
+test_that("launcher temp root stays outside the repo workdir", {
+  local_cache <- tempfile("launcher-cache-")
+  workdir <- tempfile("launcher-workdir-")
+  dir.create(local_cache, recursive = TRUE, showWarnings = FALSE)
+  dir.create(workdir, recursive = TRUE, showWarnings = FALSE)
+  Sys.setenv(BACH_EXPORTER_LOCAL_CACHE_DIR = local_cache)
+  on.exit(
+    {
+      Sys.unsetenv("BACH_EXPORTER_LOCAL_CACHE_DIR")
+      unlink(local_cache, recursive = TRUE)
+      unlink(workdir, recursive = TRUE)
+    },
+    add = TRUE
+  )
+
+  tmp_root <- env$be_launcher_tmp_dir()
+  normalized_workdir <- normalizePath(workdir, winslash = "/", mustWork = FALSE)
+
+  expect_false(startsWith(tmp_root, paste0(normalized_workdir, "/")))
 })
 
 test_that("launcher bootstrap validation uses canonical release contract", {

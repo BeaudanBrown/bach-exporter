@@ -1,16 +1,28 @@
 set shell := ["bash", "-cu"]
 
 set-admin-shared-root SHARED_ROOT:
-    bash ./bin/in-env Rscript scripts/set_admin_shared_root.R --shared-root "{{SHARED_ROOT}}"
+    Rscript scripts/set_admin_shared_root.R --shared-root "{{SHARED_ROOT}}"
 
 validate-shared-root SHARED_ROOT:
-    bash ./bin/in-env Rscript scripts/validate_release.R "{{SHARED_ROOT}}"
+    Rscript scripts/validate_release.R "{{SHARED_ROOT}}"
 
 init-keyring:
-    bash ./bin/in-env Rscript scripts/refresh_snapshots.R --init-keyring
+    Rscript scripts/refresh_snapshots.R --init-keyring
+
+refresh-app:
+    Rscript scripts/refresh_shared_root.R --skip-refresh
+
+refresh-data:
+    Rscript scripts/refresh_snapshots.R --execute
 
 refresh:
-    bash ./bin/in-env Rscript scripts/refresh_shared_root.R
+    just refresh-app
+    just refresh-data
 
 refresh-shared-root SHARED_ROOT:
-    bash ./bin/in-env Rscript scripts/refresh_shared_root.R --shared-root "{{SHARED_ROOT}}"
+    Rscript scripts/refresh_shared_root.R --shared-root "{{SHARED_ROOT}}"
+
+launch:
+    tmp_root="${BACH_EXPORTER_LOCAL_CACHE_DIR:-$HOME/.cache/R/bachExporter}/tmp"; \
+    mkdir -p "$tmp_root"; \
+    TMPDIR="$tmp_root" TMP="$tmp_root" TEMP="$tmp_root" Rscript launch_bach_exporter.R

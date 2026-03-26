@@ -7,15 +7,43 @@ be_launcher_status_text <- function(text) {
   paste(as.character(text), collapse = "\n")
 }
 
-be_launcher_tmp_dir <- function(workdir = getwd()) {
-  root <- normalizePath(workdir, winslash = "/", mustWork = FALSE)
-  path <- file.path(root, ".cache", "tmp")
+be_launcher_local_cache_root <- function() {
+  candidates <- c(
+    Sys.getenv("BACH_EXPORTER_LOCAL_CACHE_DIR", unset = ""),
+    getOption("bachExporter.local_cache_dir", ""),
+    tools::R_user_dir("bachExporter", which = "cache")
+  )
+
+  for (candidate in candidates) {
+    if (is.null(candidate) || !nzchar(candidate)) {
+      next
+    }
+
+    ok <- tryCatch(
+      {
+        dir.create(candidate, recursive = TRUE, showWarnings = FALSE)
+        file.access(candidate, mode = 2) == 0
+      },
+      error = function(err) FALSE
+    )
+
+    if (isTRUE(ok)) {
+      return(normalizePath(candidate, winslash = "/", mustWork = FALSE))
+    }
+  }
+
+  stop("Could not resolve a writable local cache directory.", call. = FALSE)
+}
+
+be_launcher_tmp_dir <- function() {
+  root <- be_launcher_local_cache_root()
+  path <- file.path(root, "tmp")
   dir.create(path, recursive = TRUE, showWarnings = FALSE)
   normalizePath(path, winslash = "/", mustWork = FALSE)
 }
 
-be_launcher_use_tmp_dir <- function(workdir = getwd()) {
-  path <- be_launcher_tmp_dir(workdir = workdir)
+be_launcher_use_tmp_dir <- function() {
+  path <- be_launcher_tmp_dir()
   Sys.setenv(
     TMPDIR = path,
     TMP = path,
@@ -29,10 +57,9 @@ be_launcher_current_tempdir <- function() {
 }
 
 be_launcher_tempdir_ready <- function(
-  workdir = getwd(),
   current_tempdir = be_launcher_current_tempdir()
 ) {
-  desired <- be_launcher_tmp_dir(workdir = workdir)
+  desired <- be_launcher_tmp_dir()
   identical(current_tempdir, desired) ||
     startsWith(current_tempdir, paste0(desired, "/"))
 }
@@ -53,7 +80,6 @@ be_launcher_script_path <- function(
 }
 
 be_launcher_reexec_status <- function(
-  workdir = getwd(),
   command_args = commandArgs(trailingOnly = FALSE),
   trailing_args = commandArgs(trailingOnly = TRUE),
   current_tempdir = be_launcher_current_tempdir(),
@@ -61,14 +87,13 @@ be_launcher_reexec_status <- function(
 ) {
   if (
     be_launcher_tempdir_ready(
-      workdir = workdir,
       current_tempdir = current_tempdir
     )
   ) {
     return(NULL)
   }
 
-  desired <- be_launcher_tmp_dir(workdir = workdir)
+  desired <- be_launcher_tmp_dir()
   script_path <- be_launcher_script_path(command_args = command_args)
   rscript <- file.path(R.home("bin"), "Rscript")
   status <- system2_runner(
