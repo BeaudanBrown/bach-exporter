@@ -7,6 +7,260 @@ be_launcher_status_text <- function(text) {
   paste(as.character(text), collapse = "\n")
 }
 
+be_make_tree_user_writable <- function(path) {
+  if (is.null(path) || !nzchar(path) || !file.exists(path)) {
+    return(invisible(FALSE))
+  }
+
+  targets <- c(
+    path,
+    list.files(
+      path,
+      all.files = TRUE,
+      full.names = TRUE,
+      recursive = TRUE,
+      include.dirs = TRUE,
+      no.. = TRUE
+    )
+  )
+  suppressWarnings(Sys.chmod(targets, mode = "755", use_umask = FALSE))
+  invisible(TRUE)
+}
+
+be_prepare_overwrite_targets <- function(paths) {
+  if (!length(paths)) {
+    return(invisible(character()))
+  }
+
+  for (path in unique(as.character(paths))) {
+    if (!file.exists(path)) {
+      next
+    }
+
+    if (isTRUE(file.info(path)$isdir)) {
+      be_make_tree_user_writable(path)
+    } else {
+      suppressWarnings(Sys.chmod(path, mode = "644", use_umask = FALSE))
+    }
+  }
+
+  invisible(paths)
+}
+
+be_safe_copy_into_dir <- function(
+  from,
+  out_dir,
+  overwrite = TRUE,
+  recursive = FALSE
+) {
+  dest_paths <- file.path(out_dir, basename(from))
+  if (isTRUE(overwrite)) {
+    be_prepare_overwrite_targets(dest_paths)
+  }
+
+  file.copy(
+    from,
+    out_dir,
+    overwrite = overwrite,
+    recursive = recursive,
+    copy.mode = FALSE
+  )
+}
+
+be_patch_bslib_dependency_copies <- function() {
+  if (!requireNamespace("bslib", quietly = TRUE)) {
+    return(FALSE)
+  }
+
+  ns <- asNamespace("bslib")
+  if (isTRUE(getOption("bachExporter.bslib_copy_patch_applied", FALSE))) {
+    return(TRUE)
+  }
+
+  patch_env <- list2env(
+    list(be_safe_copy_into_dir = be_safe_copy_into_dir),
+    parent = ns
+  )
+
+  patched_bs_dependency <- function(
+    input = list(),
+    theme,
+    name,
+    version,
+    cache_key_extra = NULL,
+    .dep_args = list(),
+    .sass_args = list()
+  ) {
+    sass_args <- c(
+      list(
+        rules = input,
+        bundle = theme,
+        output = output_template(basename = name, dirname = name),
+        write_attachments = TRUE,
+        cache_key_extra = cache_key_extra
+      ),
+      .sass_args
+    )
+    outfile <- do.call(sass_partial, sass_args)
+    dep_args <- list(
+      name = name,
+      version = version,
+      src = dirname(outfile),
+      stylesheet = basename(outfile)
+    )
+    bad_args <- intersect(names(.dep_args), names(dep_args))
+    if (length(bad_args)) {
+      stop(
+        "The following `.dep_args` must be provided as top-level args to `bs_dependency()`: ",
+        paste(bad_args, collapse = ", ")
+      )
+    }
+    if ("package" %in% names(.dep_args)) {
+      warning(
+        "`package` won't have any effect since `src` must be an absolute path"
+      )
+    }
+    script <- .dep_args[["script"]]
+    if (length(script)) {
+      if (basename(outfile) %in% basename(script)) {
+        stop(
+          "`script` file basename(s) must all be something other than ",
+          basename(outfile)
+        )
+      }
+      success <- be_safe_copy_into_dir(
+        script,
+        dirname(outfile),
+        overwrite = TRUE
+      )
+      if (!all(success)) {
+        stop(
+          "Failed to copy the following script(s): ",
+          paste(script[!success], collapse = ", "),
+          ".\n\n",
+          "Make sure script are absolute path(s)."
+        )
+      }
+      .dep_args[["script"]] <- basename(script)
+    }
+    do.call(htmlDependency, c(dep_args, .dep_args))
+  }
+
+  environment(patched_bs_dependency) <- patch_env
+
+  patched_bs_theme_dependencies <- function(
+    theme,
+    sass_options = sass::sass_options_get(output_style = "compressed"),
+    cache = sass::sass_cache_get(),
+    jquery = jquerylib::jquery_core(3),
+    precompiled = get_precompiled_option("bslib.precompiled", default = TRUE)
+  ) {
+    theme <- as_bs_theme(theme)
+    version <- theme_version(theme)
+    if (isTRUE(version >= 5)) {
+      register_runtime_package_check(
+        "`bs_theme(version = 5)`",
+        "shiny",
+        "1.7.0"
+      )
+    }
+    if (is.character(cache)) {
+      cache <- sass_cache_get_dir(cache)
+    }
+    out_file <- NULL
+    if (
+      precompiled &&
+        identical(sass_options, sass_options(output_style = "compressed"))
+    ) {
+      precompiled_css <- precompiled_css_path(theme)
+      if (!is.null(precompiled_css)) {
+        out_dir <- file.path(tempdir(), paste0("bslib-precompiled-", version))
+        if (!dir.exists(out_dir)) {
+          dir.create(out_dir)
+        }
+        out_file <- file.path(out_dir, basename(precompiled_css))
+        file.copy(precompiled_css, out_file)
+        out_file <- attachDependencies(
+          out_file,
+          htmlDependencies(as_sass(theme))
+        )
+        write_file_attachments(as_sass_layer(theme)$file_attachments, out_dir)
+      }
+    }
+    if (is.null(out_file)) {
+      contrast_warn <- get_shiny_devmode_option(
+        "bslib.color_contrast_warnings",
+        default = FALSE,
+        devmode_default = TRUE,
+        devmode_message = paste(
+          "Enabling warnings about low color contrasts found inside `bslib::bs_theme()`.",
+          "To suppress these warnings, set `options(bslib.color_contrast_warnings = FALSE)`"
+        )
+      )
+      theme <- bs_add_variables(
+        theme,
+        `color-contrast-warnings` = contrast_warn
+      )
+      out_file <- sass(
+        input = theme,
+        options = sass_options,
+        output = output_template(basename = "bootstrap", dirname = "bslib-"),
+        cache = cache,
+        write_attachments = TRUE,
+        cache_key_extra = list(
+          get_exact_version(version),
+          get_package_version("bslib")
+        )
+      )
+    }
+    out_file_dir <- dirname(out_file)
+    js_files <- bootstrap_javascript(version)
+    js_map_files <- bootstrap_javascript_map(version)
+    success_js_files <- be_safe_copy_into_dir(
+      c(js_files, js_map_files),
+      out_file_dir,
+      overwrite = TRUE
+    )
+    if (any(!success_js_files)) {
+      warning(
+        "Failed to copy over bootstrap's javascript files into the htmlDependency() directory."
+      )
+    }
+    htmltools::resolveDependencies(
+      c(
+        if (inherits(jquery, "html_dependency")) list(jquery) else jquery,
+        list(
+          htmlDependency(
+            name = "bootstrap",
+            version = get_exact_version(version),
+            src = out_file_dir,
+            stylesheet = basename(out_file),
+            script = basename(js_files),
+            all_files = TRUE,
+            meta = list(
+              viewport = "width=device-width, initial-scale=1, shrink-to-fit=no"
+            )
+          )
+        ),
+        htmlDependencies(out_file)
+      )
+    )
+  }
+
+  environment(patched_bs_theme_dependencies) <- patch_env
+
+  unlockBinding("bs_dependency", ns)
+  assign("bs_dependency", patched_bs_dependency, envir = ns)
+  lockBinding("bs_dependency", ns)
+
+  unlockBinding("bs_theme_dependencies", ns)
+  assign("bs_theme_dependencies", patched_bs_theme_dependencies, envir = ns)
+  lockBinding("bs_theme_dependencies", ns)
+
+  options(bachExporter.bslib_copy_patch_applied = TRUE)
+  TRUE
+}
+
 be_launcher_local_cache_root <- function() {
   candidates <- c(
     Sys.getenv("BACH_EXPORTER_LOCAL_CACHE_DIR", unset = ""),
@@ -264,6 +518,7 @@ launch_bach_exporter <- function() {
     "remotes"
   )
   invisible(lapply(bootstrap_packages, ensure_bootstrap_package))
+  be_patch_bslib_dependency_copies()
 
   launch_bootstrap <- function(initial_root = NULL) {
     ui <- shiny::fluidPage(

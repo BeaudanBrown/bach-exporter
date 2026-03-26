@@ -66,6 +66,43 @@ test_that("launcher status text is always length-one character output", {
   expect_length(env$be_launcher_status_text(c("a", "b", "c")), 1)
 })
 
+test_that("launcher safe copy can overwrite read-only dependency files", {
+  temp_root <- tempfile("launcher-safe-copy-")
+  dir.create(temp_root, recursive = TRUE, showWarnings = FALSE)
+  on.exit(unlink(temp_root, recursive = TRUE), add = TRUE)
+
+  source_dir <- file.path(temp_root, "src")
+  out_dir <- file.path(temp_root, "out")
+  dir.create(source_dir, recursive = TRUE, showWarnings = FALSE)
+  dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
+
+  source_file <- file.path(source_dir, "asset.js")
+  writeLines("first", source_file)
+
+  expect_true(env$be_safe_copy_into_dir(source_file, out_dir))
+
+  dest_file <- file.path(out_dir, basename(source_file))
+  Sys.chmod(dest_file, mode = "444", use_umask = FALSE)
+  writeLines("second", source_file)
+
+  expect_true(env$be_safe_copy_into_dir(source_file, out_dir))
+  expect_identical(readLines(dest_file), "second")
+})
+
+test_that("launcher overwrite preparation makes existing read-only files writable", {
+  temp_root <- tempfile("launcher-writable-")
+  dir.create(temp_root, recursive = TRUE, showWarnings = FALSE)
+  on.exit(unlink(temp_root, recursive = TRUE), add = TRUE)
+
+  target_file <- file.path(temp_root, "asset.js")
+  writeLines("content", target_file)
+  Sys.chmod(target_file, mode = "444", use_umask = FALSE)
+
+  env$be_prepare_overwrite_targets(target_file)
+
+  expect_equal(unname(file.access(target_file, 2)), 0)
+})
+
 test_that("launcher tempdir uses the user-local cache root by default", {
   local_cache <- tempfile("launcher-cache-")
   dir.create(local_cache, recursive = TRUE, showWarnings = FALSE)
