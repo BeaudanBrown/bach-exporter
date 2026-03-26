@@ -1,3 +1,10 @@
+be_default_output_path <- function(workdir = getwd()) {
+  file.path(
+    normalizePath(workdir, winslash = "/", mustWork = TRUE),
+    "output.csv"
+  )
+}
+
 be_default_export_spec <- function(shared_root = NULL) {
   build_id <- if (!is.null(shared_root)) {
     be_read_build_id(shared_root)
@@ -14,6 +21,6 @@ be_default_export_spec <- function(shared_root = NULL) {
     ),
     domains = c("participants"),
     options = list(cat_labels = "named"),
-    output = list(format = "csv", path = "")
+    output = list(format = "csv", path = be_default_output_path())
   )
 }

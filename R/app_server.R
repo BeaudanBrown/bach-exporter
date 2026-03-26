@@ -23,6 +23,10 @@ be_update_domain_selection <- function(session, selected) {
   )
 }
 
+be_update_output_path <- function(session, value) {
+  shiny::updateTextInput(session, "output_path", value = value)
+}
+
 be_resolve_output_save_path <- function(selected) {
   if (is.null(selected) || !nrow(selected)) {
     return(NULL)
@@ -86,6 +90,7 @@ be_app_server <- function(
 
     initial_shared_root <- shared_root %||% be_load_shared_root() %||% ""
     shiny::updateTextInput(session, "shared_root", value = initial_shared_root)
+    be_update_output_path(session, be_default_output_path())
 
     shiny::observeEvent(input$browse_shared_root, {
       selected <- shinyFiles::parseDirPath(roots, input$browse_shared_root)
@@ -98,11 +103,7 @@ be_app_server <- function(
       selected <- shinyFiles::parseSavePath(roots, input$browse_output)
       output_path <- be_resolve_output_save_path(selected)
       if (!is.null(output_path) && nzchar(output_path)) {
-        shiny::updateTextInput(
-          session,
-          "output_path",
-          value = output_path
-        )
+        be_update_output_path(session, output_path)
       }
     })
 
