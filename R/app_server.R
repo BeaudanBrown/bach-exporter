@@ -15,6 +15,14 @@ be_set_button_busy_state <- function(
   )
 }
 
+be_update_domain_selection <- function(session, selected) {
+  shiny::updateCheckboxGroupInput(
+    session,
+    "domains",
+    selected = selected
+  )
+}
+
 be_resolve_output_save_path <- function(selected) {
   if (is.null(selected) || !nrow(selected)) {
     return(NULL)
@@ -117,14 +125,14 @@ be_app_server <- function(
           return()
         }
         shiny::updateSelectInput(session, "years", selected = preset$years)
-        shiny::updateCheckboxGroupInput(
-          session,
-          "domains",
-          selected = preset$domains
-        )
+        be_update_domain_selection(session, preset$domains)
       },
       ignoreInit = TRUE
     )
+
+    shiny::observeEvent(input$select_all_domains_btn, {
+      be_update_domain_selection(session, unname(be_domain_choices()))
+    })
 
     shiny::observeEvent(input$run_export_btn, {
       if (isTRUE(export_busy())) {

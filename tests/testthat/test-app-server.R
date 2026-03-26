@@ -1,5 +1,6 @@
 app_env <- new.env(parent = globalenv())
 sys.source(file.path("..", "..", "R", "paths.R"), envir = app_env)
+sys.source(file.path("..", "..", "R", "domain_choices.R"), envir = app_env)
 sys.source(file.path("..", "..", "R", "export_history.R"), envir = app_env)
 sys.source(file.path("..", "..", "R", "app_server.R"), envir = app_env)
 
@@ -130,6 +131,45 @@ test_that("app server wraps exports in progress feedback and button busy state",
       expect_equal(output$status_log, "Export completed: /tmp/export.csv")
       expect_match(output$history_detail, "run-1")
       expect_null(output$export_error_banner)
+    }
+  )
+})
+
+test_that("app server select-all control selects every domain", {
+  update_calls <- list()
+
+  app_env$be_load_shared_root <- function() NULL
+  app_env$be_validate_shared_root <- function(shared_root) {
+    list(ok = TRUE, message = "ok")
+  }
+  app_env$be_save_shared_root <- function(shared_root) NULL
+  app_env$be_default_presets <- function() {
+    list(baseline_core = list(years = "baseline", domains = "participants"))
+  }
+  app_env$be_read_export_history <- function(limit = 20, history_path = NULL) {
+    data.frame()
+  }
+  app_env$be_update_domain_selection <- function(session, selected) {
+    update_calls[[length(update_calls) + 1]] <<- list(
+      selected = selected
+    )
+  }
+
+  shiny::testServer(
+    app_env$be_app_server(
+      notification_runner = function(...) NULL,
+      export_runner = function(spec, refresh_mode) {
+        list(output = "/tmp/export.csv")
+      }
+    ),
+    {
+      session$setInputs(select_all_domains_btn = 1)
+
+      expect_length(update_calls, 1)
+      expect_setequal(
+        update_calls[[1]]$selected,
+        unname(app_env$be_domain_choices())
+      )
     }
   )
 })
