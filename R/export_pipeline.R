@@ -216,8 +216,9 @@ be_write_export_targets_script <- function(
         paste(
           "  ,controller = crew::crew_controller_local(",
           paste(
-            "workers = %dL, seconds_launch = 1, crashes_max = 1L,",
-            "local_log_directory = %s"
+            "workers = %dL, seconds_timeout = 120, crashes_max = 5L,",
+            "options_local = crew::crew_options_local(",
+            "log_directory = %s, log_join = TRUE)"
           ),
           ")"
         ),
