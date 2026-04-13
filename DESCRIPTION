@@ -19,6 +19,7 @@ Imports:
     bslib,
     crew,
     jsonlite,
+    qs,
     qs2,
     shiny,
     shinyFiles,

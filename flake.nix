@@ -50,7 +50,9 @@
             with pkgs;
             [
               R
+              cmake
               quarto
+              xz
             ]
             ++ (with pkgsUnstable; [
               air-formatter
@@ -63,6 +65,7 @@
               tarchetypes
               crew
               future
+              qs
               qs2
               languageserver
               dotenv
