@@ -42,6 +42,21 @@
           inherit (self.checks.${system}.pre-commit-check) shellHook;
           env.R_LIBS_USER = "./.Rlib";
           env.PRE_COMMIT_HOME = "./.pre-commit-cache";
+          env.PKG_CONFIG_PATH = pkgs.lib.makeSearchPath "lib/pkgconfig" [
+            pkgs.libsodium.dev
+            pkgs.mbedtls
+            pkgs.openssl.dev
+            pkgs.zlib.dev
+            pkgs.curl.dev
+            pkgs.libxml2.dev
+            pkgs.fontconfig.dev
+            pkgs.freetype.dev
+            pkgs.harfbuzz.dev
+            pkgs.fribidi.dev
+            pkgs.libpng.dev
+            pkgs.libtiff.dev
+            pkgs.libjpeg.dev
+          ];
           buildInputs = [
             pkgs.bashInteractive
             self.checks.${system}.pre-commit-check.enabledPackages
@@ -51,8 +66,24 @@
             [
               R
               cmake
+              curl
+              fontconfig
+              freetype
+              fribidi
+              gcc
+              gnumake
+              harfbuzz
+              libjpeg
+              libpng
+              libsodium
+              libtiff
+              libxml2
+              mbedtls
+              openssl
+              pkg-config
               quarto
               xz
+              zlib
             ]
             ++ (with pkgsUnstable; [
               air-formatter
