@@ -1,3 +1,12 @@
+be_mark_prepared_redcap_snapshot <- function(df) {
+  attr(df, "bach_prepared_redcap_snapshot") <- TRUE
+  df
+}
+
+be_is_prepared_redcap_snapshot <- function(df) {
+  isTRUE(attr(df, "bach_prepared_redcap_snapshot"))
+}
+
 be_clean_participant_id <- function(x) {
   cleaned <- trimws(as.character(x))
   cleaned <- gsub("^BACH", "", cleaned, ignore.case = TRUE)
@@ -33,9 +42,19 @@ be_filter_supported_participants <- function(df, participant_id_column) {
 }
 
 be_prepare_redcap_snapshot <- function(df) {
+  if (be_is_prepared_redcap_snapshot(df)) {
+    return(df)
+  }
+
   participant_id_column <- be_redcap_id_column(df)
   df <- be_filter_supported_participants(df, participant_id_column)
-  be_split_redcap_events(df)
+  df <- be_split_redcap_events(df)
+  be_mark_prepared_redcap_snapshot(df)
+}
+
+be_redcap_domain_input <- function(df, years = NULL) {
+  df <- be_prepare_redcap_snapshot(df)
+  be_filter_years(df, years)
 }
 
 be_coalesce_columns <- function(df, fields) {

@@ -17,9 +17,33 @@ be_first_nonempty <- function(x) {
   values[[1]]
 }
 
+be_build_core_scaffold_from_event_rows <- function(event_rows) {
+  if (is.null(event_rows) || !nrow(event_rows)) {
+    return(data.frame(participant_id = character(), stringsAsFactors = FALSE))
+  }
+
+  scaffold <- data.frame(
+    participant_id = event_rows$participant_id,
+    subject_id = event_rows$participant_id,
+    event_name = event_rows$event_name,
+    session = event_rows$event_name,
+    year = event_rows$year,
+    session_date = be_coalesce_columns(event_rows, c("pa_date", "pp_date")),
+    stringsAsFactors = FALSE
+  )
+
+  scaffold <- be_drop_empty_columns(scaffold)
+  rownames(scaffold) <- NULL
+  scaffold
+}
+
 be_build_core_scaffold_domain <- function(redcap_df, years = NULL) {
-  redcap_df <- be_prepare_redcap_snapshot(redcap_df)
-  redcap_df <- be_filter_years(redcap_df, years)
+  redcap_df <- be_redcap_domain_input(redcap_df, years)
+  event_rows <- be_redcap_event_rows(redcap_df)
+
+  if (!is.null(event_rows)) {
+    return(be_build_core_scaffold_from_event_rows(event_rows))
+  }
 
   if (!nrow(redcap_df)) {
     return(data.frame(participant_id = character(), stringsAsFactors = FALSE))
@@ -114,10 +138,13 @@ be_baseline_demographics <- function(redcap_df) {
   demographics
 }
 
-be_build_participant_screening_domain <- function(redcap_df) {
-  redcap_df <- be_prepare_redcap_snapshot(redcap_df)
+be_build_participant_screening_domain <- function(
+  redcap_df,
+  baseline_demographics = NULL
+) {
+  redcap_df <- be_redcap_domain_input(redcap_df)
 
-  screening <- be_baseline_demographics(redcap_df)
+  screening <- baseline_demographics %||% be_baseline_demographics(redcap_df)
   if (!nrow(screening)) {
     return(data.frame(participant_id = character(), stringsAsFactors = FALSE))
   }
@@ -145,19 +172,22 @@ be_build_participant_screening_domain <- function(redcap_df) {
   screening
 }
 
-be_build_participants_domain <- function(redcap_df, years = NULL) {
-  redcap_df <- be_prepare_redcap_snapshot(redcap_df)
-  baseline_demographics <- be_baseline_demographics(redcap_df)
-  participants <- be_build_core_scaffold_domain(redcap_df, years = years)
-  if (nrow(baseline_demographics)) {
-    participants <- merge(
-      participants,
-      baseline_demographics,
-      by = "participant_id",
-      all.x = TRUE,
-      sort = FALSE
+be_build_participants_domain <- function(
+  redcap_df,
+  years = NULL,
+  baseline_demographics = NULL,
+  scaffold = NULL,
+  participants_base = NULL
+) {
+  if (is.null(participants_base)) {
+    participants_base <- be_build_participants_base(
+      redcap_df = redcap_df,
+      years = years,
+      baseline_demographics = baseline_demographics,
+      scaffold = scaffold
     )
   }
+  participants <- participants_base
 
   keep_columns <- c(
     "participant_id",
@@ -179,5 +209,42 @@ be_build_participants_domain <- function(redcap_df, years = NULL) {
   participants <- be_drop_empty_columns(participants)
   participants <- unique(participants)
   rownames(participants) <- NULL
+  source_fields <- stats::setNames(names(participants), names(participants))
+  source_fields <- source_fields[
+    !names(source_fields) %in%
+      c("participant_id", "subject_id", "event_name", "session", "year")
+  ]
+  be_set_redcap_source_fields(participants, source_fields)
+}
+
+be_build_participants_base <- function(
+  redcap_df,
+  years = NULL,
+  baseline_demographics = NULL,
+  scaffold = NULL
+) {
+  prepared_redcap_df <- be_redcap_domain_input(redcap_df)
+  baseline_demographics <- baseline_demographics %||%
+    be_baseline_demographics(prepared_redcap_df)
+  participants <- scaffold %||%
+    be_build_core_scaffold_domain(prepared_redcap_df, years = years)
+
+  if (nrow(baseline_demographics)) {
+    original_order <- seq_len(nrow(participants))
+    match_rows <- match(
+      participants$participant_id,
+      baseline_demographics$participant_id
+    )
+    for (column in setdiff(names(baseline_demographics), "participant_id")) {
+      participants[[column]] <- baseline_demographics[[column]][match_rows]
+    }
+    participants <- participants[
+      order(participants$participant_id, original_order),
+      ,
+      drop = FALSE
+    ]
+    rownames(participants) <- NULL
+  }
+
   participants
 }

@@ -1,39 +1,27 @@
 be_build_event_field_domain <- function(redcap_df, field_map, years = NULL) {
-  redcap_df <- be_prepare_redcap_snapshot(redcap_df)
-  redcap_df <- be_filter_years(redcap_df, years)
+  redcap_df <- be_redcap_domain_input(redcap_df, years)
+  reduced_rows <- be_redcap_event_rows(redcap_df)
+  if (is.null(reduced_rows)) {
+    reduced_rows <- be_reduce_redcap_rows(redcap_df, be_event_key_columns())
+  }
 
-  available_sources <- unname(field_map[field_map %in% names(redcap_df)])
-  if (!length(available_sources) || !nrow(redcap_df)) {
+  available_sources <- unname(field_map[field_map %in% names(reduced_rows)])
+  if (!length(available_sources) || !nrow(reduced_rows)) {
     return(data.frame(participant_id = character(), stringsAsFactors = FALSE))
   }
 
-  grouped_rows <- lapply(
-    split(
-      redcap_df,
-      interaction(
-        redcap_df$participant_id,
-        redcap_df$event_name,
-        redcap_df$year,
-        drop = TRUE
-      )
-    ),
-    function(df) {
-      values <- lapply(
-        available_sources,
-        function(source_name) be_first_nonempty(df[[source_name]])
-      )
-      names(values) <- names(field_map)[field_map %in% names(df)]
-      values$participant_id <- df$participant_id[[1]]
-      values$event_name <- df$event_name[[1]]
-      values$year <- df$year[[1]]
-      as.data.frame(values, stringsAsFactors = FALSE)
-    }
-  )
-
-  out <- do.call(rbind, grouped_rows)
-  rownames(out) <- NULL
+  destination_columns <- names(field_map)[field_map %in% names(reduced_rows)]
+  out <- reduced_rows[,
+    c(be_event_key_columns(), available_sources),
+    drop = FALSE
+  ]
+  names(out) <- c(be_event_key_columns(), destination_columns)
   out <- be_drop_empty_columns(out)
-  unique(out)
+  out <- unique(out)
+  be_set_redcap_source_fields(
+    out,
+    stats::setNames(available_sources, destination_columns)
+  )
 }
 
 be_build_bloods_domain <- function(redcap_df, years = NULL) {
@@ -420,6 +408,12 @@ be_build_medical_history_domain <- function(redcap_df, years = NULL) {
     return(data.frame(participant_id = character(), stringsAsFactors = FALSE))
   }
 
+  source_fields <- unlist(
+    lapply(pieces, be_redcap_source_fields),
+    recursive = FALSE,
+    use.names = TRUE
+  )
+  source_fields <- source_fields[!duplicated(names(source_fields))]
   all_columns <- unique(unlist(lapply(pieces, names), use.names = FALSE))
   pieces <- lapply(
     pieces,
@@ -435,5 +429,6 @@ be_build_medical_history_domain <- function(redcap_df, years = NULL) {
 
   rownames(out) <- NULL
   out <- be_drop_empty_columns(out)
-  unique(out)
+  out <- unique(out)
+  be_set_redcap_source_fields(out, source_fields)
 }

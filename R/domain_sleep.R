@@ -282,25 +282,10 @@ be_psg_full_field_map <- function() {
   )
 }
 
-be_build_psg_external_domain <- function(
-  redcap_df,
-  shared_root,
-  field_map,
-  years = NULL,
-  cat_labels = "named"
-) {
-  scaffold <- be_build_core_scaffold_domain(redcap_df, years = years)
-  if (!nrow(scaffold)) {
-    return(data.frame(participant_id = character(), stringsAsFactors = FALSE))
-  }
-
-  psg_lookup <- be_read_side_data_csv(
-    shared_root,
-    "psg_data.csv",
-    col_classes = c(idno = "character")
-  )
+be_read_psg_lookup <- function(shared_root) {
+  psg_lookup <- be_read_psg_snapshot(shared_root)
   if (!"idno" %in% names(psg_lookup)) {
-    stop("PSG side-data is missing idno.", call. = FALSE)
+    stop("PSG snapshot is missing idno.", call. = FALSE)
   }
 
   psg_lookup$participant_id <- be_clean_participant_id(psg_lookup$idno)
@@ -314,67 +299,47 @@ be_build_psg_external_domain <- function(
     ,
     drop = FALSE
   ]
-
-  psg <- scaffold[, c("participant_id", "event_name", "year"), drop = FALSE]
-  match_rows <- match(psg$participant_id, psg_lookup$participant_id)
-
-  for (output_name in names(field_map)) {
-    source_name <- field_map[[output_name]]
-    if (source_name %in% names(psg_lookup)) {
-      psg[[output_name]] <- psg_lookup[[source_name]][match_rows]
-    } else {
-      psg[[output_name]] <- NA
-    }
-  }
-
-  if ("psg_rswa" %in% names(psg)) {
-    psg$psg_rswa <- be_normalize_psg_rswa(
-      psg$psg_rswa,
-      cat_labels = cat_labels
-    )
-  }
-
-  unique(psg)
+  psg_lookup
 }
 
-be_build_psg_summary_domain <- function(
-  redcap_df,
-  shared_root,
-  years = NULL
-) {
-  be_build_psg_external_domain(
-    redcap_df = redcap_df,
-    shared_root = shared_root,
-    field_map = be_psg_summary_field_map(),
-    years = years
-  )
+be_psg_external_source_names <- function() {
+  unique(unname(be_psg_full_field_map()))
 }
 
-be_build_psg_full_domain <- function(
+be_build_psg_external_base <- function(
   redcap_df,
   shared_root,
   years = NULL,
-  cat_labels = "named"
+  scaffold = NULL,
+  psg_lookup = NULL
 ) {
-  be_build_psg_external_domain(
-    redcap_df = redcap_df,
-    shared_root = shared_root,
-    field_map = be_psg_full_field_map(),
-    years = years,
-    cat_labels = cat_labels
-  )
-}
-
-be_build_psg_powerspec_domain <- function(
-  redcap_df,
-  shared_root,
-  years = NULL
-) {
-  scaffold <- be_build_core_scaffold_domain(redcap_df, years = years)
+  if (is.null(scaffold)) {
+    scaffold <- be_build_core_scaffold_domain(redcap_df, years = years)
+  }
   if (!nrow(scaffold)) {
     return(data.frame(participant_id = character(), stringsAsFactors = FALSE))
   }
 
+  if (is.null(psg_lookup)) {
+    psg_lookup <- be_read_psg_lookup(shared_root)
+  }
+
+  output <- scaffold[, c("participant_id", "event_name", "year"), drop = FALSE]
+  match_rows <- match(output$participant_id, psg_lookup$participant_id)
+  source_names <- be_psg_external_source_names()
+
+  for (source_name in source_names) {
+    if (source_name %in% names(psg_lookup)) {
+      output[[source_name]] <- psg_lookup[[source_name]][match_rows]
+    } else {
+      output[[source_name]] <- NA
+    }
+  }
+
+  unique(output)
+}
+
+be_read_psg_powerspec_wide <- function(shared_root) {
   powerspec <- be_read_side_data_csv(
     shared_root,
     "psg_powerspec.csv",
@@ -399,23 +364,163 @@ be_build_psg_powerspec_domain <- function(
     ,
     drop = FALSE
   ]
-
-  grouped_rows <- lapply(
-    split(powerspec, powerspec$participant_id),
-    be_widen_psg_powerspec_rows
+  reduced <- be_reduce_redcap_rows(
+    powerspec[,
+      intersect(
+        c("participant_id", "B", "CH", "stage", "PSD", "RELPSD"),
+        names(powerspec)
+      ),
+      drop = FALSE
+    ],
+    c("participant_id", "B", "CH", "stage")
   )
+  if (!nrow(reduced)) {
+    return(data.frame(participant_id = character(), stringsAsFactors = FALSE))
+  }
 
-  powerspec_wide <- be_bind_rows_fill(grouped_rows)
+  participant_ids <- unique(reduced$participant_id)
+  powerspec_wide <- data.frame(
+    participant_id = participant_ids,
+    stringsAsFactors = FALSE
+  )
+  match_rows <- match(reduced$participant_id, participant_ids)
+
+  for (i in seq_len(nrow(reduced))) {
+    suffix <- paste(
+      reduced$B[[i]],
+      reduced$CH[[i]],
+      reduced$stage[[i]],
+      sep = "_"
+    )
+    row_index <- match_rows[[i]]
+    if ("PSD" %in% names(reduced)) {
+      column_name <- paste("PSD", suffix, sep = "_")
+      if (!column_name %in% names(powerspec_wide)) {
+        powerspec_wide[[column_name]] <- NA
+      }
+      powerspec_wide[[column_name]][row_index] <- reduced$PSD[[i]]
+    }
+    if ("RELPSD" %in% names(reduced)) {
+      column_name <- paste("RELPSD", suffix, sep = "_")
+      if (!column_name %in% names(powerspec_wide)) {
+        powerspec_wide[[column_name]] <- NA
+      }
+      powerspec_wide[[column_name]][row_index] <- reduced$RELPSD[[i]]
+    }
+  }
+
   powerspec_wide <- be_drop_empty_columns(powerspec_wide)
-  powerspec_wide <- unique(powerspec_wide)
+  unique(powerspec_wide)
+}
 
-  merge(
-    scaffold[, c("participant_id", "event_name", "year"), drop = FALSE],
-    powerspec_wide,
-    by = "participant_id",
-    all.x = TRUE,
-    sort = FALSE
+be_build_psg_external_domain <- function(
+  redcap_df,
+  shared_root,
+  field_map,
+  years = NULL,
+  cat_labels = "named",
+  scaffold = NULL,
+  psg_lookup = NULL,
+  psg_base = NULL
+) {
+  psg_base <- psg_base %||%
+    be_build_psg_external_base(
+      redcap_df = redcap_df,
+      shared_root = shared_root,
+      years = years,
+      scaffold = scaffold,
+      psg_lookup = psg_lookup
+    )
+  if (!nrow(psg_base)) {
+    return(data.frame(participant_id = character(), stringsAsFactors = FALSE))
+  }
+
+  psg <- psg_base[, c("participant_id", "event_name", "year"), drop = FALSE]
+
+  for (output_name in names(field_map)) {
+    source_name <- field_map[[output_name]]
+    if (source_name %in% names(psg_base)) {
+      psg[[output_name]] <- psg_base[[source_name]]
+    } else {
+      psg[[output_name]] <- NA
+    }
+  }
+
+  if ("psg_rswa" %in% names(psg)) {
+    psg$psg_rswa <- be_normalize_psg_rswa(
+      psg$psg_rswa,
+      cat_labels = cat_labels
+    )
+  }
+
+  unique(psg)
+}
+
+be_build_psg_summary_domain <- function(
+  redcap_df,
+  shared_root,
+  years = NULL,
+  scaffold = NULL,
+  psg_lookup = NULL,
+  psg_base = NULL
+) {
+  be_build_psg_external_domain(
+    redcap_df = redcap_df,
+    shared_root = shared_root,
+    field_map = be_psg_summary_field_map(),
+    years = years,
+    scaffold = scaffold,
+    psg_lookup = psg_lookup,
+    psg_base = psg_base
   )
+}
+
+be_build_psg_full_domain <- function(
+  redcap_df,
+  shared_root,
+  years = NULL,
+  cat_labels = "named",
+  scaffold = NULL,
+  psg_lookup = NULL,
+  psg_base = NULL
+) {
+  be_build_psg_external_domain(
+    redcap_df = redcap_df,
+    shared_root = shared_root,
+    field_map = be_psg_full_field_map(),
+    years = years,
+    cat_labels = cat_labels,
+    scaffold = scaffold,
+    psg_lookup = psg_lookup,
+    psg_base = psg_base
+  )
+}
+
+be_build_psg_powerspec_domain <- function(
+  redcap_df,
+  shared_root,
+  years = NULL,
+  scaffold = NULL,
+  powerspec_wide = NULL
+) {
+  if (is.null(scaffold)) {
+    scaffold <- be_build_core_scaffold_domain(redcap_df, years = years)
+  }
+  if (!nrow(scaffold)) {
+    return(data.frame(participant_id = character(), stringsAsFactors = FALSE))
+  }
+
+  if (is.null(powerspec_wide)) {
+    powerspec_wide <- be_read_psg_powerspec_wide(shared_root)
+  }
+
+  output <- scaffold[, c("participant_id", "event_name", "year"), drop = FALSE]
+  match_rows <- match(output$participant_id, powerspec_wide$participant_id)
+  for (column in setdiff(names(powerspec_wide), "participant_id")) {
+    output[[column]] <- powerspec_wide[[column]][match_rows]
+  }
+
+  unique(output)
 }
 
 be_psg_medication_repeat_labels <- function() {
@@ -423,8 +528,7 @@ be_psg_medication_repeat_labels <- function() {
 }
 
 be_build_psg_sleepmed_domain <- function(redcap_df, years = NULL) {
-  redcap_df <- be_prepare_redcap_snapshot(redcap_df)
-  redcap_df <- be_filter_years(redcap_df, years)
+  redcap_df <- be_redcap_domain_input(redcap_df, years)
 
   if (!"redcap_repeat_instrument" %in% names(redcap_df)) {
     return(data.frame(participant_id = character(), stringsAsFactors = FALSE))

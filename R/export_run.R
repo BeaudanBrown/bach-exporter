@@ -3,9 +3,14 @@ run_export <- function(
   output_path = NULL,
   shared_root = NULL,
   refresh_mode = "auto",
-  execution_mode = c("targets", "direct")
+  execution_mode = "targets"
 ) {
-  execution_mode <- match.arg(execution_mode)
+  if (!identical(execution_mode, "targets")) {
+    stop(
+      "Only execution_mode = 'targets' is supported.",
+      call. = FALSE
+    )
+  }
 
   if (!is.null(shared_root)) {
     spec$shared$root <- shared_root
@@ -39,27 +44,12 @@ run_export <- function(
 
   result <- tryCatch(
     {
-      pipeline_result <- if (identical(execution_mode, "targets")) {
-        be_run_export_pipeline(
-          spec = spec,
-          shared_root = validation$paths$shared_root,
-          refresh_mode = refresh_mode,
-          build_id = validation$paths$build_id
-        )
-      } else {
-        list(
-          export_df = be_assemble_export(
-            spec = spec,
-            shared_root = validation$paths$shared_root
-          ),
-          manifest = be_build_export_manifest(
-            spec = spec,
-            shared_root = validation$paths$shared_root,
-            refresh_mode = refresh_mode,
-            execution_mode = execution_mode
-          )
-        )
-      }
+      pipeline_result <- be_run_export_pipeline(
+        spec = spec,
+        shared_root = validation$paths$shared_root,
+        refresh_mode = refresh_mode,
+        build_id = validation$paths$build_id
+      )
 
       be_append_export_log(
         log_path,

@@ -192,15 +192,13 @@ be_validate_export_spec <- function(spec) {
   }
 
   if (any(c("psg_summary", "psg_full") %in% selected_domains)) {
-    side_data_dir <- root_check$paths$side_data_dir %||% NULL
-    required_files <- file.path(side_data_dir, "psg_data.csv")
-    missing_files <- required_files[!file.exists(required_files)]
-    if (length(missing_files)) {
+    psg_snapshot <- be_snapshot_file_path(shared_root, "psg", "raw.csv")
+    if (!file.exists(psg_snapshot)) {
       return(list(
         ok = FALSE,
         message = sprintf(
-          "PSG side-data is missing from shared root side-data/: %s",
-          paste(basename(missing_files), collapse = ", ")
+          "PSG snapshot is missing from shared root snapshots/: %s",
+          psg_snapshot
         )
       ))
     }

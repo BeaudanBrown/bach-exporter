@@ -91,6 +91,7 @@ populate_test_shared_app <- function(shared_root, build_id = "dev") {
 make_export_shared_root <- function() {
   shared_root <- tempfile("shared-root-")
   dir.create(file.path(shared_root, "snapshots", "redcap"), recursive = TRUE)
+  dir.create(file.path(shared_root, "snapshots", "psg"), recursive = TRUE)
   dir.create(
     file.path(shared_root, "snapshots", "biomarkers"),
     recursive = TRUE
@@ -154,7 +155,7 @@ make_export_shared_root <- function() {
       psg_rswa = c("yes", "no", "yes"),
       stringsAsFactors = FALSE
     ),
-    file.path(shared_root, "side-data", "psg_data.csv"),
+    file.path(shared_root, "snapshots", "psg", "raw.csv"),
     row.names = FALSE
   )
   utils::write.csv(
@@ -183,7 +184,7 @@ make_export_shared_root <- function() {
     redcap_repeat_instrument = c(NA, NA, NA),
     redcap_repeat_instance = c(NA, NA, NA),
     age = c(70, 71, NA),
-    sex = c("F", "M", NA),
+    sex = c("2", "1", NA),
     highest_education = c("College", "TAFE", NA),
     education = c(NA, NA, NA),
     pp_date = c("2026-01-01", "2026-01-02", "2027-01-02"),
@@ -212,10 +213,10 @@ make_export_shared_root <- function() {
     ucla3_v2 = c(NA, 3, 4),
     ucla_total_v2 = c(NA, 6, 9),
     demographics_date = c("2026-01-01", "2026-01-02", NA),
-    race = c("White", "Asian", NA),
+    race = c("1", "2", NA),
     race_other = c("", "", NA),
-    ethnicity = c("No", "Yes", NA),
-    english_first = c("Yes", "No", NA),
+    ethnicity = c("0", "1", NA),
+    english_first = c("1", "0", NA),
     english_first_n = c(0, 10, NA),
     first_language = c("English", "Mandarin", NA),
     employment = c("Retired", "Part-time", NA),
@@ -410,6 +411,10 @@ make_export_shared_root <- function() {
     twenty4bp_total_pulse_sd = c(5, 5, NA),
     twenty4bp_sys_asleep_dip = c(11, 8, NA),
     twenty4bp_dia_asleep_dip = c(12, 7, NA),
+    medical_history_date = c("2026-01-06", "2026-01-07", NA),
+    medical_arthritis = c("1", "0", NA),
+    arthritis_type___1 = c("1", "0", NA),
+    arthritis_type___2 = c("0", "1", NA),
     neuropsych_date = c("2026-01-07", "2026-01-08", "2027-01-08"),
     cdr_memory = c(0, 0.5, 1),
     cdr_orient = c(0, 0, 0.5),
@@ -673,6 +678,28 @@ make_export_shared_root <- function() {
     stringsAsFactors = FALSE
   )
   export_snapshot <- be_bind_rows_fill(list(export_snapshot, psg_sleepmed_rows))
+  labels_snapshot <- export_snapshot
+  labels_snapshot$sex <- c("Female", "Male", NA, NA, NA, NA)
+  labels_snapshot$race <- c("White", "Asian", NA, NA, NA, NA)
+  labels_snapshot$ethnicity <- c("No", "Yes", NA, NA, NA, NA)
+  labels_snapshot$english_first <- c("Yes", "No", NA, NA, NA, NA)
+  labels_snapshot$medical_arthritis <- c("Yes", "No", NA, NA, NA, NA)
+  labels_snapshot$arthritis_type___1 <- c(
+    "Rheumatoid arthritis",
+    "Unchecked",
+    NA,
+    NA,
+    NA,
+    NA
+  )
+  labels_snapshot$arthritis_type___2 <- c(
+    "Unchecked",
+    "Osteoarthritis",
+    NA,
+    NA,
+    NA,
+    NA
+  )
 
   utils::write.csv(
     data.frame(
@@ -698,6 +725,11 @@ make_export_shared_root <- function() {
     row.names = FALSE
   )
   jsonlite::write_json(
+    list(refreshed_at = "2026-03-11T00:00:00Z", source = "psg"),
+    file.path(shared_root, "snapshots", "psg", "metadata.json"),
+    auto_unbox = TRUE
+  )
+  jsonlite::write_json(
     list(refreshed_at = "2026-03-11T00:00:00Z", source = "biomarkers"),
     file.path(shared_root, "snapshots", "biomarkers", "metadata.json"),
     auto_unbox = TRUE
@@ -707,13 +739,18 @@ make_export_shared_root <- function() {
     file.path(shared_root, "snapshots", "redcap", "raw.csv"),
     row.names = FALSE
   )
+  utils::write.csv(
+    labels_snapshot,
+    file.path(shared_root, "snapshots", "redcap", "labels.csv"),
+    row.names = FALSE
+  )
   jsonlite::write_json(
     list(refreshed_at = "2026-03-11T00:00:00Z", source = "redcap"),
     file.path(shared_root, "snapshots", "redcap", "metadata.json"),
     auto_unbox = TRUE
   )
   jsonlite::write_json(
-    list(families = c("redcap", "biomarkers")),
+    list(families = c("redcap", "psg", "biomarkers")),
     file.path(shared_root, "snapshots", "sidecars", "snapshot-index.json"),
     auto_unbox = TRUE
   )
@@ -807,6 +844,10 @@ make_medications_export_shared_root <- function() {
     file.path(shared_root, "snapshots", "redcap", "raw.csv"),
     row.names = FALSE
   )
+  file.copy(
+    file.path(shared_root, "snapshots", "redcap", "raw.csv"),
+    file.path(shared_root, "snapshots", "redcap", "labels.csv")
+  )
   jsonlite::write_json(
     list(refreshed_at = "2026-03-11T00:00:00Z", source = "redcap"),
     file.path(shared_root, "snapshots", "redcap", "metadata.json"),
@@ -872,6 +913,10 @@ make_medical_history_export_shared_root <- function() {
     ),
     file.path(shared_root, "snapshots", "redcap", "raw.csv"),
     row.names = FALSE
+  )
+  file.copy(
+    file.path(shared_root, "snapshots", "redcap", "raw.csv"),
+    file.path(shared_root, "snapshots", "redcap", "labels.csv")
   )
   jsonlite::write_json(
     list(refreshed_at = "2026-03-11T00:00:00Z", source = "redcap"),
@@ -945,6 +990,39 @@ test_that("participants domain carries baseline demographics onto later years", 
   expect_equal(result$age, 65)
   expect_equal(result$sex, "F")
   expect_equal(result$education, "University")
+})
+
+test_that("participants domain reuses prejoined participants base", {
+  redcap_df <- data.frame(
+    idno = c("BACH001", "BACH001"),
+    redcap_event_name = c("Baseline", "Year 2"),
+    age = c(70, NA),
+    sex = c("F", NA),
+    highest_education = c("College", NA),
+    stringsAsFactors = FALSE
+  )
+
+  participants_base <- data.frame(
+    participant_id = c("001", "001"),
+    subject_id = c("001", "001"),
+    event_name = c("baseline_arm_1", "year_2_arm_1"),
+    session = c("Baseline", "Year 2"),
+    year = c("baseline", "year2"),
+    session_date = c("2026-01-01", "2027-01-01"),
+    age = c(70, 70),
+    sex = c("F", "F"),
+    highest_education = c("College", "College"),
+    stringsAsFactors = FALSE
+  )
+
+  result <- be_build_participants_domain(
+    redcap_df = redcap_df,
+    participants_base = participants_base
+  )
+
+  expect_equal(result$age, c(70, 70))
+  expect_equal(result$sex, c("F", "F"))
+  expect_equal(result$highest_education, c("College", "College"))
 })
 
 test_that("participant screening domain maps legacy screening fields", {
@@ -1359,6 +1437,66 @@ test_that("cognitive screening domain maps tele_total to cogscreen_total", {
   expect_equal(result$cogscreen_total, c(28, 27, 26))
 })
 
+test_that("participant-year domains accept precomputed participant-year rows", {
+  participant_year_rows <- data.frame(
+    participant_id = c("001", "002"),
+    event_name = c("year_2_arm_1", "year_3_arm_1"),
+    year = c("year2", "year3"),
+    pp_date = c("2027-01-01", "2028-01-01"),
+    moca_total = c(24, 23),
+    ad8_who = c("Spouse", "Child"),
+    ad8_date = c("2027-01-01", "2028-01-01"),
+    ad8_total = c(2, 3),
+    ucla1_v2 = c(1, 2),
+    ucla2_v2 = c(2, 3),
+    ucla3_v2 = c(3, 4),
+    ucla_total_v2 = c(6, 9),
+    similarities1 = c(1, 1),
+    similarities2 = c(1, 1),
+    similarities3 = c(0, 1),
+    similarities4 = c(0, 1),
+    similarities5 = c(0, 1),
+    similarities6 = c(1, 1),
+    prose_passage = c("Passage A", "Passage B"),
+    prose_time = c(90, 95),
+    prose_s1_imm_story = c(20, 18),
+    prose_s1_imm_theme = c(4, 3),
+    prose_s2_imm_story = c(21, 20),
+    prose_s2_imm_theme = c(4, 3),
+    prose_del_time = c("09:10", "09:20"),
+    prose_timediff = c(15, 20),
+    prose_s1_del_story = c(19, 17),
+    prose_s1_del_theme = c(4, 2),
+    prose_s2_del_story = c(20, 18),
+    prose_s2_del_theme = c(4, 3),
+    tele_total = c(27, 26),
+    stringsAsFactors = FALSE
+  )
+
+  expect_equal(
+    be_build_moca_domain(participant_year_rows)$moca_total,
+    c(24, 23)
+  )
+  expect_equal(be_build_ad8_domain(participant_year_rows)$ad8_total, c(2, 3))
+  expect_equal(be_build_ucla_domain(participant_year_rows)$ucla_total, c(6, 9))
+  expect_equal(
+    be_build_similarities_domain(
+      participant_year_rows
+    )$tele_similarities_corrected,
+    c(2, 6)
+  )
+  expect_equal(
+    be_build_prose_passages_domain(
+      participant_year_rows
+    )$tele_prose_imm_percorrect,
+    c(41 / 51, 38 / 50)
+  )
+  expect_equal(
+    be_build_cognitive_screening_domain(participant_year_rows)$cogscreen_total,
+    c(27, 26)
+  )
+})
+
 test_that("medications domain returns one row per medication instance", {
   redcap_df <- data.frame(
     idno = c("BACH001", "BACH001"),
@@ -1462,6 +1600,123 @@ test_that("medications wide domain keeps one row per participant year", {
   expect_equal(baseline_row$dyslipidemia, "No")
 })
 
+test_that("medications wide domain reuses provided scaffold and baseline demographics", {
+  redcap_df <- be_prepare_redcap_snapshot(data.frame(
+    idno = c("BACH001", "BACH001", "BACH001"),
+    redcap_event_name = c("Baseline", "Year 2", "Year 2"),
+    redcap_repeat_instrument = c("", "", "Medication Follow"),
+    redcap_repeat_instance = c(NA, NA, 1),
+    sex = c("Female", NA, NA),
+    mh_follow_meds_v2 = c(NA, "Yes", "Yes"),
+    mh_follow_meds_startstop_v2 = c(NA, NA, "Start"),
+    mh_follow_meds_n_v2 = c(NA, NA, "Metformin"),
+    mh_follow_meds_atc_v2 = c(NA, NA, "A10BA02"),
+    stringsAsFactors = FALSE
+  ))
+  scaffold <- be_build_core_scaffold_domain(
+    redcap_df,
+    years = c("baseline", "year2")
+  )
+  baseline_demographics <- be_baseline_demographics(redcap_df)
+
+  assign(".be_medications_reuse_calls", integer(), envir = .GlobalEnv)
+  trace(
+    what = be_build_core_scaffold_domain,
+    tracer = quote(
+      assign(
+        ".be_medications_reuse_calls",
+        c(get(".be_medications_reuse_calls", envir = .GlobalEnv), 1L),
+        envir = .GlobalEnv
+      )
+    ),
+    print = FALSE
+  )
+  trace(
+    what = be_baseline_demographics,
+    tracer = quote(
+      assign(
+        ".be_medications_reuse_calls",
+        c(get(".be_medications_reuse_calls", envir = .GlobalEnv), 2L),
+        envir = .GlobalEnv
+      )
+    ),
+    print = FALSE
+  )
+  on.exit(
+    {
+      untrace(be_build_core_scaffold_domain)
+      untrace(be_baseline_demographics)
+      rm(".be_medications_reuse_calls", envir = .GlobalEnv)
+    },
+    add = TRUE
+  )
+
+  result <- be_build_medications_wide_domain(
+    redcap_df,
+    years = c("baseline", "year2"),
+    scaffold = scaffold,
+    baseline_demographics = baseline_demographics
+  )
+
+  expect_equal(
+    get(".be_medications_reuse_calls", envir = .GlobalEnv),
+    integer()
+  )
+  expect_equal(nrow(result), 2)
+  expect_equal(
+    result$medication_name_med_01[result$year == "year2"],
+    "Metformin"
+  )
+})
+
+test_that("psg powerspec domain reuses provided wide side-data", {
+  redcap_df <- be_prepare_redcap_snapshot(data.frame(
+    idno = c("BACH001", "BACH002"),
+    redcap_event_name = c("Baseline", "Year 2"),
+    stringsAsFactors = FALSE
+  ))
+  scaffold <- be_build_core_scaffold_domain(
+    redcap_df,
+    years = c("baseline", "year2")
+  )
+  powerspec_wide <- data.frame(
+    participant_id = c("001", "002"),
+    PSD_DELTA_C3M2_N2 = c(12.5, 9.1),
+    stringsAsFactors = FALSE
+  )
+
+  assign(".be_psg_powerspec_reads", 0L, envir = .GlobalEnv)
+  trace(
+    what = be_read_side_data_csv,
+    tracer = quote(
+      assign(
+        ".be_psg_powerspec_reads",
+        get(".be_psg_powerspec_reads", envir = .GlobalEnv) + 1L,
+        envir = .GlobalEnv
+      )
+    ),
+    print = FALSE
+  )
+  on.exit(
+    {
+      untrace(be_read_side_data_csv)
+      rm(".be_psg_powerspec_reads", envir = .GlobalEnv)
+    },
+    add = TRUE
+  )
+
+  result <- be_build_psg_powerspec_domain(
+    redcap_df = redcap_df,
+    shared_root = tempfile("unused-shared-root-"),
+    years = c("baseline", "year2"),
+    scaffold = scaffold,
+    powerspec_wide = powerspec_wide
+  )
+
+  expect_equal(get(".be_psg_powerspec_reads", envir = .GlobalEnv), 0L)
+  expect_equal(result$PSD_DELTA_C3M2_N2, c(12.5, 9.1))
+})
+
 test_that("run_export writes a snapshot-backed participants csv and manifest", {
   cache_dir <- tempfile("bach-cache-")
   data_dir <- tempfile("bach-data-")
@@ -1528,6 +1783,70 @@ test_that("run_export writes a snapshot-backed participants csv and manifest", {
   expect_equal(history$row_count[[1]], 1L)
 })
 
+test_that("run_export applies named and numbered categorical labels globally", {
+  cache_dir <- tempfile("bach-cache-")
+  data_dir <- tempfile("bach-data-")
+  old_cache_option <- getOption("bachExporter.local_cache_dir")
+  old_data_option <- getOption("bachExporter.local_data_dir")
+  options(
+    bachExporter.local_cache_dir = cache_dir,
+    bachExporter.local_data_dir = data_dir
+  )
+  on.exit(
+    options(
+      bachExporter.local_cache_dir = old_cache_option,
+      bachExporter.local_data_dir = old_data_option
+    ),
+    add = TRUE
+  )
+
+  shared_root <- make_export_shared_root()
+  on.exit(unlink(shared_root, recursive = TRUE), add = TRUE)
+
+  output_dir <- tempfile("export-label-dir-")
+  dir.create(output_dir, recursive = TRUE)
+  on.exit(unlink(output_dir, recursive = TRUE), add = TRUE)
+
+  spec <- be_default_export_spec(shared_root = shared_root)
+  spec$domains <- c("participants", "demographics", "medical_history", "moca")
+  spec$cohort$years <- "baseline"
+  spec$output$path <- file.path(output_dir, "named.csv")
+
+  named_result <- run_export(spec, refresh_mode = "auto")
+  named_df <- utils::read.csv(
+    named_result$output,
+    stringsAsFactors = FALSE,
+    check.names = FALSE
+  )
+
+  expect_equal(named_df$sex, c("Female", "Male"))
+  expect_equal(named_df$race, c("White", "Asian"))
+  expect_equal(named_df$lang_first_english, c("Yes", "No"))
+  expect_equal(named_df$medhx_arthritis, c("Yes", "No"))
+  expect_equal(
+    named_df$medhx_arthritis_rheu,
+    c("Rheumatoid arthritis", "Unchecked")
+  )
+  expect_equal(named_df$moca_total, c(25, 24))
+
+  spec$options$cat_labels <- "numbered"
+  spec$output$path <- file.path(output_dir, "numbered.csv")
+
+  numbered_result <- run_export(spec, refresh_mode = "auto")
+  numbered_df <- utils::read.csv(
+    numbered_result$output,
+    stringsAsFactors = FALSE,
+    check.names = FALSE
+  )
+
+  expect_equal(as.character(numbered_df$sex), c("2", "1"))
+  expect_equal(as.character(numbered_df$race), c("1", "2"))
+  expect_equal(as.character(numbered_df$lang_first_english), c("1", "0"))
+  expect_equal(as.character(numbered_df$medhx_arthritis), c("1", "0"))
+  expect_equal(as.character(numbered_df$medhx_arthritis_rheu), c("1", "0"))
+  expect_equal(numbered_df$moca_total, c(25, 24))
+})
+
 test_that("run_export adds core scaffold columns to medications-only exports", {
   shared_root <- make_medications_export_shared_root()
   on.exit(unlink(shared_root, recursive = TRUE), add = TRUE)
@@ -1544,7 +1863,6 @@ test_that("run_export adds core scaffold columns to medications-only exports", {
   result <- run_export(
     spec,
     refresh_mode = "auto",
-    execution_mode = "direct"
   )
 
   export_df <- utils::read.csv(
@@ -1552,17 +1870,22 @@ test_that("run_export adds core scaffold columns to medications-only exports", {
     stringsAsFactors = FALSE,
     colClasses = c(
       participant_id = "character",
-      subject_id = "character",
-      repeat_instance = "character"
+      subject_id = "character"
     )
   )
 
   expect_true(all(
     c("subject_id", "session", "session_date") %in% names(export_df)
   ))
-  expect_equal(export_df$subject_id, c("001", "001"))
-  expect_equal(export_df$session, c("Baseline", "Year 2"))
-  expect_equal(export_df$session_date, c("2026-01-01", "2027-01-02"))
+  expect_equal(export_df$subject_id, c("001", "002", "001"))
+  expect_equal(export_df$session, c("Baseline", "Baseline", "Year 2"))
+  expect_equal(
+    export_df$session_date,
+    c("2026-01-01", "2026-01-03", "2027-01-02")
+  )
+  expect_equal(export_df$medication_name_med_01[[1]], "Aspirin")
+  expect_true(is.na(export_df$medication_name_med_01[[2]]))
+  expect_equal(export_df$medication_name_med_02[[3]], "Metformin")
 })
 
 test_that("run_export supports annual-phone MoCA, AD8, and UCLA domains", {
@@ -1581,7 +1904,6 @@ test_that("run_export supports annual-phone MoCA, AD8, and UCLA domains", {
   result <- run_export(
     spec,
     refresh_mode = "auto",
-    execution_mode = "direct"
   )
 
   export_df <- utils::read.csv(
@@ -1617,7 +1939,6 @@ test_that("run_export handles empty LP screening alongside annual-phone domains"
   result <- run_export(
     spec,
     refresh_mode = "auto",
-    execution_mode = "direct"
   )
 
   export_df <- utils::read.csv(
@@ -1631,6 +1952,45 @@ test_that("run_export handles empty LP screening alongside annual-phone domains"
   expect_equal(export_df$participant_id, "002")
   expect_equal(export_df$moca_total, 23)
   expect_equal(export_df$ucla_total, 9)
+})
+
+test_that("run_export handles empty LP screening with participants in targets mode", {
+  shared_root <- make_export_shared_root()
+  on.exit(unlink(shared_root, recursive = TRUE), add = TRUE)
+
+  output_dir <- tempfile("export-dir-")
+  dir.create(output_dir, recursive = TRUE)
+  on.exit(unlink(output_dir, recursive = TRUE), add = TRUE)
+
+  spec <- be_default_export_spec(shared_root = shared_root)
+  spec$output$path <- file.path(
+    output_dir,
+    "annual-phone-lp-screening-participants.csv"
+  )
+  spec$domains <- c("participants", "lp_screening", "moca", "ucla")
+  spec$cohort$years <- "year2"
+
+  result <- run_export(
+    spec,
+    refresh_mode = "auto",
+    execution_mode = "targets"
+  )
+
+  export_df <- utils::read.csv(
+    result$output,
+    stringsAsFactors = FALSE,
+    colClasses = c(
+      participant_id = "character",
+      subject_id = "character"
+    )
+  )
+
+  expect_equal(export_df$participant_id, "002")
+  expect_equal(export_df$subject_id, "002")
+  expect_equal(export_df$moca_total, 23)
+  expect_equal(export_df$ucla_total, 9)
+  expect_equal(export_df$tele_date, "2027-01-02")
+  expect_false("lp_interest" %in% names(export_df))
 })
 
 test_that("run_export supports MRI domain with baseline-wide side-data merge", {
@@ -1837,6 +2197,56 @@ test_that("run_export supports PSG power-spectral domain", {
   expect_equal(export_df$RELPSD_ALPHA_C3M2_REM, c(0.18, NA, NA))
   expect_equal(export_df$PSD_DELTA_F4M1_N2, c(NA, 9.1, 9.1))
   expect_equal(export_df$RELPSD_THETA_F4M1_N1, c(NA, 0.11, 0.11))
+})
+
+test_that("run_export supports biomarkers snapshots with spaced sample headers", {
+  shared_root <- make_export_shared_root()
+  on.exit(unlink(shared_root, recursive = TRUE), add = TRUE)
+
+  output_dir <- tempfile("export-dir-")
+  dir.create(output_dir, recursive = TRUE)
+  on.exit(unlink(output_dir, recursive = TRUE), add = TRUE)
+
+  utils::write.csv(
+    data.frame(
+      check.names = FALSE,
+      "Sample ID" = c("1", "1", "2", "2"),
+      "SIMOA ID" = c("SIM001", "SIM001", "SIM002", "SIM002"),
+      "Sample Type" = c("Plasma", "CSF", "Plasma", "CSF"),
+      AB40_mean_conc = c(200, 5000, 220, 4800),
+      AB40_cv = c(3.2, 4.1, 3.5, 4.0),
+      AB42_mean_conc = c(12, 250, 11, 230),
+      AB42_cv = c(2.1, 3.0, 2.2, 3.1),
+      GFAP_mean_conc = c(150, 80, 175, 90),
+      GFAP_cv = c(5.0, 6.0, 5.5, 6.2),
+      NfL_mean_conc = c(18, 9, 20, 10),
+      NfL_cv = c(4.2, 5.1, 4.4, 5.3),
+      pTau181_mean_conc = c(2.5, 1.3, 2.8, 1.4),
+      pTau181_cv = c(6.1, 6.8, 6.3, 6.9),
+      pTau217_mean_conc = c(0.8, 0.5, 0.9, 0.6),
+      pTau217_cv = c(7.1, 7.8, 7.3, 7.9),
+      Notes = c("", "", "", ""),
+      stringsAsFactors = FALSE
+    ),
+    file.path(shared_root, "snapshots", "biomarkers", "raw.csv"),
+    row.names = FALSE
+  )
+
+  spec <- be_default_export_spec(shared_root = shared_root)
+  spec$output$path <- file.path(output_dir, "biomarkers-spaced.csv")
+  spec$domains <- c("participants", "biomarkers")
+  spec$cohort$years <- c("baseline", "year2")
+
+  result <- run_export(spec, refresh_mode = "auto")
+  export_df <- utils::read.csv(
+    result$output,
+    stringsAsFactors = FALSE,
+    check.names = FALSE
+  )
+
+  expect_equal(export_df$participant_id, c(1, 2, 2))
+  expect_equal(export_df$ab40_mean_conc_plasma, c(200, 220, 220))
+  expect_equal(export_df$ab42_mean_conc_csf, c(250, 230, 230))
 })
 
 test_that("run_export supports CDR and MMSE neuropsych domains", {
@@ -2069,7 +2479,6 @@ test_that("run_export supports baseline survey and demographics domains", {
   result <- run_export(
     spec,
     refresh_mode = "auto",
-    execution_mode = "direct"
   )
 
   export_df <- utils::read.csv(
@@ -2106,7 +2515,6 @@ test_that("run_export supports SES and ARIA enrichment from shared side-data", {
   result <- run_export(
     spec,
     refresh_mode = "auto",
-    execution_mode = "direct"
   )
 
   export_df <- utils::read.csv(
@@ -2141,7 +2549,6 @@ test_that("run_export supports biomarker domain with derived AB42/40 ratios", {
   result <- run_export(
     spec,
     refresh_mode = "auto",
-    execution_mode = "direct"
   )
 
   export_df <- utils::read.csv(
@@ -2177,7 +2584,6 @@ test_that("run_export supports genomics domain with derived status fields", {
   result <- run_export(
     spec,
     refresh_mode = "auto",
-    execution_mode = "direct"
   )
 
   export_df <- utils::read.csv(
@@ -2197,6 +2603,44 @@ test_that("run_export supports genomics domain with derived status fields", {
   expect_equal(export_df$apoe_e4_status, c("noncarrier", "carrier", "carrier"))
 })
 
+test_that("be_build_core_scaffold_domain reuses attached event rows", {
+  redcap_df <- be_prepare_redcap_snapshot(data.frame(
+    idno = c("BACH001", "BACH001", "BACH002"),
+    redcap_event_name = c("Baseline", "Year 2", "Baseline"),
+    pa_date = c("2026-01-01", "2027-01-01", "2026-01-02"),
+    stringsAsFactors = FALSE
+  ))
+  redcap_df <- be_attach_redcap_reductions(redcap_df)
+
+  assign(".be_scaffold_reduce_calls", 0L, envir = .GlobalEnv)
+  trace(
+    what = be_reduce_redcap_rows,
+    tracer = quote(
+      assign(
+        ".be_scaffold_reduce_calls",
+        get(".be_scaffold_reduce_calls", envir = .GlobalEnv) + 1L,
+        envir = .GlobalEnv
+      )
+    ),
+    print = FALSE
+  )
+  on.exit(
+    {
+      untrace(be_reduce_redcap_rows)
+      rm(".be_scaffold_reduce_calls", envir = .GlobalEnv)
+    },
+    add = TRUE
+  )
+
+  scaffold <- be_build_core_scaffold_domain(
+    redcap_df,
+    years = c("baseline", "year2")
+  )
+
+  expect_equal(nrow(scaffold), 3)
+  expect_equal(get(".be_scaffold_reduce_calls", envir = .GlobalEnv), 0L)
+})
+
 test_that("run_export supports baseline clinical domains", {
   shared_root <- make_export_shared_root()
   on.exit(unlink(shared_root, recursive = TRUE), add = TRUE)
@@ -2213,7 +2657,6 @@ test_that("run_export supports baseline clinical domains", {
   result <- run_export(
     spec,
     refresh_mode = "auto",
-    execution_mode = "direct"
   )
 
   export_df <- utils::read.csv(
@@ -2248,7 +2691,6 @@ test_that("run_export supports multi-year medical history exports", {
   result <- run_export(
     spec,
     refresh_mode = "auto",
-    execution_mode = "direct"
   )
 
   export_df <- utils::read.csv(
@@ -2276,7 +2718,7 @@ test_that("run_export supports multi-year medical history exports", {
   expect_equal(export_df$medhx_hosp_detail[[2]], "Knee surgery")
 })
 
-test_that("run_export supports direct mode for export debugging", {
+test_that("run_export writes targets-backed manifests for researcher exports", {
   shared_root <- make_export_shared_root()
   on.exit(unlink(shared_root, recursive = TRUE), add = TRUE)
 
@@ -2285,14 +2727,13 @@ test_that("run_export supports direct mode for export debugging", {
   on.exit(unlink(output_dir, recursive = TRUE), add = TRUE)
 
   spec <- be_default_export_spec(shared_root = shared_root)
-  spec$output$path <- file.path(output_dir, "participants-direct.csv")
+  spec$output$path <- file.path(output_dir, "participants-targets.csv")
   spec$domains <- "participants"
   spec$cohort$years <- "year2"
 
   result <- run_export(
     spec,
     refresh_mode = "auto",
-    execution_mode = "direct"
   )
 
   export_df <- utils::read.csv(
@@ -2303,7 +2744,7 @@ test_that("run_export supports direct mode for export debugging", {
   manifest <- jsonlite::read_json(result$manifest, simplifyVector = TRUE)
 
   expect_equal(export_df$participant_id, "002")
-  expect_equal(manifest$execution_mode, "direct")
+  expect_equal(manifest$execution_mode, "targets")
   expect_equal(manifest$source$mode, "snapshot")
 })
 
@@ -2525,7 +2966,7 @@ test_that("run_export merges medications onto participants without row explosion
   expect_equal(export_df$dyslipidemia, c("Yes", NA))
 })
 
-test_that("run_export can export medications as a standalone long table", {
+test_that("run_export exports medications as a standalone wide table", {
   cache_dir <- tempfile("bach-cache-")
   old_cache_option <- getOption("bachExporter.local_cache_dir")
   options(bachExporter.local_cache_dir = cache_dir)
@@ -2548,12 +2989,15 @@ test_that("run_export can export medications as a standalone long table", {
   export_df <- utils::read.csv(
     result$output,
     stringsAsFactors = FALSE,
-    colClasses = c(participant_id = "character", repeat_instance = "character")
+    colClasses = c(participant_id = "character")
   )
 
   expect_equal(nrow(export_df), 2)
-  expect_equal(export_df$repeat_instance, c("1", "2"))
-  expect_equal(export_df$medication_name, c("Aspirin", "Metformin"))
+  expect_false("repeat_instance" %in% names(export_df))
+  expect_equal(export_df$participant_id, c("001", "001"))
+  expect_equal(export_df$year, c("baseline", "year2"))
+  expect_equal(export_df$medication_name_med_01[[1]], "Aspirin")
+  expect_equal(export_df$medication_name_med_02[[2]], "Metformin")
 })
 
 test_that("unsupported domains fail validation clearly", {
@@ -2585,10 +3029,10 @@ test_that("validation fails clearly when MRI side-data is missing", {
   expect_match(validation$message, "MRI side-data is missing")
 })
 
-test_that("validation fails clearly when PSG side-data is missing", {
+test_that("validation fails clearly when PSG snapshot is missing", {
   shared_root <- make_export_shared_root()
   on.exit(unlink(shared_root, recursive = TRUE), add = TRUE)
-  unlink(file.path(shared_root, "side-data", "psg_data.csv"))
+  unlink(file.path(shared_root, "snapshots", "psg", "raw.csv"))
 
   spec <- be_default_export_spec(shared_root = shared_root)
   spec$output$path <- tempfile(fileext = ".csv")
@@ -2597,7 +3041,7 @@ test_that("validation fails clearly when PSG side-data is missing", {
   validation <- be_validate_export_spec(spec)
 
   expect_false(validation$ok)
-  expect_match(validation$message, "PSG side-data is missing")
+  expect_match(validation$message, "PSG snapshot is missing")
 })
 
 test_that("validation fails clearly when biomarkers snapshot is missing", {
@@ -2681,6 +3125,837 @@ test_that("run_export filters by participant IDs from a subset file", {
   expect_equal(unique(export_df$participant_id), "002")
 })
 
+test_that("be_assemble_export prepares raw and labelled REDCap snapshots once per export", {
+  shared_root <- make_export_shared_root()
+  on.exit(unlink(shared_root, recursive = TRUE), add = TRUE)
+
+  spec <- be_default_export_spec(shared_root = shared_root)
+  spec$domains <- c(
+    "participants",
+    "moca",
+    "ucla",
+    "demographics",
+    "bloods",
+    "medical_history",
+    "cdr",
+    "psqi",
+    "similarities",
+    "prose_passages",
+    "cognitive_screening",
+    "medications"
+  )
+  spec$cohort$years <- c("baseline", "year2")
+
+  assign(".be_prepare_count", 0L, envir = .GlobalEnv)
+  trace(
+    what = be_filter_supported_participants,
+    tracer = quote(
+      assign(
+        ".be_prepare_count",
+        get(".be_prepare_count", envir = .GlobalEnv) + 1L,
+        envir = .GlobalEnv
+      )
+    ),
+    print = FALSE
+  )
+  on.exit(
+    {
+      untrace(be_filter_supported_participants)
+      rm(".be_prepare_count", envir = .GlobalEnv)
+    },
+    add = TRUE
+  )
+
+  export_df <- be_assemble_export(spec, shared_root)
+
+  expect_gt(nrow(export_df), 0)
+  expect_equal(get(".be_prepare_count", envir = .GlobalEnv), 2L)
+})
+
+test_that("be_assemble_export filters selected participants once per snapshot view", {
+  shared_root <- make_export_shared_root()
+  on.exit(unlink(shared_root, recursive = TRUE), add = TRUE)
+
+  spec <- be_default_export_spec(shared_root = shared_root)
+  spec$domains <- c(
+    "participants",
+    "moca",
+    "ucla",
+    "demographics",
+    "ses",
+    "aria",
+    "psg_summary",
+    "psg_full"
+  )
+  spec$cohort$years <- c("baseline", "year2")
+  spec$cohort$participant_ids <- c("BACH001", "BACH002")
+
+  assign(".be_filter_count", 0L, envir = .GlobalEnv)
+  trace(
+    what = be_filter_participants,
+    tracer = quote(
+      assign(
+        ".be_filter_count",
+        get(".be_filter_count", envir = .GlobalEnv) + 1L,
+        envir = .GlobalEnv
+      )
+    ),
+    print = FALSE
+  )
+  on.exit(
+    {
+      untrace(be_filter_participants)
+      rm(".be_filter_count", envir = .GlobalEnv)
+    },
+    add = TRUE
+  )
+
+  export_df <- be_assemble_export(spec, shared_root)
+
+  expect_gt(nrow(export_df), 0)
+  expect_equal(get(".be_filter_count", envir = .GlobalEnv), 2L)
+})
+
+test_that("be_assemble_export reuses SES lookup across ses and aria domains", {
+  shared_root <- make_export_shared_root()
+  on.exit(unlink(shared_root, recursive = TRUE), add = TRUE)
+
+  spec <- be_default_export_spec(shared_root = shared_root)
+  spec$domains <- c("participants", "ses", "aria")
+  spec$cohort$years <- c("baseline", "year2")
+
+  assign(".be_side_data_reads", character(), envir = .GlobalEnv)
+  trace(
+    what = be_read_side_data_csv,
+    tracer = quote(
+      assign(
+        ".be_side_data_reads",
+        c(get(".be_side_data_reads", envir = .GlobalEnv), filename),
+        envir = .GlobalEnv
+      )
+    ),
+    print = FALSE
+  )
+  on.exit(
+    {
+      untrace(be_read_side_data_csv)
+      rm(".be_side_data_reads", envir = .GlobalEnv)
+    },
+    add = TRUE
+  )
+
+  export_df <- be_assemble_export(spec, shared_root)
+
+  expect_gt(nrow(export_df), 0)
+  reads <- get(".be_side_data_reads", envir = .GlobalEnv)
+  expect_equal(sum(reads == "absdf.csv"), 1L)
+  expect_equal(sum(reads == "RA_2016_AUST.csv"), 1L)
+})
+
+test_that("be_assemble_export reuses PSG snapshot across summary and full domains", {
+  shared_root <- make_export_shared_root()
+  on.exit(unlink(shared_root, recursive = TRUE), add = TRUE)
+
+  spec <- be_default_export_spec(shared_root = shared_root)
+  spec$domains <- c("participants", "psg_summary", "psg_full")
+  spec$cohort$years <- c("baseline", "year2")
+
+  assign(".be_psg_reads", 0L, envir = .GlobalEnv)
+  trace(
+    what = be_read_psg_snapshot,
+    tracer = quote(
+      assign(
+        ".be_psg_reads",
+        get(".be_psg_reads", envir = .GlobalEnv) + 1L,
+        envir = .GlobalEnv
+      )
+    ),
+    print = FALSE
+  )
+  on.exit(
+    {
+      untrace(be_read_psg_snapshot)
+      rm(".be_psg_reads", envir = .GlobalEnv)
+    },
+    add = TRUE
+  )
+
+  export_df <- be_assemble_export(spec, shared_root)
+
+  expect_gt(nrow(export_df), 0)
+  expect_equal(get(".be_psg_reads", envir = .GlobalEnv), 1L)
+})
+
+test_that("be_assemble_export reuses scaffold-attached PSG base across summary and full domains", {
+  shared_root <- make_export_shared_root()
+  on.exit(unlink(shared_root, recursive = TRUE), add = TRUE)
+
+  spec <- be_default_export_spec(shared_root = shared_root)
+  spec$domains <- c("participants", "psg_summary", "psg_full")
+  spec$cohort$years <- c("baseline", "year2")
+
+  assign(".be_psg_base_builds", 0L, envir = .GlobalEnv)
+  trace(
+    what = be_build_psg_external_base,
+    tracer = quote(
+      assign(
+        ".be_psg_base_builds",
+        get(".be_psg_base_builds", envir = .GlobalEnv) + 1L,
+        envir = .GlobalEnv
+      )
+    ),
+    print = FALSE
+  )
+  on.exit(
+    {
+      untrace(be_build_psg_external_base)
+      rm(".be_psg_base_builds", envir = .GlobalEnv)
+    },
+    add = TRUE
+  )
+
+  export_df <- be_assemble_export(spec, shared_root)
+
+  expect_gt(nrow(export_df), 0)
+  expect_equal(get(".be_psg_base_builds", envir = .GlobalEnv), 1L)
+})
+
+test_that("be_assemble_export reuses participant-year rows across annual-phone domains", {
+  shared_root <- make_export_shared_root()
+  on.exit(unlink(shared_root, recursive = TRUE), add = TRUE)
+
+  spec <- be_default_export_spec(shared_root = shared_root)
+  spec$domains <- c(
+    "participants",
+    "moca",
+    "ad8",
+    "ucla",
+    "similarities",
+    "prose_passages",
+    "cognitive_screening"
+  )
+  spec$cohort$years <- c("baseline", "year2")
+
+  assign(".be_participant_year_rows_calls", 0L, envir = .GlobalEnv)
+  trace(
+    what = be_participant_year_rows_input,
+    tracer = quote(
+      assign(
+        ".be_participant_year_rows_calls",
+        get(".be_participant_year_rows_calls", envir = .GlobalEnv) + 1L,
+        envir = .GlobalEnv
+      )
+    ),
+    print = FALSE
+  )
+  on.exit(
+    {
+      untrace(be_participant_year_rows_input)
+      rm(".be_participant_year_rows_calls", envir = .GlobalEnv)
+    },
+    add = TRUE
+  )
+
+  export_df <- be_assemble_export(spec, shared_root)
+
+  expect_gt(nrow(export_df), 0)
+  expect_equal(get(".be_participant_year_rows_calls", envir = .GlobalEnv), 1L)
+})
+
+test_that("be_assemble_export reuses biomarker snapshot normalization", {
+  shared_root <- make_export_shared_root()
+  on.exit(unlink(shared_root, recursive = TRUE), add = TRUE)
+
+  spec <- be_default_export_spec(shared_root = shared_root)
+  spec$domains <- c("participants", "biomarkers")
+  spec$cohort$years <- c("baseline", "year2")
+
+  assign(".be_biomarker_reads", 0L, envir = .GlobalEnv)
+  assign(".be_biomarker_wide_builds", 0L, envir = .GlobalEnv)
+  trace(
+    what = be_read_biomarkers_snapshot,
+    tracer = quote(
+      assign(
+        ".be_biomarker_reads",
+        get(".be_biomarker_reads", envir = .GlobalEnv) + 1L,
+        envir = .GlobalEnv
+      )
+    ),
+    print = FALSE
+  )
+  trace(
+    what = be_build_biomarkers_participant_wide,
+    tracer = quote(
+      assign(
+        ".be_biomarker_wide_builds",
+        get(".be_biomarker_wide_builds", envir = .GlobalEnv) + 1L,
+        envir = .GlobalEnv
+      )
+    ),
+    print = FALSE
+  )
+  on.exit(
+    {
+      untrace(be_read_biomarkers_snapshot)
+      untrace(be_build_biomarkers_participant_wide)
+      rm(".be_biomarker_reads", envir = .GlobalEnv)
+      rm(".be_biomarker_wide_builds", envir = .GlobalEnv)
+    },
+    add = TRUE
+  )
+
+  export_df <- be_assemble_export(spec, shared_root)
+
+  expect_gt(nrow(export_df), 0)
+  expect_equal(get(".be_biomarker_reads", envir = .GlobalEnv), 1L)
+  expect_equal(get(".be_biomarker_wide_builds", envir = .GlobalEnv), 1L)
+})
+
+test_that("be_assemble_export reuses genomics participant reduction", {
+  shared_root <- make_export_shared_root()
+  on.exit(unlink(shared_root, recursive = TRUE), add = TRUE)
+
+  spec <- be_default_export_spec(shared_root = shared_root)
+  spec$domains <- c("participants", "genomics")
+  spec$cohort$years <- c("baseline", "year2")
+
+  assign(".be_genomics_participant_builds", 0L, envir = .GlobalEnv)
+  trace(
+    what = be_build_genomics_participant_domain,
+    tracer = quote(
+      assign(
+        ".be_genomics_participant_builds",
+        get(".be_genomics_participant_builds", envir = .GlobalEnv) + 1L,
+        envir = .GlobalEnv
+      )
+    ),
+    print = FALSE
+  )
+  on.exit(
+    {
+      untrace(be_build_genomics_participant_domain)
+      rm(".be_genomics_participant_builds", envir = .GlobalEnv)
+    },
+    add = TRUE
+  )
+
+  export_df <- be_assemble_export(spec, shared_root)
+
+  expect_gt(nrow(export_df), 0)
+  expect_equal(get(".be_genomics_participant_builds", envir = .GlobalEnv), 1L)
+})
+
+test_that("be_assemble_export reuses grouped REDCap reductions across simple domains", {
+  shared_root <- make_export_shared_root()
+  on.exit(unlink(shared_root, recursive = TRUE), add = TRUE)
+
+  spec <- be_default_export_spec(shared_root = shared_root)
+  spec$domains <- c(
+    "participants",
+    "moca",
+    "ucla",
+    "demographics",
+    "bloods",
+    "medical_history",
+    "cdr",
+    "psqi",
+    "similarities",
+    "prose_passages",
+    "cognitive_screening"
+  )
+  spec$cohort$years <- c("baseline", "year2")
+
+  assign(".be_reduce_keys", list(), envir = .GlobalEnv)
+  trace(
+    what = be_reduce_redcap_rows,
+    tracer = quote(
+      assign(
+        ".be_reduce_keys",
+        c(
+          get(".be_reduce_keys", envir = .GlobalEnv),
+          list(key_columns)
+        ),
+        envir = .GlobalEnv
+      )
+    ),
+    print = FALSE
+  )
+  on.exit(
+    {
+      untrace(be_reduce_redcap_rows)
+      rm(".be_reduce_keys", envir = .GlobalEnv)
+    },
+    add = TRUE
+  )
+
+  export_df <- be_assemble_export(spec, shared_root)
+
+  reduce_keys <- lapply(
+    get(".be_reduce_keys", envir = .GlobalEnv),
+    paste,
+    collapse = ","
+  )
+  expect_gt(nrow(export_df), 0)
+  expect_equal(sum(reduce_keys == "participant_id,event_name,year"), 2L)
+  expect_equal(sum(reduce_keys == "participant_id"), 2L)
+  expect_equal(sum(reduce_keys == "participant_id,year"), 2L)
+})
+
+test_that("run_export in targets mode prepares raw and labelled REDCap snapshots once per export", {
+  shared_root <- make_export_shared_root()
+  on.exit(unlink(shared_root, recursive = TRUE), add = TRUE)
+
+  output_dir <- tempfile("export-dir-")
+  dir.create(output_dir, recursive = TRUE)
+  on.exit(unlink(output_dir, recursive = TRUE), add = TRUE)
+
+  spec <- be_default_export_spec(shared_root = shared_root)
+  spec$output$path <- file.path(output_dir, "targets-reuse.csv")
+  spec$domains <- c(
+    "participants",
+    "moca",
+    "ucla",
+    "demographics",
+    "bloods",
+    "medical_history",
+    "cdr",
+    "psqi",
+    "similarities",
+    "prose_passages",
+    "cognitive_screening",
+    "medications"
+  )
+  spec$cohort$years <- c("baseline", "year2")
+
+  assign(".be_prepare_count", 0L, envir = .GlobalEnv)
+  trace(
+    what = be_filter_supported_participants,
+    tracer = quote(
+      assign(
+        ".be_prepare_count",
+        get(".be_prepare_count", envir = .GlobalEnv) + 1L,
+        envir = .GlobalEnv
+      )
+    ),
+    print = FALSE
+  )
+  on.exit(
+    {
+      untrace(be_filter_supported_participants)
+      rm(".be_prepare_count", envir = .GlobalEnv)
+    },
+    add = TRUE
+  )
+
+  result <- run_export(
+    spec,
+    refresh_mode = "auto",
+    execution_mode = "targets"
+  )
+
+  expect_true(file.exists(result$output))
+  expect_equal(get(".be_prepare_count", envir = .GlobalEnv), 2L)
+})
+
+test_that("run_export in targets mode reuses SES lookup across ses and aria domains", {
+  shared_root <- make_export_shared_root()
+  on.exit(unlink(shared_root, recursive = TRUE), add = TRUE)
+
+  output_dir <- tempfile("export-dir-")
+  dir.create(output_dir, recursive = TRUE)
+  on.exit(unlink(output_dir, recursive = TRUE), add = TRUE)
+
+  spec <- be_default_export_spec(shared_root = shared_root)
+  spec$output$path <- file.path(output_dir, "targets-ses-aria.csv")
+  spec$domains <- c("participants", "ses", "aria")
+  spec$cohort$years <- c("baseline", "year2")
+
+  assign(".be_side_data_reads", character(), envir = .GlobalEnv)
+  trace(
+    what = be_read_side_data_csv,
+    tracer = quote(
+      assign(
+        ".be_side_data_reads",
+        c(get(".be_side_data_reads", envir = .GlobalEnv), filename),
+        envir = .GlobalEnv
+      )
+    ),
+    print = FALSE
+  )
+  on.exit(
+    {
+      untrace(be_read_side_data_csv)
+      rm(".be_side_data_reads", envir = .GlobalEnv)
+    },
+    add = TRUE
+  )
+
+  result <- run_export(
+    spec,
+    refresh_mode = "auto",
+    execution_mode = "targets"
+  )
+
+  expect_true(file.exists(result$output))
+  reads <- get(".be_side_data_reads", envir = .GlobalEnv)
+  expect_equal(sum(reads == "absdf.csv"), 1L)
+  expect_equal(sum(reads == "RA_2016_AUST.csv"), 1L)
+})
+
+test_that("run_export in targets mode reuses PSG snapshot across summary and full domains", {
+  shared_root <- make_export_shared_root()
+  on.exit(unlink(shared_root, recursive = TRUE), add = TRUE)
+
+  output_dir <- tempfile("export-dir-")
+  dir.create(output_dir, recursive = TRUE)
+  on.exit(unlink(output_dir, recursive = TRUE), add = TRUE)
+
+  spec <- be_default_export_spec(shared_root = shared_root)
+  spec$output$path <- file.path(output_dir, "targets-psg.csv")
+  spec$domains <- c("participants", "psg_summary", "psg_full")
+  spec$cohort$years <- c("baseline", "year2")
+
+  assign(".be_psg_reads", 0L, envir = .GlobalEnv)
+  trace(
+    what = be_read_psg_snapshot,
+    tracer = quote(
+      assign(
+        ".be_psg_reads",
+        get(".be_psg_reads", envir = .GlobalEnv) + 1L,
+        envir = .GlobalEnv
+      )
+    ),
+    print = FALSE
+  )
+  on.exit(
+    {
+      untrace(be_read_psg_snapshot)
+      rm(".be_psg_reads", envir = .GlobalEnv)
+    },
+    add = TRUE
+  )
+
+  result <- run_export(
+    spec,
+    refresh_mode = "auto",
+    execution_mode = "targets"
+  )
+
+  expect_true(file.exists(result$output))
+  expect_equal(get(".be_psg_reads", envir = .GlobalEnv), 1L)
+})
+
+test_that("run_export in targets mode reuses scaffold-attached PSG base across summary and full domains", {
+  shared_root <- make_export_shared_root()
+  on.exit(unlink(shared_root, recursive = TRUE), add = TRUE)
+
+  output_dir <- tempfile("export-dir-")
+  dir.create(output_dir, recursive = TRUE)
+  on.exit(unlink(output_dir, recursive = TRUE), add = TRUE)
+
+  spec <- be_default_export_spec(shared_root = shared_root)
+  spec$output$path <- file.path(output_dir, "targets-psg-base.csv")
+  spec$domains <- c("participants", "psg_summary", "psg_full")
+  spec$cohort$years <- c("baseline", "year2")
+
+  assign(".be_psg_base_builds", 0L, envir = .GlobalEnv)
+  trace(
+    what = be_build_psg_external_base,
+    tracer = quote(
+      assign(
+        ".be_psg_base_builds",
+        get(".be_psg_base_builds", envir = .GlobalEnv) + 1L,
+        envir = .GlobalEnv
+      )
+    ),
+    print = FALSE
+  )
+  on.exit(
+    {
+      untrace(be_build_psg_external_base)
+      rm(".be_psg_base_builds", envir = .GlobalEnv)
+    },
+    add = TRUE
+  )
+
+  result <- run_export(
+    spec,
+    refresh_mode = "auto",
+    execution_mode = "targets"
+  )
+
+  expect_true(file.exists(result$output))
+  expect_equal(get(".be_psg_base_builds", envir = .GlobalEnv), 1L)
+})
+
+test_that("be_assemble_export merges participant and event domains in one result", {
+  shared_root <- make_export_shared_root()
+  on.exit(unlink(shared_root, recursive = TRUE), add = TRUE)
+
+  spec <- be_default_export_spec(shared_root = shared_root)
+  spec$domains <- c("participant_screening", "moca")
+  spec$cohort$years <- "year2"
+
+  export_df <- be_assemble_export(spec, shared_root)
+
+  expect_true(all(
+    c("participant_id", "event_name", "year", "moca_total", "age", "sex") %in%
+      names(export_df)
+  ))
+  expect_equal(unique(export_df$participant_id), "002")
+  expect_equal(unique(export_df$year), "year2")
+  expect_equal(export_df$moca_total, 23)
+  expect_equal(export_df$age, 71)
+})
+
+test_that("be_target_graph exposes reusable context, intermediate, and domain targets", {
+  shared_root <- make_export_shared_root()
+  on.exit(unlink(shared_root, recursive = TRUE), add = TRUE)
+
+  spec <- be_default_export_spec(shared_root = shared_root)
+  spec$domains <- c("participant_screening", "moca")
+  spec$cohort$years <- "year2"
+
+  graph <- be_target_graph(spec, shared_root)
+  target_names <- vapply(graph, function(target) target$name, character(1))
+
+  expect_equal(anyDuplicated(target_names), 0L)
+  expect_true(all(
+    c(
+      "export_participant_ids",
+      "export_cohort_years",
+      "export_raw_redcap",
+      "export_prepared_redcap",
+      "export_participant_redcap",
+      "export_domain_redcap",
+      "export_baseline_demographics",
+      "export_scaffold",
+      "export_domain_participant_screening",
+      "export_domain_moca",
+      "participant_domain_outputs",
+      "event_domain_outputs",
+      "export_data"
+    ) %in%
+      target_names
+  ))
+  expect_false("export_psg_lookup" %in% target_names)
+  expect_false("export_ses" %in% target_names)
+})
+
+test_that("be_target_graph extracts snapshot metadata split targets", {
+  shared_root <- make_export_shared_root()
+  on.exit(unlink(shared_root, recursive = TRUE), add = TRUE)
+
+  spec <- be_default_export_spec(shared_root = shared_root)
+  spec$domains <- "mri"
+  spec$cohort$years <- "baseline"
+
+  graph <- be_target_graph(spec, shared_root)
+  target_names <- vapply(graph, function(target) target$name, character(1))
+
+  expect_true(all(
+    c(
+      "export_snapshot_index",
+      "export_snapshot_metadata_redcap",
+      "export_snapshot_metadata_psg",
+      "export_snapshot_metadata_biomarkers",
+      "snapshot_metadata"
+    ) %in%
+      target_names
+  ))
+})
+
+test_that("be_target_graph extracts shared lookup targets only when needed", {
+  shared_root <- make_export_shared_root()
+  on.exit(unlink(shared_root, recursive = TRUE), add = TRUE)
+
+  spec <- be_default_export_spec(shared_root = shared_root)
+  spec$domains <- c("participants", "ses", "aria", "psg_summary", "psg_full")
+  spec$cohort$years <- c("baseline", "year2")
+
+  graph <- be_target_graph(spec, shared_root)
+  target_names <- vapply(graph, function(target) target$name, character(1))
+
+  expect_true(all(
+    c(
+      "export_participant_scaffold",
+      "export_demographics",
+      "export_ses_lookup",
+      "export_ses",
+      "export_aria_lookup",
+      "export_psg_lookup",
+      "export_psg_external_base"
+    ) %in%
+      target_names
+  ))
+  expect_false("export_psg_powerspec_wide" %in% target_names)
+})
+
+test_that("be_target_graph extracts biomarker and genomics shared targets only when needed", {
+  shared_root <- make_export_shared_root()
+  on.exit(unlink(shared_root, recursive = TRUE), add = TRUE)
+
+  spec <- be_default_export_spec(shared_root = shared_root)
+  spec$domains <- c("participants", "biomarkers", "genomics")
+  spec$cohort$years <- c("baseline", "year2")
+
+  graph <- be_target_graph(spec, shared_root)
+  target_names <- vapply(graph, function(target) target$name, character(1))
+
+  expect_true(all(
+    c(
+      "export_participant_scaffold",
+      "export_biomarkers_wide",
+      "export_genomics_participant"
+    ) %in%
+      target_names
+  ))
+  expect_false("export_psg_lookup" %in% target_names)
+})
+
+test_that("be_target_graph extracts participant-year and participants-base targets only when needed", {
+  shared_root <- make_export_shared_root()
+  on.exit(unlink(shared_root, recursive = TRUE), add = TRUE)
+
+  spec <- be_default_export_spec(shared_root = shared_root)
+  spec$domains <- c(
+    "participants",
+    "moca",
+    "ad8",
+    "ucla",
+    "similarities",
+    "prose_passages",
+    "cognitive_screening"
+  )
+  spec$cohort$years <- c("baseline", "year2")
+
+  graph <- be_target_graph(spec, shared_root)
+  target_names <- vapply(graph, function(target) target$name, character(1))
+
+  expect_true(all(
+    c(
+      "export_participant_scaffold",
+      "export_participants_base",
+      "export_participant_year_rows"
+    ) %in%
+      target_names
+  ))
+  expect_false("export_psg_lookup" %in% target_names)
+})
+
+test_that("domain-output reduction merges participant and event results", {
+  event_output <- list(
+    domain = "moca",
+    level = "event",
+    data = data.frame(
+      participant_id = "002",
+      event_name = "year_2_arm_1",
+      year = "year2",
+      moca_total = 23,
+      stringsAsFactors = FALSE
+    )
+  )
+  participant_output <- list(
+    domain = "participant_screening",
+    level = "participant",
+    data = data.frame(
+      participant_id = "002",
+      age = 71,
+      sex = "female",
+      stringsAsFactors = FALSE
+    )
+  )
+  scaffold <- data.frame(
+    participant_id = "002",
+    event_name = "year_2_arm_1",
+    year = "year2",
+    subject_id = "BACH002",
+    session = "year2",
+    session_date = "2020-01-01",
+    stringsAsFactors = FALSE
+  )
+
+  output <- be_finalize_export_output(
+    output = be_reduce_export_domain_outputs(
+      list(
+        event_output,
+        participant_output
+      ),
+      scaffold = scaffold
+    ),
+    scaffold = scaffold
+  )
+
+  expect_equal(output$participant_id, "002")
+  expect_equal(output$moca_total, 23)
+  expect_equal(output$age, 71)
+  expect_equal(output$subject_id, "BACH002")
+})
+
+test_that("domain-output reduction expands allowed multi-row event domains", {
+  event_output <- list(
+    domain = "moca",
+    level = "event",
+    allow_duplicate_keys = FALSE,
+    data = data.frame(
+      participant_id = "002",
+      event_name = "year_2_arm_1",
+      year = "year2",
+      moca_total = 23,
+      stringsAsFactors = FALSE
+    )
+  )
+  medical_history_output <- list(
+    domain = "medical_history",
+    level = "event",
+    allow_duplicate_keys = TRUE,
+    data = data.frame(
+      participant_id = c("002", "002"),
+      event_name = c("year_2_arm_1", "year_2_arm_1"),
+      year = c("year2", "year2"),
+      medhx_notes = c("Row one", "Row two"),
+      stringsAsFactors = FALSE
+    )
+  )
+  participant_output <- list(
+    domain = "participant_screening",
+    level = "participant",
+    data = data.frame(
+      participant_id = "002",
+      age = 71,
+      stringsAsFactors = FALSE
+    )
+  )
+  scaffold <- data.frame(
+    participant_id = "002",
+    event_name = "year_2_arm_1",
+    year = "year2",
+    subject_id = "BACH002",
+    session = "year2",
+    session_date = "2020-01-01",
+    stringsAsFactors = FALSE
+  )
+
+  output <- be_finalize_export_output(
+    output = be_reduce_export_domain_outputs(
+      list(
+        event_output,
+        medical_history_output,
+        participant_output
+      ),
+      scaffold = scaffold
+    ),
+    scaffold = scaffold
+  )
+
+  expect_equal(nrow(output), 2)
+  expect_equal(output$participant_id, c("002", "002"))
+  expect_equal(output$moca_total, c(23, 23))
+  expect_equal(output$age, c(71, 71))
+  expect_equal(output$subject_id, c("BACH002", "BACH002"))
+  expect_equal(output$medhx_notes, c("Row one", "Row two"))
+})
+
 test_that("manifest strips unsupported source placeholders from researcher export", {
   shared_root <- make_export_shared_root()
   on.exit(unlink(shared_root, recursive = TRUE), add = TRUE)
@@ -2697,8 +3972,7 @@ test_that("manifest strips unsupported source placeholders from researcher expor
   manifest <- be_build_export_manifest(
     spec = spec,
     shared_root = shared_root,
-    refresh_mode = "auto",
-    execution_mode = "direct"
+    refresh_mode = "auto"
   )
 
   expect_equal(manifest$source$mode, "snapshot")

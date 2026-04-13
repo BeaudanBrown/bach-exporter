@@ -22,52 +22,46 @@ be_similarity_score_until_three_zeros <- function(row) {
   sum(values, na.rm = TRUE)
 }
 
-be_build_similarities_domain <- function(redcap_df, years = NULL) {
-  redcap_df <- be_prepare_redcap_snapshot(redcap_df)
-  redcap_df <- be_filter_years(redcap_df, years)
+be_build_similarities_domain <- function(
+  redcap_df,
+  years = NULL,
+  participant_year_rows = NULL
+) {
+  participant_year_rows <- participant_year_rows %||%
+    be_participant_year_rows_input(redcap_df, years)
 
   similarity_fields <- intersect(
     paste0("similarities", 1:18),
-    names(redcap_df)
+    names(participant_year_rows)
   )
   if (!length(similarity_fields)) {
     return(data.frame(participant_id = character(), stringsAsFactors = FALSE))
   }
 
-  grouped_rows <- lapply(
-    split(
-      redcap_df,
-      interaction(redcap_df$participant_id, redcap_df$year, drop = TRUE)
-    ),
-    function(df) {
-      similarity_row <- unlist(
-        lapply(
-          similarity_fields,
-          function(field) be_first_nonempty(df[[field]])
-        ),
-        use.names = FALSE
+  similarities <- participant_year_rows[,
+    c("participant_id", "event_name", "year", "pp_date", similarity_fields),
+    drop = FALSE
+  ]
+  names(similarities)[names(similarities) == "pp_date"] <- "tele_date"
+  similarities$tele_similarities_corrected <- vapply(
+    seq_len(nrow(similarities)),
+    function(index) {
+      be_similarity_score_until_three_zeros(
+        similarities[index, similarity_fields, drop = TRUE]
       )
-      tele_date <- if ("pp_date" %in% names(df)) {
-        be_first_nonempty(df$pp_date)
-      } else {
-        NA_character_
-      }
-
-      data.frame(
-        participant_id = df$participant_id[[1]],
-        event_name = df$event_name[[1]],
-        year = df$year[[1]],
-        tele_date = tele_date,
-        tele_similarities_corrected = be_similarity_score_until_three_zeros(
-          similarity_row
-        ),
-        stringsAsFactors = FALSE
-      )
-    }
+    },
+    numeric(1)
   )
-
-  similarities <- do.call(rbind, grouped_rows)
-  rownames(similarities) <- NULL
+  similarities <- similarities[,
+    c(
+      "participant_id",
+      "event_name",
+      "year",
+      "tele_date",
+      "tele_similarities_corrected"
+    ),
+    drop = FALSE
+  ]
   similarities <- be_drop_empty_columns(similarities)
   unique(similarities)
 }

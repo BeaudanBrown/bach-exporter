@@ -67,9 +67,50 @@ be_first_numeric <- function(df, field) {
   suppressWarnings(as.numeric(value))
 }
 
+be_medications_event_key_rows <- function(
+  redcap_df,
+  years = NULL,
+  scaffold = NULL
+) {
+  redcap_df <- be_redcap_domain_input(redcap_df, years)
+  scaffold <- scaffold %||%
+    be_build_core_scaffold_domain(redcap_df, years = years)
+  if (!nrow(scaffold)) {
+    return(list(
+      redcap_df = redcap_df,
+      output = scaffold[,
+        c("participant_id", "event_name", "year"),
+        drop = FALSE
+      ],
+      event_rows = data.frame(stringsAsFactors = FALSE),
+      event_match = integer()
+    ))
+  }
+
+  event_rows <- be_redcap_event_rows(redcap_df)
+  if (is.null(event_rows)) {
+    event_rows <- be_reduce_redcap_rows(
+      redcap_df,
+      c("participant_id", "event_name", "year")
+    )
+  }
+
+  output <- scaffold[, c("participant_id", "event_name", "year"), drop = FALSE]
+  event_match <- match(
+    be_key_id_values(output, c("participant_id", "event_name", "year")),
+    be_key_id_values(event_rows, c("participant_id", "event_name", "year"))
+  )
+
+  list(
+    redcap_df = redcap_df,
+    output = output,
+    event_rows = event_rows,
+    event_match = event_match
+  )
+}
+
 be_build_medications_domain <- function(redcap_df, years = NULL) {
-  redcap_df <- be_prepare_redcap_snapshot(redcap_df)
-  redcap_df <- be_filter_years(redcap_df, years)
+  redcap_df <- be_redcap_domain_input(redcap_df, years)
 
   if (!"redcap_repeat_instrument" %in% names(redcap_df)) {
     return(data.frame(participant_id = character(), stringsAsFactors = FALSE))
@@ -201,143 +242,126 @@ be_build_medications_domain <- function(redcap_df, years = NULL) {
   result
 }
 
-be_build_medications_wide_domain <- function(redcap_df, years = NULL) {
-  redcap_df <- be_prepare_redcap_snapshot(redcap_df)
-  redcap_df <- be_filter_years(redcap_df, years)
-
+be_build_medications_wide_domain <- function(
+  redcap_df,
+  years = NULL,
+  scaffold = NULL,
+  baseline_demographics = NULL
+) {
+  event_context <- be_medications_event_key_rows(
+    redcap_df = redcap_df,
+    years = years,
+    scaffold = scaffold
+  )
+  redcap_df <- event_context$redcap_df
+  output <- event_context$output
+  event_rows <- event_context$event_rows
+  event_match <- event_context$event_match
   medication_long <- be_build_medications_domain(redcap_df, years = years)
-  if (!nrow(redcap_df)) {
+  if (!nrow(output)) {
     return(data.frame(participant_id = character(), stringsAsFactors = FALSE))
   }
 
-  baseline_demographics <- be_baseline_demographics(redcap_df)
-  grouped <- split(
-    redcap_df,
-    interaction(
-      redcap_df$participant_id,
-      redcap_df$event_name,
-      redcap_df$year,
-      drop = TRUE
+  baseline_demographics <- baseline_demographics %||%
+    be_baseline_demographics(redcap_df)
+  baseline_match <- if (nrow(baseline_demographics)) {
+    match(output$participant_id, baseline_demographics$participant_id)
+  } else {
+    integer(nrow(output))
+  }
+
+  output$medication_change <- be_column_or_na(
+    event_rows[event_match, , drop = FALSE],
+    "mh_follow_meds_v2"
+  )
+  output$medication_change_startstop <- be_column_or_na(
+    event_rows[event_match, , drop = FALSE],
+    "mh_follow_meds_startstop_v2"
+  )
+
+  medication_key_ids <- if (nrow(medication_long)) {
+    be_key_id_values(medication_long, c("participant_id", "event_name", "year"))
+  } else {
+    character()
+  }
+  medication_groups <- if (length(medication_key_ids)) {
+    split(seq_len(nrow(medication_long)), medication_key_ids)
+  } else {
+    list()
+  }
+  output_key_ids <- be_key_id_values(
+    output,
+    c("participant_id", "event_name", "year")
+  )
+
+  medication_flag_prefixes <- list(
+    depression_meds = c("N06A"),
+    hypertensive_meds = c("C02", "C03", "C07", "C08", "C09"),
+    lipid_meds = c("C10"),
+    statin_meds = c("C10AA"),
+    anxiety_meds = c("N05B"),
+    diabetes_meds = c("A10"),
+    sedative_meds = c("N05C")
+  )
+  for (name in names(medication_flag_prefixes)) {
+    output[[name]] <- "No"
+  }
+  output$hypertension <- rep(NA_character_, nrow(output))
+  output$dyslipidemia <- rep(NA_character_, nrow(output))
+
+  event_rows_matched <- event_rows[event_match, , drop = FALSE]
+  lying_sys <- suppressWarnings(as.numeric(
+    be_column_or_na(event_rows_matched, "lying_systolic_bp_av")
+  ))
+  lying_dia <- suppressWarnings(as.numeric(
+    be_column_or_na(event_rows_matched, "lying_diastolic_bp_av")
+  ))
+  sex <- be_column_or_na(event_rows_matched, "sex")
+  if (nrow(baseline_demographics)) {
+    missing_sex <- is.na(sex)
+    sex[missing_sex] <- be_column_or_na(
+      baseline_demographics[baseline_match[missing_sex], , drop = FALSE],
+      "sex"
+    )
+  }
+  bloods_chol <- suppressWarnings(as.numeric(
+    be_column_or_na(event_rows_matched, "bloods_chol")
+  ))
+  bloods_hdl <- suppressWarnings(as.numeric(
+    be_column_or_na(event_rows_matched, "bloods_chol_hdl")
+  ))
+  bloods_ldl <- suppressWarnings(as.numeric(
+    be_column_or_na(event_rows_matched, "bloods_ldl")
+  ))
+  bloods_trig <- suppressWarnings(as.numeric(
+    be_column_or_na(event_rows_matched, "bloods_trigly")
+  ))
+
+  value_columns <- setdiff(
+    names(medication_long),
+    c(
+      "participant_id",
+      "event_name",
+      "year",
+      "repeat_instrument",
+      "repeat_instance",
+      "medication_change",
+      "medication_change_startstop"
     )
   )
 
-  wide_rows <- lapply(grouped, function(source_rows) {
-    key <- source_rows[
-      1,
-      c("participant_id", "event_name", "year"),
-      drop = FALSE
-    ]
-    medication_rows <- medication_long[
-      medication_long$participant_id == key$participant_id[[1]] &
-        medication_long$event_name == key$event_name[[1]] &
-        medication_long$year == key$year[[1]],
-      ,
-      drop = FALSE
-    ]
-
-    row <- list(
-      participant_id = key$participant_id[[1]],
-      event_name = key$event_name[[1]],
-      year = key$year[[1]]
-    )
-
-    medication_change <- be_first_nonempty(be_column_or_na(
-      source_rows,
-      "mh_follow_meds_v2"
-    ))
-    if (!is.na(medication_change)) {
-      row$medication_change <- medication_change
-    }
-
-    medication_change_startstop <- be_first_nonempty(be_column_or_na(
-      source_rows,
-      "mh_follow_meds_startstop_v2"
-    ))
-    if (!is.na(medication_change_startstop)) {
-      row$medication_change_startstop <- medication_change_startstop
-    }
-
-    medication_codes <- be_medication_codes(medication_rows$medication_atc)
-    row$depression_meds <- be_yes_no_flag(be_medication_has_prefix(
-      medication_codes,
-      c("N06A")
-    ))
-    row$hypertensive_meds <- be_yes_no_flag(be_medication_has_prefix(
-      medication_codes,
-      c("C02", "C03", "C07", "C08", "C09")
-    ))
-    row$lipid_meds <- be_yes_no_flag(be_medication_has_prefix(
-      medication_codes,
-      c("C10")
-    ))
-    row$statin_meds <- be_yes_no_flag(be_medication_has_prefix(
-      medication_codes,
-      c("C10AA")
-    ))
-    row$anxiety_meds <- be_yes_no_flag(be_medication_has_prefix(
-      medication_codes,
-      c("N05B")
-    ))
-    row$diabetes_meds <- be_yes_no_flag(be_medication_has_prefix(
-      medication_codes,
-      c("A10")
-    ))
-    row$sedative_meds <- be_yes_no_flag(be_medication_has_prefix(
-      medication_codes,
-      c("N05C")
-    ))
-
-    lying_sys <- be_first_numeric(source_rows, "lying_systolic_bp_av")
-    lying_dia <- be_first_numeric(source_rows, "lying_diastolic_bp_av")
-    row$hypertension <- if (is.na(lying_sys) || is.na(lying_dia)) {
-      NA_character_
-    } else if (
-      lying_sys >= 140 ||
-        lying_dia >= 90 ||
-        identical(row$hypertensive_meds, "Yes")
-    ) {
-      "Yes"
-    } else {
-      "No"
-    }
-
-    sex <- be_first_nonempty(be_column_or_na(source_rows, "sex"))
-    if (is.na(sex) && nrow(baseline_demographics)) {
-      demo_match <- baseline_demographics[
-        baseline_demographics$participant_id == key$participant_id[[1]],
-        ,
-        drop = FALSE
-      ]
-      if (nrow(demo_match)) {
-        sex <- be_first_nonempty(be_column_or_na(demo_match, "sex"))
+  for (i in seq_along(output_key_ids)) {
+    medication_index <- medication_groups[[output_key_ids[[i]]]]
+    if (!is.null(medication_index)) {
+      medication_rows <- medication_long[medication_index, , drop = FALSE]
+      medication_codes <- be_medication_codes(medication_rows$medication_atc)
+      for (name in names(medication_flag_prefixes)) {
+        output[[name]][i] <- be_yes_no_flag(be_medication_has_prefix(
+          medication_codes,
+          medication_flag_prefixes[[name]]
+        ))
       }
-    }
-    bloods_chol <- be_first_numeric(source_rows, "bloods_chol")
-    bloods_hdl <- be_first_numeric(source_rows, "bloods_chol_hdl")
-    bloods_ldl <- be_first_numeric(source_rows, "bloods_ldl")
-    bloods_trig <- be_first_numeric(source_rows, "bloods_trigly")
-    row$dyslipidemia <- if (
-      is.na(bloods_chol) ||
-        is.na(bloods_hdl) ||
-        is.na(bloods_ldl) ||
-        is.na(bloods_trig) ||
-        is.na(sex)
-    ) {
-      NA_character_
-    } else if (
-      (identical(sex, "Male") && bloods_hdl < 1.0) ||
-        (identical(sex, "Female") && bloods_hdl < 1.3) ||
-        bloods_chol >= 5.5 ||
-        bloods_ldl >= 3.5 ||
-        bloods_trig >= 2.0 ||
-        identical(row$lipid_meds, "Yes")
-    ) {
-      "Yes"
-    } else {
-      "No"
-    }
 
-    if (nrow(medication_rows)) {
       instances <- suppressWarnings(as.integer(medication_rows$repeat_instance))
       fallback_instances <- seq_len(nrow(medication_rows))
       normalized_instances <- ifelse(
@@ -349,35 +373,55 @@ be_build_medications_wide_domain <- function(redcap_df, years = NULL) {
       medication_rows <- medication_rows[order_index, , drop = FALSE]
       normalized_instances <- normalized_instances[order_index]
 
-      value_columns <- setdiff(
-        names(medication_rows),
-        c(
-          "participant_id",
-          "event_name",
-          "year",
-          "repeat_instrument",
-          "repeat_instance"
-        )
-      )
-      for (i in seq_len(nrow(medication_rows))) {
-        suffix <- sprintf("med_%02d", normalized_instances[[i]])
+      for (j in seq_len(nrow(medication_rows))) {
+        suffix <- sprintf("med_%02d", normalized_instances[[j]])
         for (column in value_columns) {
-          if (
-            column %in% c("medication_change", "medication_change_startstop")
-          ) {
-            next
+          column_name <- paste(column, suffix, sep = "_")
+          if (!column_name %in% names(output)) {
+            output[[column_name]] <- rep(NA_character_, nrow(output))
           }
-          row[[paste(column, suffix, sep = "_")]] <- medication_rows[[column]][[
-            i
-          ]]
+          output[[column_name]][i] <- medication_rows[[column]][[j]]
         }
       }
     }
 
-    as.data.frame(row, stringsAsFactors = FALSE)
-  })
+    output$hypertension[i] <- if (
+      is.na(lying_sys[i]) ||
+        is.na(lying_dia[i])
+    ) {
+      NA_character_
+    } else if (
+      lying_sys[i] >= 140 ||
+        lying_dia[i] >= 90 ||
+        identical(output$hypertensive_meds[i], "Yes")
+    ) {
+      "Yes"
+    } else {
+      "No"
+    }
 
-  wide <- be_bind_rows_fill(wide_rows)
-  wide <- be_drop_empty_columns(wide)
-  unique(wide)
+    output$dyslipidemia[i] <- if (
+      is.na(bloods_chol[i]) ||
+        is.na(bloods_hdl[i]) ||
+        is.na(bloods_ldl[i]) ||
+        is.na(bloods_trig[i]) ||
+        is.na(sex[i])
+    ) {
+      NA_character_
+    } else if (
+      (identical(sex[i], "Male") && bloods_hdl[i] < 1.0) ||
+        (identical(sex[i], "Female") && bloods_hdl[i] < 1.3) ||
+        bloods_chol[i] >= 5.5 ||
+        bloods_ldl[i] >= 3.5 ||
+        bloods_trig[i] >= 2.0 ||
+        identical(output$lipid_meds[i], "Yes")
+    ) {
+      "Yes"
+    } else {
+      "No"
+    }
+  }
+
+  output <- be_drop_empty_columns(output)
+  unique(output)
 }

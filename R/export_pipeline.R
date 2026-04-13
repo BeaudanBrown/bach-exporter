@@ -12,7 +12,7 @@ be_build_export_manifest <- function(
   shared_root,
   refresh_mode = "auto",
   snapshot_metadata = NULL,
-  execution_mode = "direct"
+  execution_mode = "targets"
 ) {
   if (is.null(snapshot_metadata)) {
     snapshot_metadata <- be_collect_snapshot_metadata(shared_root)
@@ -57,6 +57,25 @@ be_targets_store_path <- function(targets_dir) {
   file.path(targets_dir, "store")
 }
 
+be_resolve_export_project_root <- function(project_root = getwd()) {
+  candidates <- c(
+    project_root,
+    file.path(project_root, ".."),
+    file.path(project_root, "..", "..")
+  )
+  candidates <- normalizePath(
+    candidates,
+    winslash = "/",
+    mustWork = FALSE
+  )
+  matches <- candidates[dir.exists(file.path(candidates, "R"))]
+  if (length(matches)) {
+    return(matches[[1]])
+  }
+
+  normalizePath(project_root, winslash = "/", mustWork = TRUE)
+}
+
 be_write_export_targets_script <- function(
   script_path,
   spec,
@@ -85,12 +104,16 @@ be_write_export_targets_script <- function(
         mustWork = TRUE
       ))
     ),
-    "if (requireNamespace('bachExporter', quietly = TRUE)) {",
-    "  be_target_graph <- get('be_target_graph', envir = asNamespace('bachExporter'))",
-    "} else {",
+    "if (exists('be_target_graph', mode = 'function', inherits = TRUE)) {",
+    "  be_target_graph <- get('be_target_graph', inherits = TRUE)",
+    "} else if (dir.exists(file.path(project_root, 'R'))) {",
     "  for (path in sort(Sys.glob(file.path(project_root, 'R', '*.R')))) {",
     "    source(path, local = FALSE)",
     "  }",
+    "} else if (requireNamespace('bachExporter', quietly = TRUE)) {",
+    "  be_target_graph <- get('be_target_graph', envir = asNamespace('bachExporter'))",
+    "} else {",
+    "  stop('Cannot find bachExporter package or project R sources.', call. = FALSE)",
     "}",
     "spec <-"
   )
@@ -117,9 +140,10 @@ be_run_export_pipeline <- function(
   build_id = "dev",
   project_root = getwd()
 ) {
+  project_root <- be_resolve_export_project_root(project_root)
   build_id <- build_id %||% "dev"
   targets_dir <- file.path(
-    be_local_targets_dir(build_id),
+    be_local_targets_dir(build_id, shared_root = shared_root),
     "export-pipeline"
   )
   dir.create(targets_dir, recursive = TRUE, showWarnings = FALSE)

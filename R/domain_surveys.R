@@ -1,32 +1,28 @@
 be_build_baseline_field_domain <- function(redcap_df, field_map, years = NULL) {
-  redcap_df <- be_prepare_redcap_snapshot(redcap_df)
-  redcap_df <- be_filter_years(redcap_df, years)
-  baseline_rows <- redcap_df[redcap_df$year == "baseline", , drop = FALSE]
+  redcap_df <- be_redcap_domain_input(redcap_df, years)
+  baseline_rows <- be_redcap_baseline_rows(redcap_df)
+  if (is.null(baseline_rows)) {
+    baseline_rows <- redcap_df[redcap_df$year == "baseline", , drop = FALSE]
+    baseline_rows <- be_reduce_redcap_rows(baseline_rows, "participant_id")
+  }
 
   available_sources <- unname(field_map[field_map %in% names(baseline_rows)])
   if (!length(available_sources) || !nrow(baseline_rows)) {
     return(data.frame(participant_id = character(), stringsAsFactors = FALSE))
   }
 
-  grouped_rows <- lapply(
-    split(baseline_rows, baseline_rows$participant_id),
-    function(df) {
-      values <- lapply(
-        available_sources,
-        function(source_name) be_first_nonempty(df[[source_name]])
-      )
-      names(values) <- names(field_map)[field_map %in% names(df)]
-      values$participant_id <- df$participant_id[[1]]
-      values$event_name <- df$event_name[[1]]
-      values$year <- df$year[[1]]
-      as.data.frame(values, stringsAsFactors = FALSE)
-    }
-  )
-
-  out <- do.call(rbind, grouped_rows)
-  rownames(out) <- NULL
+  destination_columns <- names(field_map)[field_map %in% names(baseline_rows)]
+  out <- baseline_rows[,
+    c("participant_id", "event_name", "year", available_sources),
+    drop = FALSE
+  ]
+  names(out) <- c("participant_id", "event_name", "year", destination_columns)
   out <- be_drop_empty_columns(out)
-  unique(out)
+  out <- unique(out)
+  be_set_redcap_source_fields(
+    out,
+    stats::setNames(available_sources, destination_columns)
+  )
 }
 
 be_build_demographics_domain <- function(redcap_df, years = NULL) {
@@ -180,12 +176,7 @@ be_build_global_health_domain <- function(redcap_df, years = NULL) {
   )
 }
 
-be_build_ses_domain <- function(redcap_df, shared_root, years = NULL) {
-  demographics <- be_build_demographics_domain(redcap_df, years = years)
-  if (!nrow(demographics) || !"postcode_current" %in% names(demographics)) {
-    return(data.frame(participant_id = character(), stringsAsFactors = FALSE))
-  }
-
+be_read_ses_lookup <- function(shared_root) {
   ses_lookup <- be_read_side_data_csv(
     shared_root,
     "absdf.csv",
@@ -198,10 +189,45 @@ be_build_ses_domain <- function(redcap_df, shared_root, years = NULL) {
     stop("SES side-data is missing POA_CODE_2016.", call. = FALSE)
   }
 
+  ses_lookup$POA_CODE_2016 <- be_normalize_postcode(ses_lookup$POA_CODE_2016)
+  ses_lookup
+}
+
+be_read_aria_lookup <- function(shared_root) {
+  aria_lookup <- be_read_side_data_csv(
+    shared_root,
+    "RA_2016_AUST.csv",
+    col_classes = c(MB_CODE_2016 = "character")
+  )
+  if (!"MB_CODE_2016" %in% names(aria_lookup)) {
+    stop("ARIA side-data is missing MB_CODE_2016.", call. = FALSE)
+  }
+
+  aria_lookup$MB_CODE_2016 <- be_normalize_postcode(aria_lookup$MB_CODE_2016)
+  aria_lookup
+}
+
+be_build_ses_domain <- function(
+  redcap_df,
+  shared_root,
+  years = NULL,
+  demographics = NULL,
+  ses_lookup = NULL
+) {
+  if (is.null(demographics)) {
+    demographics <- be_build_demographics_domain(redcap_df, years = years)
+  }
+  if (!nrow(demographics) || !"postcode_current" %in% names(demographics)) {
+    return(data.frame(participant_id = character(), stringsAsFactors = FALSE))
+  }
+
+  if (is.null(ses_lookup)) {
+    ses_lookup <- be_read_ses_lookup(shared_root)
+  }
+
   demographics$postcode_current <- be_normalize_postcode(
     demographics$postcode_current
   )
-  ses_lookup$POA_CODE_2016 <- be_normalize_postcode(ses_lookup$POA_CODE_2016)
 
   match_postcodes <- match(
     demographics$postcode_current,
@@ -233,27 +259,33 @@ be_build_ses_domain <- function(redcap_df, shared_root, years = NULL) {
   out
 }
 
-be_build_aria_domain <- function(redcap_df, shared_root, years = NULL) {
-  ses <- be_build_ses_domain(
-    redcap_df,
-    shared_root = shared_root,
-    years = years
-  )
+be_build_aria_domain <- function(
+  redcap_df,
+  shared_root,
+  years = NULL,
+  ses = NULL,
+  demographics = NULL,
+  ses_lookup = NULL,
+  aria_lookup = NULL
+) {
+  if (is.null(ses)) {
+    ses <- be_build_ses_domain(
+      redcap_df,
+      shared_root = shared_root,
+      years = years,
+      demographics = demographics,
+      ses_lookup = ses_lookup
+    )
+  }
   if (!nrow(ses) || !"ses_MB_CODE_2016" %in% names(ses)) {
     return(data.frame(participant_id = character(), stringsAsFactors = FALSE))
   }
 
-  aria_lookup <- be_read_side_data_csv(
-    shared_root,
-    "RA_2016_AUST.csv",
-    col_classes = c(MB_CODE_2016 = "character")
-  )
-  if (!"MB_CODE_2016" %in% names(aria_lookup)) {
-    stop("ARIA side-data is missing MB_CODE_2016.", call. = FALSE)
+  if (is.null(aria_lookup)) {
+    aria_lookup <- be_read_aria_lookup(shared_root)
   }
 
   ses$ses_MB_CODE_2016 <- be_normalize_postcode(ses$ses_MB_CODE_2016)
-  aria_lookup$MB_CODE_2016 <- be_normalize_postcode(aria_lookup$MB_CODE_2016)
   match_mb <- match(ses$ses_MB_CODE_2016, aria_lookup$MB_CODE_2016)
 
   ra_name <- aria_lookup$RA_NAME_2016[match_mb]

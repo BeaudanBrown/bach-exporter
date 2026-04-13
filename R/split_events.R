@@ -36,10 +36,65 @@ be_split_redcap_events <- function(df) {
   df
 }
 
+be_normalize_year_filter <- function(years) {
+  if (is.null(years) || !length(years)) {
+    return(NULL)
+  }
+
+  sort(unique(as.character(years)))
+}
+
+be_mark_filtered_redcap_years <- function(df, years) {
+  attr(df, "bach_filtered_redcap_years") <- be_normalize_year_filter(years)
+  df
+}
+
+be_filtered_redcap_years <- function(df) {
+  attr(df, "bach_filtered_redcap_years")
+}
+
 be_filter_years <- function(df, years) {
   if (is.null(years) || !length(years) || !"year" %in% names(df)) {
     return(df)
   }
 
-  df[df$year %in% years, , drop = FALSE]
+  normalized_years <- be_normalize_year_filter(years)
+  if (identical(be_filtered_redcap_years(df), normalized_years)) {
+    return(df)
+  }
+
+  out <- df[df$year %in% years, , drop = FALSE]
+  if (be_is_prepared_redcap_snapshot(df)) {
+    out <- be_mark_prepared_redcap_snapshot(out)
+  }
+  event_rows <- be_redcap_event_rows(df)
+  baseline_rows <- be_redcap_baseline_rows(df)
+  participant_year_rows <- be_redcap_participant_year_rows(df)
+  if (
+    !is.null(event_rows) ||
+      !is.null(baseline_rows) ||
+      !is.null(participant_year_rows)
+  ) {
+    out <- be_mark_redcap_reductions(
+      out,
+      event_rows = if (is.null(event_rows)) {
+        NULL
+      } else {
+        be_filter_years(event_rows, years)
+      },
+      baseline_rows = if (is.null(baseline_rows)) {
+        NULL
+      } else {
+        be_filter_years(baseline_rows, years)
+      },
+      participant_year_rows = if (is.null(participant_year_rows)) {
+        NULL
+      } else {
+        be_filter_years(participant_year_rows, years)
+      }
+    )
+  }
+  out <- be_mark_filtered_redcap_years(out, normalized_years)
+
+  out
 }

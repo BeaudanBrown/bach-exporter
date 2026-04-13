@@ -1,9 +1,4 @@
-be_build_genomics_domain <- function(redcap_df, years = NULL) {
-  scaffold <- be_build_core_scaffold_domain(redcap_df, years = years)
-  if (!nrow(scaffold)) {
-    return(data.frame(participant_id = character(), stringsAsFactors = FALSE))
-  }
-
+be_build_genomics_participant_domain <- function(redcap_df, years = NULL) {
   genomics <- be_build_baseline_field_domain(
     redcap_df = redcap_df,
     years = years,
@@ -22,7 +17,7 @@ be_build_genomics_domain <- function(redcap_df, years = NULL) {
   )
 
   if (!nrow(genomics)) {
-    return(scaffold[, c("participant_id", "event_name", "year"), drop = FALSE])
+    return(data.frame(participant_id = character(), stringsAsFactors = FALSE))
   }
 
   genomics$aqp4_genotype <- be_derive_aqp4_genotype(
@@ -39,12 +34,41 @@ be_build_genomics_domain <- function(redcap_df, years = NULL) {
   genomics$apoe_e4_status <- be_derive_apoe_e4_status(genomics$apoe_genotype)
 
   genomics <- be_drop_empty_columns(genomics)
+  genomics <- genomics[,
+    setdiff(names(genomics), c("event_name", "year")),
+    drop = FALSE
+  ]
+  genomics <- unique(genomics)
   rownames(genomics) <- NULL
-  merge(
-    scaffold[, c("participant_id", "event_name", "year"), drop = FALSE],
-    genomics[, !names(genomics) %in% c("event_name", "year"), drop = FALSE],
-    by = "participant_id",
-    all.x = TRUE,
-    sort = FALSE
+  genomics
+}
+
+be_build_genomics_domain <- function(
+  redcap_df,
+  years = NULL,
+  scaffold = NULL,
+  genomics_participant = NULL
+) {
+  scaffold <- scaffold %||%
+    be_build_core_scaffold_domain(redcap_df, years = years)
+  if (!nrow(scaffold)) {
+    return(data.frame(participant_id = character(), stringsAsFactors = FALSE))
+  }
+
+  genomics_participant <- genomics_participant %||%
+    be_build_genomics_participant_domain(redcap_df, years = years)
+  if (!nrow(genomics_participant)) {
+    return(scaffold[, c("participant_id", "event_name", "year"), drop = FALSE])
+  }
+
+  output <- scaffold[, c("participant_id", "event_name", "year"), drop = FALSE]
+  match_rows <- match(
+    output$participant_id,
+    genomics_participant$participant_id
   )
+  for (column in setdiff(names(genomics_participant), "participant_id")) {
+    output[[column]] <- genomics_participant[[column]][match_rows]
+  }
+
+  unique(output)
 }

@@ -163,8 +163,7 @@ be_build_tasit_domain <- function(redcap_df, years = NULL) {
 }
 
 be_build_topf_domain <- function(redcap_df, years = NULL) {
-  redcap_df <- be_prepare_redcap_snapshot(redcap_df)
-  redcap_df <- be_filter_years(redcap_df, years)
+  redcap_df <- be_redcap_domain_input(redcap_df, years)
 
   topf_fields <- paste0("topf", seq_len(70))
   available_topf_fields <- topf_fields[topf_fields %in% names(redcap_df)]

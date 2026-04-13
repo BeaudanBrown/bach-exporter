@@ -1,6 +1,5 @@
 be_build_mri_screening_domain <- function(redcap_df, years = NULL) {
-  redcap_df <- be_prepare_redcap_snapshot(redcap_df)
-  redcap_df <- be_filter_years(redcap_df, years)
+  redcap_df <- be_redcap_domain_input(redcap_df, years)
 
   if (!"handedness" %in% names(redcap_df)) {
     return(data.frame(participant_id = character(), stringsAsFactors = FALSE))
@@ -31,8 +30,7 @@ be_build_mri_screening_domain <- function(redcap_df, years = NULL) {
 }
 
 be_build_lp_screening_domain <- function(redcap_df, years = NULL) {
-  redcap_df <- be_prepare_redcap_snapshot(redcap_df)
-  redcap_df <- be_filter_years(redcap_df, years)
+  redcap_df <- be_redcap_domain_input(redcap_df, years)
 
   if (!"lp_interest" %in% names(redcap_df)) {
     return(data.frame(participant_id = character(), stringsAsFactors = FALSE))

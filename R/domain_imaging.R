@@ -5,9 +5,35 @@ be_normalize_mri_subject_id <- function(x) {
   be_clean_participant_id(values)
 }
 
-be_build_mri_domain <- function(redcap_df, shared_root, years = NULL) {
-  redcap_df <- be_prepare_redcap_snapshot(redcap_df)
-  redcap_df <- be_filter_years(redcap_df, years)
+be_read_mri_lookup <- function(shared_root) {
+  mri_lookup <- be_read_side_data_csv(
+    shared_root,
+    "global_n241.csv",
+    col_classes = c(subject_id = "character")
+  )
+  if (!"subject_id" %in% names(mri_lookup)) {
+    stop("MRI side-data is missing subject_id.", call. = FALSE)
+  }
+
+  mri_lookup$participant_id <- be_normalize_mri_subject_id(
+    mri_lookup$subject_id
+  )
+  mri_lookup <- mri_lookup[!is.na(mri_lookup$participant_id), , drop = FALSE]
+  mri_lookup <- mri_lookup[
+    !duplicated(mri_lookup$participant_id),
+    ,
+    drop = FALSE
+  ]
+  mri_lookup
+}
+
+be_build_mri_domain <- function(
+  redcap_df,
+  shared_root,
+  years = NULL,
+  mri_lookup = NULL
+) {
+  redcap_df <- be_redcap_domain_input(redcap_df, years)
 
   baseline_rows <- redcap_df[redcap_df$year == "baseline", , drop = FALSE]
   if (!nrow(baseline_rows)) {
@@ -31,24 +57,9 @@ be_build_mri_domain <- function(redcap_df, shared_root, years = NULL) {
   mri <- do.call(rbind, grouped_rows)
   rownames(mri) <- NULL
 
-  mri_lookup <- be_read_side_data_csv(
-    shared_root,
-    "global_n241.csv",
-    col_classes = c(subject_id = "character")
-  )
-  if (!"subject_id" %in% names(mri_lookup)) {
-    stop("MRI side-data is missing subject_id.", call. = FALSE)
+  if (is.null(mri_lookup)) {
+    mri_lookup <- be_read_mri_lookup(shared_root)
   }
-
-  mri_lookup$participant_id <- be_normalize_mri_subject_id(
-    mri_lookup$subject_id
-  )
-  mri_lookup <- mri_lookup[!is.na(mri_lookup$participant_id), , drop = FALSE]
-  mri_lookup <- mri_lookup[
-    !duplicated(mri_lookup$participant_id),
-    ,
-    drop = FALSE
-  ]
 
   lookup_columns <- setdiff(
     names(mri_lookup),
