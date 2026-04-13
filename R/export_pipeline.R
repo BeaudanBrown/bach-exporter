@@ -57,6 +57,18 @@ be_targets_store_path <- function(targets_dir) {
   file.path(targets_dir, "store")
 }
 
+be_export_targets_parent_environment <- function() {
+  function_environment <- environment(be_export_targets_parent_environment)
+  if (
+    isNamespace(function_environment) &&
+      !identical(Sys.getenv("TESTTHAT"), "true")
+  ) {
+    return(function_environment)
+  }
+
+  globalenv()
+}
+
 be_resolve_export_project_root <- function(project_root = getwd()) {
   candidates <- c(
     project_root,
@@ -185,7 +197,8 @@ be_write_export_targets_script <- function(
   shared_root,
   refresh_mode = "auto",
   project_root = getwd(),
-  parallel_workers = be_default_export_parallel_workers()
+  parallel_workers = be_default_export_parallel_workers(),
+  prefer_package = isNamespace(be_export_targets_parent_environment())
 ) {
   quote_r_string <- function(value) {
     encodeString(as.character(value), quote = "\"")
@@ -194,13 +207,21 @@ be_write_export_targets_script <- function(
   parallel_workers <- be_normalize_export_parallel_workers(parallel_workers)
   use_crew <- be_export_pipeline_uses_crew(parallel_workers)
   spec_lines <- capture.output(dput(spec))
+  tar_option_lines <- c("target_packages <- c('jsonlite')")
+  if (isTRUE(prefer_package)) {
+    tar_option_lines <- c(
+      tar_option_lines,
+      "target_imports <- character()",
+      "if (requireNamespace('bachExporter', quietly = TRUE)) {",
+      "  target_packages <- c(target_packages, 'bachExporter')",
+      "  target_imports <- c(target_imports, 'bachExporter')",
+      "}"
+    )
+  } else {
+    tar_option_lines <- c(tar_option_lines, "target_imports <- character()")
+  }
   tar_option_lines <- c(
-    "target_packages <- c('jsonlite')",
-    "target_imports <- character()",
-    "if (requireNamespace('bachExporter', quietly = TRUE)) {",
-    "  target_packages <- c(target_packages, 'bachExporter')",
-    "  target_imports <- c(target_imports, 'bachExporter')",
-    "}",
+    tar_option_lines,
     "targets::tar_option_set(",
     "  packages = target_packages,",
     "  imports = target_imports,",
@@ -229,6 +250,22 @@ be_write_export_targets_script <- function(
   }
   tar_option_lines <- c(tar_option_lines, ")")
 
+  graph_loader_lines <- if (isTRUE(prefer_package)) {
+    c(
+      "if (requireNamespace('bachExporter', quietly = TRUE)) {",
+      "  be_target_graph <- get('be_target_graph', envir = asNamespace('bachExporter'))",
+      "} else if (exists('be_target_graph', mode = 'function', inherits = TRUE)) {",
+      "  be_target_graph <- get('be_target_graph', inherits = TRUE)"
+    )
+  } else {
+    c(
+      "if (exists('be_target_graph', mode = 'function', inherits = TRUE)) {",
+      "  be_target_graph <- get('be_target_graph', inherits = TRUE)",
+      "} else if (requireNamespace('bachExporter', quietly = TRUE)) {",
+      "  be_target_graph <- get('be_target_graph', envir = asNamespace('bachExporter'))"
+    )
+  }
+
   script_lines <- c(
     "library(targets)",
     tar_option_lines,
@@ -240,10 +277,7 @@ be_write_export_targets_script <- function(
         mustWork = TRUE
       ))
     ),
-    "if (requireNamespace('bachExporter', quietly = TRUE)) {",
-    "  be_target_graph <- get('be_target_graph', envir = asNamespace('bachExporter'))",
-    "} else if (exists('be_target_graph', mode = 'function', inherits = TRUE)) {",
-    "  be_target_graph <- get('be_target_graph', inherits = TRUE)",
+    graph_loader_lines,
     "} else if (dir.exists(file.path(project_root, 'R'))) {",
     "  for (path in sort(Sys.glob(file.path(project_root, 'R', '*.R')))) {",
     "    source(path, local = TRUE)",
@@ -308,7 +342,8 @@ be_run_export_pipeline <- function(
     script = script_path,
     store = store_path,
     callr_function = NULL,
-    reporter = "timestamp"
+    reporter = "timestamp",
+    envir = new.env(parent = be_export_targets_parent_environment())
   )
 
   if (!is.null(log_path) && nzchar(log_path)) {
@@ -341,12 +376,6 @@ be_run_export_pipeline <- function(
   }
 
   if (isTRUE(use_crew)) {
-    target_parent <- if (requireNamespace("bachExporter", quietly = TRUE)) {
-      asNamespace("bachExporter")
-    } else {
-      parent.env(globalenv())
-    }
-    tar_make_args$envir <- new.env(parent = target_parent)
     tar_make_args$use_crew <- TRUE
     parallel_result <- tryCatch(
       be_run_targets_make_with_log(tar_make_args, log_path = log_path),

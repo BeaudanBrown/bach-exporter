@@ -1847,6 +1847,40 @@ test_that("run_export applies named and numbered categorical labels globally", {
   expect_equal(numbered_df$moca_total, c(25, 24))
 })
 
+test_that("be_apply_labels_for_key ignores indeterminate label replacements", {
+  output <- data.frame(
+    participant_id = c("001", "002", "003"),
+    event_name = c("baseline_arm_1", "baseline_arm_1", "baseline_arm_1"),
+    year = c("baseline", "baseline", "baseline"),
+    sex = c("2", NA, "1"),
+    stringsAsFactors = FALSE
+  )
+  raw_df <- data.frame(
+    participant_id = c("001", "002"),
+    event_name = c("baseline_arm_1", "baseline_arm_1"),
+    year = c("baseline", "baseline"),
+    sex = c("2", NA),
+    stringsAsFactors = FALSE
+  )
+  labels_df <- data.frame(
+    participant_id = c("001", "002"),
+    event_name = c("baseline_arm_1", "baseline_arm_1"),
+    year = c("baseline", "baseline"),
+    sex = c("Female", "Missing"),
+    stringsAsFactors = FALSE
+  )
+
+  labelled <- be_apply_labels_for_key(
+    output = output,
+    raw_df = raw_df,
+    labels_df = labels_df,
+    key_columns = c("participant_id", "event_name", "year"),
+    source_fields = c(sex = "sex")
+  )
+
+  expect_equal(labelled$sex, c("Female", NA, "1"))
+})
+
 test_that("run_export adds core scaffold columns to medications-only exports", {
   shared_root <- make_medications_export_shared_root()
   on.exit(unlink(shared_root, recursive = TRUE), add = TRUE)

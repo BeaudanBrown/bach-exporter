@@ -1106,6 +1106,7 @@ be_apply_labels_for_key <- function(
       be_has_export_label_value(label_values) &
       as.character(label_values) != as.character(raw_values) &
       as.character(output_values) == as.character(raw_values)
+    replace[is.na(replace)] <- FALSE
 
     if (!any(replace, na.rm = TRUE)) {
       next
