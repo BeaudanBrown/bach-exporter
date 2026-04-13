@@ -52,7 +52,8 @@ be_append_export_log <- function(
   log_path,
   message,
   level = "INFO",
-  data = NULL
+  data = NULL,
+  log_callback = NULL
 ) {
   dir.create(dirname(log_path), recursive = TRUE, showWarnings = FALSE)
 
@@ -73,7 +74,70 @@ be_append_export_log <- function(
     sep = ""
   )
 
+  if (is.function(log_callback)) {
+    tryCatch(
+      log_callback(entry = entry, log_path = log_path),
+      error = function(err) NULL
+    )
+  }
+
   invisible(entry)
+}
+
+be_format_export_log_entry <- function(entry) {
+  if (is.null(entry)) {
+    return(character())
+  }
+
+  if (is.character(entry) && length(entry) == 1L) {
+    parsed <- tryCatch(
+      jsonlite::fromJSON(entry, simplifyVector = FALSE),
+      error = function(err) NULL
+    )
+    if (!is.null(parsed)) {
+      entry <- parsed
+    } else {
+      return(entry)
+    }
+  }
+
+  at <- as.character(entry$at %||% "")
+  level <- as.character(entry$level %||% "INFO")
+  message <- as.character(entry$message %||% "")
+  prefix <- paste(c(at, sprintf("[%s]", level)), collapse = " ")
+  prefix <- trimws(prefix)
+
+  if (is.null(entry$data)) {
+    return(trimws(paste(prefix, message)))
+  }
+
+  data_text <- tryCatch(
+    jsonlite::toJSON(entry$data, auto_unbox = TRUE, null = "null"),
+    error = function(err) NULL
+  )
+  if (is.null(data_text) || !nzchar(data_text)) {
+    return(trimws(paste(prefix, message)))
+  }
+
+  trimws(paste(prefix, message, data_text))
+}
+
+be_read_export_log <- function(log_path, limit = 200) {
+  if (is.null(log_path) || !nzchar(log_path) || !file.exists(log_path)) {
+    return(character())
+  }
+
+  lines <- readLines(log_path, warn = FALSE)
+  lines <- lines[nzchar(trimws(lines))]
+  if (!length(lines)) {
+    return(character())
+  }
+
+  if (!is.null(limit) && length(lines) > limit) {
+    lines <- tail(lines, limit)
+  }
+
+  vapply(lines, be_format_export_log_entry, character(1))
 }
 
 be_append_export_history_record <- function(record, history_path = NULL) {

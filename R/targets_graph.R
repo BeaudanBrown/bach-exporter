@@ -118,8 +118,9 @@ be_export_domain_target <- function(domain) {
     substitute(
       be_build_export_domain_output(
         domain = domain_name,
-        spec = export_spec,
         shared_root = export_shared_root,
+        years = export_cohort_years,
+        cat_labels = export_cat_labels,
         export_context = export_context_value,
         export_intermediates = export_intermediates_value
       ),
@@ -220,8 +221,8 @@ be_target_graph <- function(
 
   shared_targets <- list(
     targets::tar_target(
-      export_spec,
-      spec,
+      export_source,
+      be_export_manifest_source(spec$source),
       cue = targets::tar_cue(mode = "always")
     ),
     targets::tar_target(
@@ -235,16 +236,44 @@ be_target_graph <- function(
       cue = targets::tar_cue(mode = "always")
     ),
     targets::tar_target(
-      export_participant_ids,
-      be_resolve_cohort_ids(export_spec)
+      export_cohort_years,
+      spec$cohort$years %||% NULL,
+      cue = targets::tar_cue(mode = "always")
     ),
     targets::tar_target(
-      export_cohort_years,
-      export_spec$cohort$years %||% NULL
+      export_participant_ids_input,
+      spec$cohort$participant_ids %||% NULL,
+      cue = targets::tar_cue(mode = "always")
+    ),
+    targets::tar_target(
+      export_subset_file,
+      spec$cohort$subset_file %||% NULL,
+      cue = targets::tar_cue(mode = "always")
     ),
     targets::tar_target(
       export_cat_labels,
-      export_spec$options$cat_labels %||% "named"
+      spec$options$cat_labels %||% "named",
+      cue = targets::tar_cue(mode = "always")
+    ),
+    targets::tar_target(
+      export_domains,
+      unique(spec$domains %||% character()),
+      cue = targets::tar_cue(mode = "always")
+    ),
+    targets::tar_target(
+      export_output,
+      list(
+        format = spec$output$format %||% "csv",
+        path = spec$output$path %||% NULL
+      ),
+      cue = targets::tar_cue(mode = "always")
+    ),
+    targets::tar_target(
+      export_participant_ids,
+      be_resolve_cohort_ids_from_inputs(
+        participant_ids = export_participant_ids_input,
+        subset_file = export_subset_file
+      )
     ),
     targets::tar_target(
       export_raw_redcap,
@@ -537,7 +566,7 @@ be_target_graph <- function(
             ),
             scaffold = export_scaffold
           ),
-          spec = export_spec,
+          cat_labels = export_cat_labels,
           export_context = list(
             domain_redcap_df = export_domain_redcap,
             domain_labels_redcap_df = export_domain_labels_redcap,
@@ -561,7 +590,18 @@ be_target_graph <- function(
       targets::tar_target(
         export_manifest,
         be_build_export_manifest(
-          spec = export_spec,
+          spec = list(
+            shared = list(root = export_shared_root),
+            source = export_source,
+            cohort = list(
+              years = export_cohort_years,
+              subset_file = export_subset_file,
+              participant_ids = export_participant_ids_input
+            ),
+            domains = export_domains,
+            options = list(cat_labels = export_cat_labels),
+            output = export_output
+          ),
           shared_root = export_shared_root,
           refresh_mode = export_refresh_mode,
           snapshot_metadata = snapshot_metadata,

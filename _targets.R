@@ -5,7 +5,7 @@ tar_option_set(
     "jsonlite",
     "shiny"
   ),
-  format = "rds",
+  format = "qs",
   seed = 20260311
 )
 

@@ -2641,6 +2641,41 @@ test_that("be_build_core_scaffold_domain reuses attached event rows", {
   expect_equal(get(".be_scaffold_reduce_calls", envir = .GlobalEnv), 0L)
 })
 
+test_that("be_reduce_redcap_rows returns unique keyed rows without rescanning columns", {
+  redcap_df <- data.frame(
+    participant_id = c("1", "2"),
+    event_name = c("Baseline", "Baseline"),
+    year = c("baseline", "baseline"),
+    field = c("a", "b"),
+    stringsAsFactors = FALSE
+  )
+
+  assign(".be_first_nonempty_calls", 0L, envir = .GlobalEnv)
+  trace(
+    what = be_first_nonempty,
+    tracer = quote(
+      assign(
+        ".be_first_nonempty_calls",
+        get(".be_first_nonempty_calls", envir = .GlobalEnv) + 1L,
+        envir = .GlobalEnv
+      )
+    ),
+    print = FALSE
+  )
+  on.exit(
+    {
+      untrace(be_first_nonempty)
+      rm(".be_first_nonempty_calls", envir = .GlobalEnv)
+    },
+    add = TRUE
+  )
+
+  reduced <- be_reduce_redcap_rows(redcap_df, be_event_key_columns())
+
+  expect_equal(reduced, redcap_df)
+  expect_equal(get(".be_first_nonempty_calls", envir = .GlobalEnv), 0L)
+})
+
 test_that("run_export supports baseline clinical domains", {
   shared_root <- make_export_shared_root()
   on.exit(unlink(shared_root, recursive = TRUE), add = TRUE)
@@ -2766,12 +2801,65 @@ test_that("targets script writer emits ASCII-quoted paths", {
   script_lines <- readLines(script_path, warn = FALSE)
   project_root_line <- grep("^project_root <- ", script_lines, value = TRUE)
   shared_root_line <- grep("^shared_root <- ", script_lines, value = TRUE)
+  format_line <- grep("format = 'qs'", script_lines, value = TRUE)
+  crew_line <- grep("crew_controller_local", script_lines, value = TRUE)
 
   expect_length(project_root_line, 1)
   expect_length(shared_root_line, 1)
+  expect_length(format_line, 1)
+  expect_length(crew_line, 0)
   expect_match(project_root_line, '^project_root <- "')
   expect_match(shared_root_line, '^shared_root <- "')
   expect_false(any(grepl("[“”]", script_lines)))
+})
+
+test_that("targets script writer configures crew when parallel workers are requested", {
+  skip_if_not_installed("crew")
+  skip_if_not_installed("bachExporter")
+
+  script_path <- tempfile("targets-script-", fileext = ".R")
+  on.exit(unlink(script_path), add = TRUE)
+
+  spec <- be_default_export_spec(shared_root = "/tmp/shared-root")
+  spec$output$path <- "/tmp/output.csv"
+
+  be_write_export_targets_script(
+    script_path = script_path,
+    spec = spec,
+    shared_root = "/tmp/shared-root",
+    refresh_mode = "auto",
+    project_root = getwd(),
+    parallel_workers = 2L
+  )
+
+  script_lines <- readLines(script_path, warn = FALSE)
+
+  expect_true(any(grepl(
+    "crew::crew_controller_local\\(workers = 2L\\)",
+    script_lines
+  )))
+})
+
+test_that("release targets project root resolves to the deployed app bundle", {
+  shared_root <- make_export_shared_root()
+  scratch_root <- tempfile("scratch-launch-")
+  dir.create(scratch_root, recursive = TRUE)
+  on.exit(unlink(shared_root, recursive = TRUE), add = TRUE)
+  on.exit(unlink(scratch_root, recursive = TRUE), add = TRUE)
+
+  resolved <- be_resolve_export_pipeline_project_root(
+    project_root = scratch_root,
+    shared_root = shared_root
+  )
+
+  expect_equal(
+    normalizePath(resolved, winslash = "/", mustWork = FALSE),
+    normalizePath(
+      file.path(shared_root, "app"),
+      winslash = "/",
+      mustWork = TRUE
+    )
+  )
 })
 
 test_that("export validation rejects unsupported source modes and years", {
@@ -3723,7 +3811,12 @@ test_that("be_target_graph exposes reusable context, intermediate, and domain ta
   expect_true(all(
     c(
       "export_participant_ids",
+      "export_participant_ids_input",
+      "export_subset_file",
       "export_cohort_years",
+      "export_cat_labels",
+      "export_domains",
+      "export_output",
       "export_raw_redcap",
       "export_prepared_redcap",
       "export_participant_redcap",
@@ -3738,6 +3831,7 @@ test_that("be_target_graph exposes reusable context, intermediate, and domain ta
     ) %in%
       target_names
   ))
+  expect_false("export_spec" %in% target_names)
   expect_false("export_psg_lookup" %in% target_names)
   expect_false("export_ses" %in% target_names)
 })

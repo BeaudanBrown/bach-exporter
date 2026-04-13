@@ -2,6 +2,10 @@ be_release_refresh_script_path <- function(release_root) {
   file.path(release_root, "scripts", "refresh_snapshots.R")
 }
 
+be_shared_launcher_path <- function(shared_root) {
+  file.path(shared_root, "launch_bach_exporter.R")
+}
+
 be_release_repo_paths <- function(repo_root) {
   list(
     description = file.path(repo_root, "DESCRIPTION"),
@@ -13,6 +17,7 @@ be_release_repo_paths <- function(repo_root) {
     presets_dir = file.path(repo_root, "inst", "presets"),
     inst_side_data_dir = file.path(repo_root, "inst", "side-data"),
     shared_side_data_dir = file.path(repo_root, "shared", "side-data"),
+    shared_launcher = file.path(repo_root, "launch_bach_exporter.R"),
     launch_script = file.path(repo_root, "scripts", "launch_from_share.R"),
     validate_script = file.path(repo_root, "scripts", "validate_release.R"),
     refresh_script = file.path(repo_root, "scripts", "refresh_snapshots.R"),
@@ -252,6 +257,10 @@ be_stage_shared_app <- function(
   if (file.exists(repo_paths$app)) {
     be_release_copy_file(repo_paths$app, file.path(app_root, "app.R"))
   }
+  be_release_copy_file(
+    repo_paths$shared_launcher,
+    be_shared_launcher_path(output_root)
+  )
   be_release_copy_tree(repo_paths$r_dir, file.path(app_root, "R"))
   if (dir.exists(repo_paths$presets_dir)) {
     be_release_copy_tree(
@@ -413,6 +422,10 @@ be_publish_shared_app <- function(
     staged_validation$paths$app_root,
     be_deployed_app_root(temp_root)
   )
+  be_release_copy_file(
+    be_shared_launcher_path(staged_root),
+    be_shared_launcher_path(temp_root)
+  )
 
   if (
     isTRUE(sync_side_data) && dir.exists(be_release_side_data_root(staged_root))
@@ -449,6 +462,21 @@ be_publish_shared_app <- function(
     unlink(temp_root, recursive = TRUE, force = TRUE)
     stop(
       "Failed to move validated app bundle into the shared root.",
+      call. = FALSE
+    )
+  }
+  if (file.exists(be_shared_launcher_path(shared_root))) {
+    unlink(be_shared_launcher_path(shared_root), force = TRUE)
+  }
+  if (
+    !file.rename(
+      be_shared_launcher_path(temp_root),
+      be_shared_launcher_path(shared_root)
+    )
+  ) {
+    unlink(temp_root, recursive = TRUE, force = TRUE)
+    stop(
+      "Failed to move launch script into the shared root.",
       call. = FALSE
     )
   }

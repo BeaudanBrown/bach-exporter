@@ -3,7 +3,9 @@ run_export <- function(
   output_path = NULL,
   shared_root = NULL,
   refresh_mode = "auto",
-  execution_mode = "targets"
+  execution_mode = "targets",
+  parallel_workers = be_default_export_parallel_workers(),
+  log_callback = NULL
 ) {
   if (!identical(execution_mode, "targets")) {
     stop(
@@ -39,7 +41,8 @@ run_export <- function(
       build_id = validation$paths$build_id,
       output_path = spec$output$path,
       domains = spec$domains
-    )
+    ),
+    log_callback = log_callback
   )
 
   result <- tryCatch(
@@ -48,13 +51,17 @@ run_export <- function(
         spec = spec,
         shared_root = validation$paths$shared_root,
         refresh_mode = refresh_mode,
-        build_id = validation$paths$build_id
+        build_id = validation$paths$build_id,
+        parallel_workers = parallel_workers,
+        log_path = log_path,
+        log_callback = log_callback
       )
 
       be_append_export_log(
         log_path,
         "Export data assembled.",
-        data = list(row_count = nrow(pipeline_result$export_df))
+        data = list(row_count = nrow(pipeline_result$export_df)),
+        log_callback = log_callback
       )
 
       final_output <- spec$output$path
@@ -90,7 +97,8 @@ run_export <- function(
           output_path = final_output,
           manifest_path = manifest_path,
           row_count = nrow(pipeline_result$export_df)
-        )
+        ),
+        log_callback = log_callback
       )
 
       be_append_export_history_record(
@@ -119,7 +127,8 @@ run_export <- function(
       be_append_export_log(
         log_path,
         conditionMessage(err),
-        level = "ERROR"
+        level = "ERROR",
+        log_callback = log_callback
       )
 
       failure_manifest <- be_build_export_manifest(

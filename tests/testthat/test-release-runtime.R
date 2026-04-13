@@ -1,5 +1,6 @@
 source(file.path("..", "..", "R", "paths.R"))
 source(file.path("..", "..", "R", "release_runtime.R"))
+source(file.path("..", "..", "R", "release_management.R"))
 
 source_export_runtime_stack <- function() {
   for (path in c(
@@ -246,6 +247,56 @@ test_that("validate_release script returns success for valid packaged app", {
 
   expect_true(result$ok)
   expect_equal(result$paths$build_id, "build-20260311")
+})
+
+test_that("shared app staging and publish place the launcher at the shared root", {
+  staged_root <- tempfile("shared-app-stage-")
+  shared_root <- tempfile("shared-app-published-")
+  repo_root <- normalizePath(
+    file.path("..", ".."),
+    winslash = "/",
+    mustWork = TRUE
+  )
+  on.exit(unlink(staged_root, recursive = TRUE), add = TRUE)
+  on.exit(unlink(shared_root, recursive = TRUE), add = TRUE)
+
+  stage_result <- be_stage_shared_app(
+    output_root = staged_root,
+    repo_root = repo_root,
+    build_id = "build-launcher-test",
+    include_side_data = FALSE,
+    overwrite = TRUE
+  )
+
+  expect_true(file.exists(file.path(
+    stage_result$shared_root,
+    "launch_bach_exporter.R"
+  )))
+  expect_true(file.exists(file.path(
+    stage_result$app_root,
+    "scripts",
+    "launch_from_share.R"
+  )))
+
+  publish_result <- be_publish_shared_app(
+    staged_root = stage_result$shared_root,
+    shared_root = shared_root,
+    overwrite = TRUE,
+    sync_side_data = FALSE
+  )
+
+  shared_launcher <- file.path(shared_root, "launch_bach_exporter.R")
+  expect_true(file.exists(shared_launcher))
+  expect_true(file.exists(file.path(
+    publish_result$app_root,
+    "scripts",
+    "launch_from_share.R"
+  )))
+  expect_match(
+    paste(readLines(shared_launcher, warn = FALSE), collapse = "\n"),
+    "launch_bach_exporter <- function",
+    fixed = TRUE
+  )
 })
 
 test_that("launch_from_share can smoke-test packaged app with runtime hooks", {

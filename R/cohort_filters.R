@@ -30,10 +30,20 @@ be_read_subset_file_ids <- function(path) {
 }
 
 be_resolve_cohort_ids <- function(spec) {
-  ids_from_spec <- be_parse_participant_ids(
-    spec$cohort$participant_ids %||% NULL
+  be_resolve_cohort_ids_from_inputs(
+    participant_ids = spec$cohort$participant_ids %||% NULL,
+    subset_file = spec$cohort$subset_file %||% NULL
   )
-  ids_from_file <- be_read_subset_file_ids(spec$cohort$subset_file %||% NULL)
+}
+
+be_resolve_cohort_ids_from_inputs <- function(
+  participant_ids = NULL,
+  subset_file = NULL
+) {
+  ids_from_spec <- be_parse_participant_ids(
+    participant_ids
+  )
+  ids_from_file <- be_read_subset_file_ids(subset_file)
 
   ids <- unique(c(ids_from_spec, ids_from_file))
   if (!length(ids)) {

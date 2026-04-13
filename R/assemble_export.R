@@ -48,27 +48,30 @@ be_reduce_redcap_rows <- function(df, key_columns) {
     return(out[, key_columns, drop = FALSE])
   }
 
-  group_ids <- interaction(df[, key_columns, drop = FALSE], drop = TRUE)
   value_columns <- setdiff(names(df), key_columns)
-  grouped_rows <- lapply(
-    split(seq_len(nrow(df)), group_ids),
-    function(index) {
-      row <- lapply(
-        value_columns,
-        function(column) be_first_nonempty(df[[column]][index])
-      )
-      names(row) <- value_columns
+  output_columns <- c(key_columns, value_columns)
+  group_ids <- interaction(df[, key_columns, drop = FALSE], drop = TRUE)
 
-      for (column in key_columns) {
-        row[[column]] <- df[[column]][index[[1]]]
-      }
+  if (!anyDuplicated(group_ids)) {
+    out <- df[order(as.integer(group_ids)), output_columns, drop = FALSE]
+    rownames(out) <- NULL
+    return(out)
+  }
 
-      row <- row[c(key_columns, value_columns)]
-      as.data.frame(row, stringsAsFactors = FALSE)
-    }
-  )
+  groups <- split(seq_len(nrow(df)), group_ids)
+  first_rows <- vapply(groups, `[[`, integer(1), 1L)
+  out <- df[first_rows, key_columns, drop = FALSE]
 
-  out <- do.call(rbind, grouped_rows)
+  for (column in value_columns) {
+    values <- df[[column]]
+    out[[column]] <- unlist(
+      lapply(groups, function(index) be_first_nonempty(values[index])),
+      recursive = FALSE,
+      use.names = FALSE
+    )
+  }
+
+  out <- out[, output_columns, drop = FALSE]
   rownames(out) <- NULL
   out
 }
@@ -614,12 +617,12 @@ be_supported_export_domains <- function() {
 }
 
 be_export_domain_registry <- function(
-  spec,
   shared_root,
+  years = NULL,
+  cat_labels = "named",
   export_context,
   export_intermediates
 ) {
-  years <- spec$cohort$years %||% NULL
   redcap_df <- export_context$domain_redcap_df
   scaffold <- export_context$scaffold
 
@@ -842,7 +845,7 @@ be_export_domain_registry <- function(
         redcap_df = redcap_df,
         shared_root = shared_root,
         years = years,
-        cat_labels = spec$options$cat_labels %||% "named",
+        cat_labels = cat_labels,
         scaffold = scaffold,
         psg_lookup = export_intermediates$psg_lookup,
         psg_base = export_intermediates$psg_external_base
@@ -897,14 +900,16 @@ be_export_domain_registry <- function(
 
 be_build_export_domain_output <- function(
   domain,
-  spec,
   shared_root,
+  years = NULL,
+  cat_labels = "named",
   export_context,
   export_intermediates
 ) {
   domain_registry <- be_export_domain_registry(
-    spec = spec,
     shared_root = shared_root,
+    years = years,
+    cat_labels = cat_labels,
     export_context = export_context,
     export_intermediates = export_intermediates
   )
@@ -1145,11 +1150,10 @@ be_apply_event_labels <- function(
 
 be_apply_export_label_mode <- function(
   output,
-  spec,
+  cat_labels = "named",
   export_context,
   source_fields = NULL
 ) {
-  cat_labels <- spec$options$cat_labels %||% "named"
   if (!identical(cat_labels, "named")) {
     return(output)
   }
@@ -1198,8 +1202,9 @@ be_assemble_export <- function(spec, shared_root) {
   domain_outputs <- lapply(
     domains,
     be_build_export_domain_output,
-    spec = spec,
     shared_root = shared_root,
+    years = spec$cohort$years %||% NULL,
+    cat_labels = spec$options$cat_labels %||% "named",
     export_context = export_context,
     export_intermediates = export_intermediates
   )
@@ -1213,7 +1218,7 @@ be_assemble_export <- function(spec, shared_root) {
   )
   be_apply_export_label_mode(
     output = output,
-    spec = spec,
+    cat_labels = spec$options$cat_labels %||% "named",
     export_context = export_context,
     source_fields = be_export_output_source_fields(domain_outputs)
   )
