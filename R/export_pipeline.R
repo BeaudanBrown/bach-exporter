@@ -341,7 +341,12 @@ be_run_export_pipeline <- function(
   }
 
   if (isTRUE(use_crew)) {
-    tar_make_args$envir <- new.env(parent = parent.env(globalenv()))
+    target_parent <- if (requireNamespace("bachExporter", quietly = TRUE)) {
+      asNamespace("bachExporter")
+    } else {
+      parent.env(globalenv())
+    }
+    tar_make_args$envir <- new.env(parent = target_parent)
     tar_make_args$use_crew <- TRUE
     parallel_result <- tryCatch(
       be_run_targets_make_with_log(tar_make_args, log_path = log_path),
