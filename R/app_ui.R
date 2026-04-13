@@ -74,6 +74,23 @@ be_app_ui <- function() {
           "Export",
           shiny::fluidRow(
             shiny::column(
+              width = 12,
+              shiny::textInput("shared_root", "Shared folder root", value = ""),
+              shinyFiles::shinyDirButton(
+                "browse_shared_root",
+                "Browse",
+                "Choose shared folder"
+              ),
+              shiny::actionButton("save_shared_root", "Save shared root"),
+              shiny::p(
+                class = "app-note",
+                "Researcher exports read snapshots from this shared folder."
+              ),
+              shiny::hr()
+            )
+          ),
+          shiny::fluidRow(
+            shiny::column(
               width = 6,
               shiny::selectInput(
                 "years",
@@ -131,30 +148,6 @@ be_app_ui <- function() {
               shiny::uiOutput("export_busy_banner"),
               shiny::uiOutput("export_error_banner")
             )
-          )
-        ),
-        shiny::tabPanel(
-          "Presets",
-          shiny::selectInput(
-            "preset",
-            "Preset",
-            choices = names(be_default_presets())
-          ),
-          shiny::verbatimTextOutput("preset_detail")
-        ),
-        shiny::tabPanel(
-          "Shared Root",
-          shiny::textInput("shared_root", "Shared folder root", value = ""),
-          shinyFiles::shinyDirButton(
-            "browse_shared_root",
-            "Browse",
-            "Choose shared folder"
-          ),
-          shiny::actionButton("save_shared_root", "Save shared root"),
-          shiny::hr(),
-          shiny::p(
-            class = "app-note",
-            "This screen only stores the shared-drive root for researcher exports. Admin-only REDCap refresh configuration is intentionally kept out of the researcher app."
           )
         ),
         shiny::tabPanel(

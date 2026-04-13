@@ -118,19 +118,6 @@ be_app_server <- function(
       history_nonce(history_nonce() + 1)
     })
 
-    shiny::observeEvent(
-      input$preset,
-      {
-        preset <- be_default_presets()[[input$preset]]
-        if (is.null(preset)) {
-          return()
-        }
-        shiny::updateSelectInput(session, "years", selected = preset$years)
-        be_update_domain_selection(session, preset$domains)
-      },
-      ignoreInit = TRUE
-    )
-
     shiny::observeEvent(input$select_all_domains_btn, {
       be_update_domain_selection(session, unname(be_domain_choices()))
     })
@@ -224,17 +211,6 @@ be_app_server <- function(
     export_history <- shiny::reactive({
       history_nonce()
       be_read_export_history()
-    })
-
-    output$preset_detail <- shiny::renderPrint({
-      preset <- be_default_presets()[[input$preset]]
-      if (is.null(preset)) {
-        return("No preset selected.")
-      }
-      list(
-        note = "Choosing a preset updates the Export tab years and domains; it does not run an export by itself.",
-        preset = preset
-      )
     })
 
     output$export_busy_banner <- shiny::renderUI({
