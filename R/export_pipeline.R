@@ -201,7 +201,7 @@ be_write_export_targets_script <- function(
     "  target_packages <- c(target_packages, 'bachExporter')",
     "  target_imports <- c(target_imports, 'bachExporter')",
     "}",
-    "tar_option_set(",
+    "targets::tar_option_set(",
     "  packages = target_packages,",
     "  imports = target_imports,",
     "  format = 'qs',",
@@ -245,7 +245,7 @@ be_write_export_targets_script <- function(
     "  be_target_graph <- get('be_target_graph', inherits = TRUE)",
     "} else if (dir.exists(file.path(project_root, 'R'))) {",
     "  for (path in sort(Sys.glob(file.path(project_root, 'R', '*.R')))) {",
-    "    source(path, local = FALSE)",
+    "    source(path, local = TRUE)",
     "  }",
     "} else {",
     "  stop('Cannot find bachExporter package or project R sources.', call. = FALSE)",
@@ -340,6 +340,7 @@ be_run_export_pipeline <- function(
   }
 
   if (isTRUE(use_crew)) {
+    tar_make_args$envir <- new.env(parent = parent.env(globalenv()))
     tar_make_args$use_crew <- TRUE
     parallel_result <- tryCatch(
       be_run_targets_make_with_log(tar_make_args, log_path = log_path),
