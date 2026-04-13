@@ -53,9 +53,29 @@ be_local_log_dir <- function() {
   path
 }
 
-be_local_targets_dir <- function(build_id = "dev") {
+be_targets_cache_key <- function(shared_root = NULL) {
+  normalized <- normalizePath(
+    shared_root %||% "default",
+    winslash = "/",
+    mustWork = FALSE
+  )
+  bytes <- utf8ToInt(normalized)
+  if (!length(bytes)) {
+    return("default")
+  }
+
+  checksum <- sum(bytes * seq_along(bytes)) %% 2147483647
+  sprintf("root-%08x", checksum)
+}
+
+be_local_targets_dir <- function(build_id = "dev", shared_root = NULL) {
   build_id <- build_id %||% "dev"
-  path <- file.path(be_local_cache_dir(), "targets", build_id)
+  path <- file.path(
+    be_local_cache_dir(),
+    "targets",
+    build_id,
+    be_targets_cache_key(shared_root)
+  )
   dir.create(path, recursive = TRUE, showWarnings = FALSE)
   path
 }

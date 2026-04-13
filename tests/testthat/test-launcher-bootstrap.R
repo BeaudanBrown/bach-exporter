@@ -125,6 +125,27 @@ test_that("launcher tempdir uses the user-local cache root by default", {
   expect_equal(env$be_launcher_tmp_dir(), expected)
 })
 
+test_that("launcher bootstrap library is user-local and added before system libraries", {
+  local_cache <- tempfile("launcher-cache-")
+  dir.create(local_cache, recursive = TRUE, showWarnings = FALSE)
+  Sys.setenv(BACH_EXPORTER_LOCAL_CACHE_DIR = local_cache)
+  old_libpaths <- .libPaths()
+  on.exit(
+    {
+      .libPaths(old_libpaths)
+      Sys.unsetenv("BACH_EXPORTER_LOCAL_CACHE_DIR")
+      unlink(local_cache, recursive = TRUE)
+    },
+    add = TRUE
+  )
+
+  library_dir <- env$be_launcher_use_local_library()
+
+  expect_true(dir.exists(library_dir))
+  expect_true(startsWith(library_dir, local_cache))
+  expect_equal(.libPaths()[[1]], library_dir)
+})
+
 test_that("launcher tempdir readiness checks for user-local tmp roots", {
   local_cache <- tempfile("launcher-cache-")
   dir.create(local_cache, recursive = TRUE, showWarnings = FALSE)
@@ -153,6 +174,26 @@ test_that("launcher tempdir readiness checks for user-local tmp roots", {
       current_tempdir = "/tmp/Rtmp123"
     )
   )
+})
+
+test_that("launcher tempdir cleanup preparation makes session assets writable", {
+  temp_root <- tempfile("launcher-tempdir-cleanup-")
+  session_dir <- file.path(temp_root, "Rtmp123")
+  asset_dir <- file.path(session_dir, "bslib-asset", "fonts")
+  dir.create(asset_dir, recursive = TRUE, showWarnings = FALSE)
+  on.exit(unlink(temp_root, recursive = TRUE), add = TRUE)
+
+  asset_file <- file.path(asset_dir, "glyphicons-halflings-regular.woff")
+  writeLines("asset", asset_file)
+  Sys.chmod(
+    c(session_dir, asset_dir, asset_file),
+    mode = "555",
+    use_umask = FALSE
+  )
+
+  env$be_launcher_prepare_tempdir_cleanup(current_tempdir = session_dir)
+
+  expect_equal(unname(file.access(asset_file, 2)), 0)
 })
 
 test_that("launcher re-execs itself with user-local tmpdir when needed", {

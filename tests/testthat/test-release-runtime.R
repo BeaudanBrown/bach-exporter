@@ -12,6 +12,7 @@ source_export_runtime_stack <- function() {
     "assemble_export.R",
     "export_spec.R",
     "export_validate.R",
+    "export_history.R",
     "targets_graph.R",
     "export_pipeline.R",
     "export_run.R"
@@ -403,7 +404,7 @@ test_that("launch_from_share can run a targets-backed export from a packaged app
   expect_equal(manifest$source$mode, "snapshot")
 
   targets_dir <- file.path(
-    be_local_targets_dir("build-20260311"),
+    be_local_targets_dir("build-20260311", shared_root = shared_root),
     "export-pipeline"
   )
   expect_true(file.exists(be_targets_script_path(targets_dir)))
@@ -412,6 +413,128 @@ test_that("launch_from_share can run a targets-backed export from a packaged app
     "meta",
     "meta"
   )))
+})
+
+test_that("release bootstrap package checks add the release library first", {
+  local_library <- tempfile("release-bootstrap-library-")
+  old_libpaths <- .libPaths()
+  on.exit(
+    {
+      .libPaths(old_libpaths)
+      unlink(local_library, recursive = TRUE)
+    },
+    add = TRUE
+  )
+
+  be_ensure_bootstrap_package("stats", library_dir = local_library)
+
+  expect_true(dir.exists(local_library))
+  expect_equal(
+    .libPaths()[[1]],
+    normalizePath(
+      local_library,
+      winslash = "/",
+      mustWork = FALSE
+    )
+  )
+})
+
+test_that("release dependency restore skips empty lockfiles", {
+  release_root <- tempfile("release-empty-lockfile-")
+  library_dir <- tempfile("release-empty-lockfile-library-")
+  dir.create(release_root, recursive = TRUE)
+  on.exit(unlink(release_root, recursive = TRUE), add = TRUE)
+  on.exit(unlink(library_dir, recursive = TRUE), add = TRUE)
+
+  jsonlite::write_json(
+    list(),
+    path = file.path(release_root, "renv.lock"),
+    auto_unbox = TRUE
+  )
+
+  expect_message(
+    result <- be_restore_release_dependencies(
+      release_root = release_root,
+      release_id = "build-20260413",
+      library_dir = library_dir
+    ),
+    "no package records"
+  )
+  expect_false(result)
+})
+
+test_that("release lockfile package helper reads restore package names", {
+  release_root <- tempfile("release-lockfile-packages-")
+  dir.create(release_root, recursive = TRUE)
+  on.exit(unlink(release_root, recursive = TRUE), add = TRUE)
+
+  jsonlite::write_json(
+    list(
+      Packages = list(
+        shiny = list(Package = "shiny", Version = "1.0.0"),
+        targets = list(Package = "targets", Version = "1.0.0")
+      )
+    ),
+    path = file.path(release_root, "renv.lock"),
+    auto_unbox = TRUE
+  )
+
+  expect_equal(
+    sort(be_release_lockfile_packages(file.path(release_root, "renv.lock"))),
+    c("shiny", "targets")
+  )
+})
+
+test_that("release dependency restore isolates library paths during renv restore", {
+  release_root <- tempfile("release-isolated-restore-")
+  library_dir <- tempfile("release-isolated-library-")
+  dir.create(release_root, recursive = TRUE)
+  dir.create(library_dir, recursive = TRUE)
+  on.exit(unlink(release_root, recursive = TRUE), add = TRUE)
+  on.exit(unlink(library_dir, recursive = TRUE), add = TRUE)
+
+  jsonlite::write_json(
+    list(
+      Packages = list(
+        shiny = list(Package = "shiny", Version = "1.0.0"),
+        targets = list(Package = "targets", Version = "1.0.0")
+      )
+    ),
+    path = file.path(release_root, "renv.lock"),
+    auto_unbox = TRUE
+  )
+
+  old_hooks <- getOption("bachExporter.release_runtime_hooks")
+  old_libpaths <- .libPaths()
+  observed <- NULL
+  options(
+    bachExporter.release_runtime_hooks = list(
+      renv_restore = function(...) {
+        observed <<- list(args = list(...), libpaths = .libPaths())
+        invisible(TRUE)
+      }
+    )
+  )
+  on.exit(options(bachExporter.release_runtime_hooks = old_hooks), add = TRUE)
+  on.exit(.libPaths(old_libpaths), add = TRUE)
+
+  result <- be_restore_release_dependencies(
+    release_root = release_root,
+    release_id = "build-20260413",
+    library_dir = library_dir
+  )
+
+  expect_true(result)
+  expect_equal(observed$args$packages, c("shiny", "targets"))
+  expect_equal(
+    observed$libpaths[[1]],
+    normalizePath(
+      library_dir,
+      winslash = "/",
+      mustWork = FALSE
+    )
+  )
+  expect_lte(length(observed$libpaths), 2)
 })
 
 test_that("installed release launcher errors clearly when run_app is unavailable", {

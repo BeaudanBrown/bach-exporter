@@ -88,6 +88,22 @@ test_that("snapshot readers load csv and metadata files", {
   expect_equal(snapshot_index$families, c("redcap", "psg", "biomarkers"))
 })
 
+test_that("redcap labels reader falls back to raw snapshot when labels are absent", {
+  shared_root <- make_shared_root_with_snapshots()
+  on.exit(unlink(shared_root, recursive = TRUE), add = TRUE)
+
+  utils::write.csv(
+    data.frame(record_id = c(1, 2), sex = c(2, 1)),
+    file.path(shared_root, "snapshots", "redcap", "raw.csv"),
+    row.names = FALSE
+  )
+
+  labels <- be_read_redcap_labels_snapshot(shared_root)
+
+  expect_equal(labels$record_id, c(1, 2))
+  expect_equal(labels$sex, c(2, 1))
+})
+
 test_that("snapshot readers fail clearly when files are missing", {
   shared_root <- make_shared_root_with_snapshots()
   on.exit(unlink(shared_root, recursive = TRUE), add = TRUE)

@@ -22,6 +22,8 @@ test_that("admin refresh config reads local config json", {
       keyring = "bach-exporter-admin",
       project_alias = "bach-exporter",
       connection_name = "rcon_admin",
+      psg_project_alias = "bach-exporter-psg",
+      psg_connection_name = "rcon_psg_admin",
       schema_snapshot_only = TRUE,
       record_probe_only = TRUE,
       probe_records = c("10000")
@@ -39,11 +41,13 @@ test_that("admin refresh config reads local config json", {
   expect_equal(config$keyring, "bach-exporter-admin")
   expect_equal(config$project_alias, "bach-exporter")
   expect_equal(config$connection_name, "rcon_admin")
+  expect_equal(config$psg_project_alias, "bach-exporter-psg")
+  expect_equal(config$psg_connection_name, "rcon_psg_admin")
   expect_true(config$schema_snapshot_only)
   expect_true(config$record_probe_only)
   expect_equal(config$probe_records, "10000")
   expect_equal(
-    plan$snapshot_paths$metadata,
+    plan$snapshot_paths$redcap_schema$metadata,
     file.path(
       "/tmp/shared-root",
       "snapshots",
@@ -61,7 +65,9 @@ test_that("admin refresh config fails clearly when project alias is missing", {
     redcap_url = "https://redcap.example.org/api/",
     keyring = "bach-exporter-admin",
     project_alias = "",
-    connection_name = "rcon_admin"
+    connection_name = "rcon_admin",
+    psg_project_alias = "bach-exporter-psg",
+    psg_connection_name = "rcon_psg_admin"
   )
 
   validation <- be_validate_admin_refresh_config(config)
@@ -82,6 +88,8 @@ test_that("admin refresh dotenv loader populates environment variables", {
       "BACH_REDCAP_KEYRING=dotenv-keyring",
       "BACH_REDCAP_PROJECT_ALIAS=dotenv-project",
       "BACH_REDCAP_CONNECTION_NAME=dotenv_connection",
+      "BACH_PSG_REDCAP_PROJECT_ALIAS=dotenv-psg-project",
+      "BACH_PSG_REDCAP_CONNECTION_NAME=dotenv_psg_connection",
       "BACH_SCHEMA_SNAPSHOT_ONLY=false",
       "BACH_RECORD_PROBE_ONLY=true",
       "BACH_PROBE_RECORDS=10000,10001"
@@ -95,6 +103,8 @@ test_that("admin refresh dotenv loader populates environment variables", {
       "BACH_REDCAP_KEYRING",
       "BACH_REDCAP_PROJECT_ALIAS",
       "BACH_REDCAP_CONNECTION_NAME",
+      "BACH_PSG_REDCAP_PROJECT_ALIAS",
+      "BACH_PSG_REDCAP_CONNECTION_NAME",
       "BACH_SCHEMA_SNAPSHOT_ONLY",
       "BACH_RECORD_PROBE_ONLY",
       "BACH_PROBE_RECORDS"
@@ -125,6 +135,8 @@ test_that("admin refresh dotenv loader populates environment variables", {
   expect_equal(config$keyring, "dotenv-keyring")
   expect_equal(config$project_alias, "dotenv-project")
   expect_equal(config$connection_name, "dotenv_connection")
+  expect_equal(config$psg_project_alias, "dotenv-psg-project")
+  expect_equal(config$psg_connection_name, "dotenv_psg_connection")
   expect_false(config$schema_snapshot_only)
   expect_true(config$record_probe_only)
   expect_equal(config$probe_records, c("10000", "10001"))
@@ -142,7 +154,9 @@ test_that("admin refresh config ignores BACH_SHARED_ROOT env overrides", {
       redcap_url = "https://redcap.example.org/api/",
       keyring = "bach-exporter-admin",
       project_alias = "bach-exporter",
-      connection_name = "rcon_admin"
+      connection_name = "rcon_admin",
+      psg_project_alias = "bach-exporter-psg",
+      psg_connection_name = "rcon_psg_admin"
     ),
     config_path,
     auto_unbox = TRUE
@@ -197,7 +211,9 @@ test_that("admin schema snapshot execution writes expected files", {
     redcap_url = "https://redcap.example.org/api/",
     keyring = "bach-exporter-admin",
     project_alias = "bach-exporter",
-    connection_name = "rcon_admin"
+    connection_name = "rcon_admin",
+    psg_project_alias = "bach-exporter-psg",
+    psg_connection_name = "rcon_psg_admin"
   )
 
   fake_api <- list(
@@ -309,6 +325,8 @@ test_that("admin full refresh writes schema, records, and snapshot index", {
     keyring = "bach-exporter-admin",
     project_alias = "bach-exporter",
     connection_name = "rcon_admin",
+    psg_project_alias = "bach-exporter-psg",
+    psg_connection_name = "rcon_psg_admin",
     schema_snapshot_only = FALSE,
     record_probe_only = TRUE,
     probe_records = "10000"
@@ -400,11 +418,16 @@ test_that("admin full refresh writes schema, records, and snapshot index", {
     skip_validation = redcapAPI::skip_validation
   )
 
-  unlock_calls <- 0L
+  unlock_calls <- character()
   local_env <- new.env(parent = emptyenv())
   unlocker <- function(config, envir = parent.frame()) {
-    unlock_calls <<- unlock_calls + 1L
+    unlock_calls <<- c(unlock_calls, config$connection_name)
     assign(config$connection_name, list(label = "fake-rcon"), envir = envir)
+    invisible(NULL)
+  }
+  psg_unlocker <- function(config, envir = parent.frame()) {
+    unlock_calls <<- c(unlock_calls, config$psg_connection_name)
+    assign(config$psg_connection_name, list(label = "fake-rcon"), envir = envir)
     invisible(NULL)
   }
 
@@ -413,7 +436,8 @@ test_that("admin full refresh writes schema, records, and snapshot index", {
     envir = local_env,
     api = fake_api,
     snapshot_time = as.POSIXct("2026-03-12 04:05:06", tz = "UTC"),
-    unlocker = unlocker
+    unlocker = unlocker,
+    psg_unlocker = psg_unlocker
   )
 
   raw <- utils::read.csv(result$records$paths$raw, stringsAsFactors = FALSE)
@@ -425,26 +449,37 @@ test_that("admin full refresh writes schema, records, and snapshot index", {
     result$records$paths$metadata,
     simplifyVector = TRUE
   )
+  psg_raw <- utils::read.csv(result$psg$paths$raw, stringsAsFactors = FALSE)
+  psg_metadata <- jsonlite::read_json(
+    result$psg$paths$metadata,
+    simplifyVector = TRUE
+  )
   snapshot_index <- jsonlite::read_json(
     result$snapshot_index$path,
     simplifyVector = TRUE
   )
 
-  expect_equal(unlock_calls, 1L)
+  expect_equal(
+    unlock_calls,
+    c(config$connection_name, config$psg_connection_name)
+  )
   expect_equal(raw$idno, "BACH001")
   expect_equal(raw$sex, 1)
   expect_equal(labels$sex, "Female")
+  expect_equal(psg_raw$idno, "BACH001")
+  expect_equal(psg_metadata$family, "psg")
   expect_equal(records_metadata$snapshot_type, "records")
   expect_equal(records_metadata$counts$raw_rows, 1)
   expect_equal(records_metadata$counts$labels_cols, 3)
   expect_true(records_metadata$probe$record_probe_only)
   expect_equal(records_metadata$probe$probe_records, "10000")
-  expect_equal(snapshot_index$families, "redcap")
+  expect_equal(snapshot_index$families, c("redcap", "psg"))
   expect_equal(snapshot_index$snapshots$redcap$metadata, "metadata.json")
   expect_equal(
     snapshot_index$snapshots$redcap$schema_metadata,
     file.path("schema", "metadata.json")
   )
+  expect_equal(snapshot_index$snapshots$psg$metadata, "metadata.json")
 })
 
 test_that("refresh_snapshots script executes operator-style flow on a local shared root", {
@@ -464,6 +499,8 @@ test_that("refresh_snapshots script executes operator-style flow on a local shar
       keyring = "bach-exporter-admin",
       project_alias = "bach-exporter",
       connection_name = "rcon_admin",
+      psg_project_alias = "bach-exporter-psg",
+      psg_connection_name = "rcon_psg_admin",
       schema_snapshot_only = FALSE,
       record_probe_only = TRUE,
       probe_records = c("10000", "10001")
@@ -553,7 +590,7 @@ test_that("refresh_snapshots script executes operator-style flow on a local shar
     skip_validation = redcapAPI::skip_validation
   )
 
-  unlock_calls <- 0L
+  unlock_calls <- character()
   messages <- character()
   runtime <- list(
     load_dotenv = function(path = ".env") FALSE,
@@ -572,8 +609,17 @@ test_that("refresh_snapshots script executes operator-style flow on a local shar
     execute_refresh = function(config) {
       local_env <- new.env(parent = emptyenv())
       unlocker <- function(config, envir = parent.frame()) {
-        unlock_calls <<- unlock_calls + 1L
+        unlock_calls <<- c(unlock_calls, config$connection_name)
         assign(config$connection_name, list(label = "fake-rcon"), envir = envir)
+        invisible(NULL)
+      }
+      psg_unlocker <- function(config, envir = parent.frame()) {
+        unlock_calls <<- c(unlock_calls, config$psg_connection_name)
+        assign(
+          config$psg_connection_name,
+          list(label = "fake-rcon"),
+          envir = envir
+        )
         invisible(NULL)
       }
 
@@ -582,7 +628,8 @@ test_that("refresh_snapshots script executes operator-style flow on a local shar
         envir = local_env,
         api = fake_api,
         snapshot_time = as.POSIXct("2026-03-21 01:23:45", tz = "UTC"),
-        unlocker = unlocker
+        unlocker = unlocker,
+        psg_unlocker = psg_unlocker
       )
     },
     inform = function(...) {
@@ -604,6 +651,10 @@ test_that("refresh_snapshots script executes operator-style flow on a local shar
     result$result$records$paths$metadata,
     simplifyVector = TRUE
   )
+  psg_metadata <- jsonlite::read_json(
+    result$result$psg$paths$metadata,
+    simplifyVector = TRUE
+  )
   snapshot_index <- jsonlite::read_json(
     result$result$snapshot_index$path,
     simplifyVector = TRUE
@@ -618,7 +669,7 @@ test_that("refresh_snapshots script executes operator-style flow on a local shar
   )
 
   expect_equal(result$mode, "execute")
-  expect_equal(unlock_calls, 1L)
+  expect_equal(unlock_calls, c("rcon_admin", "rcon_psg_admin"))
   expect_true(file.exists(file.path(
     shared_root,
     "snapshots",
@@ -630,6 +681,12 @@ test_that("refresh_snapshots script executes operator-style flow on a local shar
     shared_root,
     "snapshots",
     "redcap",
+    "raw.csv"
+  )))
+  expect_true(file.exists(file.path(
+    shared_root,
+    "snapshots",
+    "psg",
     "raw.csv"
   )))
   expect_true(file.exists(file.path(
@@ -649,12 +706,14 @@ test_that("refresh_snapshots script executes operator-style flow on a local shar
   )
   expect_equal(records_metadata$snapshot_type, "records")
   expect_equal(records_metadata$probe$probe_records, c("10000", "10001"))
-  expect_equal(snapshot_index$families, "redcap")
+  expect_equal(psg_metadata$family, "psg")
+  expect_equal(snapshot_index$families, c("redcap", "psg"))
   expect_equal(snapshot_index$snapshots$redcap$metadata, "metadata.json")
   expect_equal(
     snapshot_index$snapshots$redcap$schema_metadata,
     file.path("schema", "metadata.json")
   )
+  expect_equal(snapshot_index$snapshots$psg$metadata, "metadata.json")
   expect_equal(raw$idno, c("BACH001", "BACH002"))
   expect_equal(labels$sex, c("Female", "Male"))
   expect_true(any(grepl("Executing REDCap snapshot refresh\\.", messages)))

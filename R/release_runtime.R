@@ -298,10 +298,35 @@ be_release_runtime_hook <- function(name, default) {
   hook
 }
 
-be_ensure_bootstrap_package <- function(pkg) {
-  if (!requireNamespace(pkg, quietly = TRUE)) {
-    install.packages(pkg, repos = "https://cloud.r-project.org")
+be_ensure_bootstrap_package <- function(pkg, library_dir = NULL) {
+  if (!is.null(library_dir) && nzchar(library_dir)) {
+    dir.create(library_dir, recursive = TRUE, showWarnings = FALSE)
+    .libPaths(unique(c(library_dir, .libPaths())))
   }
+
+  if (!requireNamespace(pkg, quietly = TRUE)) {
+    install.packages(
+      pkg,
+      lib = library_dir %||% .libPaths()[[1]],
+      repos = "https://cloud.r-project.org"
+    )
+  }
+}
+
+be_release_lockfile_has_packages <- function(lockfile_path) {
+  lockfile <- tryCatch(
+    jsonlite::read_json(lockfile_path, simplifyVector = TRUE),
+    error = function(err) NULL
+  )
+  packages <- lockfile$Packages %||% NULL
+
+  is.list(packages) && length(packages) > 0L
+}
+
+be_release_lockfile_packages <- function(lockfile_path) {
+  lockfile <- jsonlite::read_json(lockfile_path, simplifyVector = FALSE)
+  packages <- lockfile$Packages %||% list()
+  names(packages)
 }
 
 be_restore_release_dependencies <- function(
@@ -321,11 +346,26 @@ be_restore_release_dependencies <- function(
     stop("Release renv.lock is missing.", call. = FALSE)
   }
 
-  be_ensure_bootstrap_package("renv")
+  if (!isTRUE(be_release_lockfile_has_packages(lockfile_path))) {
+    message(
+      "Skipping renv restore because release renv.lock has no package records."
+    )
+    return(invisible(FALSE))
+  }
+
+  be_ensure_bootstrap_package("renv", library_dir = library_dir)
   renv::consent(provided = TRUE)
-  renv::restore(
+  package_names <- be_release_lockfile_packages(lockfile_path)
+  old_libpaths <- .libPaths()
+  on.exit(.libPaths(old_libpaths), add = TRUE)
+  .libPaths(library_dir, include.site = FALSE)
+
+  restore_fn <- be_release_runtime_hook("renv_restore", renv::restore)
+  restore_fn(
     project = release_root,
     library = library_dir,
+    lockfile = lockfile_path,
+    packages = package_names,
     prompt = FALSE
   )
 
@@ -338,7 +378,7 @@ be_install_release_package <- function(
   library_dir,
   package_name
 ) {
-  be_ensure_bootstrap_package("remotes")
+  be_ensure_bootstrap_package("remotes", library_dir = library_dir)
 
   local_library_norm <- normalizePath(
     library_dir,
@@ -359,9 +399,9 @@ be_install_release_package <- function(
     path = release_root,
     lib = library_dir,
     upgrade = "never",
-    dependencies = FALSE,
+    dependencies = NA,
     force = identical(release_id, "dev"),
-    quiet = TRUE
+    quiet = FALSE
   )
 
   invisible(TRUE)

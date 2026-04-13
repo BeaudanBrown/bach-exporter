@@ -86,6 +86,16 @@ be_admin_refresh_config <- function(config_path = NULL) {
       "connection_name",
       "rcon_admin"
     ),
+    psg_project_alias = env_or_file(
+      "BACH_PSG_REDCAP_PROJECT_ALIAS",
+      "psg_project_alias",
+      "bach-exporter-psg"
+    ),
+    psg_connection_name = env_or_file(
+      "BACH_PSG_REDCAP_CONNECTION_NAME",
+      "psg_connection_name",
+      "rcon_psg_admin"
+    ),
     schema_snapshot_only = env_or_file_flag(
       "BACH_SCHEMA_SNAPSHOT_ONLY",
       "schema_snapshot_only",
@@ -127,6 +137,16 @@ be_admin_snapshot_redcap_paths <- function(shared_root) {
     raw = file.path(redcap_dir, "raw.csv"),
     labels = file.path(redcap_dir, "labels.csv"),
     metadata = file.path(redcap_dir, "metadata.json")
+  )
+}
+
+be_admin_snapshot_psg_paths <- function(shared_root) {
+  psg_dir <- file.path(shared_root, "snapshots", "psg")
+
+  list(
+    psg_dir = psg_dir,
+    raw = file.path(psg_dir, "raw.csv"),
+    metadata = file.path(psg_dir, "metadata.json")
   )
 }
 
@@ -185,6 +205,32 @@ be_validate_admin_refresh_config <- function(config) {
     ))
   }
 
+  if (
+    is.null(config$psg_project_alias) ||
+      !nzchar(config$psg_project_alias)
+  ) {
+    return(list(
+      ok = FALSE,
+      message = sprintf(
+        "Admin refresh psg_project_alias is not configured. Set BACH_PSG_REDCAP_PROJECT_ALIAS or populate %s.",
+        config$config_path
+      )
+    ))
+  }
+
+  if (
+    is.null(config$psg_connection_name) ||
+      !nzchar(config$psg_connection_name)
+  ) {
+    return(list(
+      ok = FALSE,
+      message = sprintf(
+        "Admin refresh psg_connection_name is not configured. Set BACH_PSG_REDCAP_CONNECTION_NAME or populate %s.",
+        config$config_path
+      )
+    ))
+  }
+
   list(ok = TRUE, message = "Admin refresh config is valid.")
 }
 
@@ -196,15 +242,26 @@ be_admin_refresh_plan <- function(config) {
     keyring = config$keyring,
     project_alias = config$project_alias,
     connection_name = config$connection_name,
+    psg_project_alias = config$psg_project_alias,
+    psg_connection_name = config$psg_connection_name,
     schema_snapshot_only = isTRUE(config$schema_snapshot_only),
     record_probe_only = isTRUE(config$record_probe_only),
     probe_records = config$probe_records,
-    snapshot_paths = be_admin_snapshot_schema_paths(config$shared_root)
+    snapshot_paths = list(
+      redcap_schema = be_admin_snapshot_schema_paths(config$shared_root),
+      redcap_records = be_admin_snapshot_redcap_paths(config$shared_root),
+      psg_records = be_admin_snapshot_psg_paths(config$shared_root)
+    )
   )
 }
 
-be_admin_unlock_connections <- function(config, envir = parent.frame()) {
-  connections <- stats::setNames(config$project_alias, config$connection_name)
+be_admin_unlock_named_connection <- function(
+  config,
+  project_alias,
+  connection_name,
+  envir = parent.frame()
+) {
+  connections <- stats::setNames(project_alias, connection_name)
 
   redcapAPI::unlockREDCap(
     connections = connections,
@@ -212,6 +269,29 @@ be_admin_unlock_connections <- function(config, envir = parent.frame()) {
     url = config$redcap_url,
     envir = envir
   )
+}
+
+be_admin_unlock_connections <- function(config, envir = parent.frame()) {
+  be_admin_unlock_named_connection(
+    config = config,
+    project_alias = config$project_alias,
+    connection_name = config$connection_name,
+    envir = envir
+  )
+}
+
+be_admin_unlock_psg_connection <- function(config, envir = parent.frame()) {
+  be_admin_unlock_named_connection(
+    config = config,
+    project_alias = config$psg_project_alias,
+    connection_name = config$psg_connection_name,
+    envir = envir
+  )
+}
+
+be_admin_init_connections <- function(config, envir = parent.frame()) {
+  be_admin_unlock_connections(config, envir = envir)
+  be_admin_unlock_psg_connection(config, envir = envir)
 }
 
 be_admin_redcap_api_functions <- function() {
@@ -375,21 +455,23 @@ be_admin_write_schema_snapshot <- function(
 be_admin_collect_records_snapshot <- function(
   config,
   envir = parent.frame(),
-  api = be_admin_redcap_api_functions()
+  api = be_admin_redcap_api_functions(),
+  connection_name = config$connection_name,
+  include_labels = TRUE
 ) {
-  if (!exists(config$connection_name, envir = envir, inherits = TRUE)) {
+  if (!exists(connection_name, envir = envir, inherits = TRUE)) {
     stop(
       sprintf(
         "REDCap connection '%s' was not created in the target environment.",
-        config$connection_name
+        connection_name
       ),
       call. = FALSE
     )
   }
 
-  rcon <- get(config$connection_name, envir = envir, inherits = TRUE)
+  rcon <- get(connection_name, envir = envir, inherits = TRUE)
 
-  list(
+  records_snapshot <- list(
     raw = api$export_records_typed(
       rcon,
       records = if (isTRUE(config$record_probe_only)) {
@@ -400,8 +482,11 @@ be_admin_collect_records_snapshot <- function(
       cast = api$raw_cast,
       validation = api$skip_validation,
       warn_zero_coded = FALSE
-    ),
-    labels = api$export_records_typed(
+    )
+  )
+
+  if (isTRUE(include_labels)) {
+    records_snapshot$labels <- api$export_records_typed(
       rcon,
       records = if (isTRUE(config$record_probe_only)) {
         config$probe_records
@@ -412,24 +497,38 @@ be_admin_collect_records_snapshot <- function(
       validation = api$skip_validation,
       warn_zero_coded = FALSE
     )
-  )
+  }
+
+  records_snapshot
 }
 
 be_admin_write_records_snapshot <- function(
   config,
   records_snapshot,
   schema_result = NULL,
-  snapshot_time = Sys.time()
+  snapshot_time = Sys.time(),
+  family = "redcap",
+  project_alias = config$project_alias,
+  connection_name = config$connection_name
 ) {
-  paths <- be_admin_snapshot_redcap_paths(config$shared_root)
-  dir.create(paths$redcap_dir, recursive = TRUE, showWarnings = FALSE)
+  paths <- switch(
+    family,
+    redcap = be_admin_snapshot_redcap_paths(config$shared_root),
+    psg = be_admin_snapshot_psg_paths(config$shared_root),
+    stop(sprintf("Unsupported snapshot family: %s", family), call. = FALSE)
+  )
+  target_dir <- paths$redcap_dir %||% paths$psg_dir
+  dir.create(target_dir, recursive = TRUE, showWarnings = FALSE)
 
   utils::write.csv(records_snapshot$raw, paths$raw, row.names = FALSE)
-  utils::write.csv(records_snapshot$labels, paths$labels, row.names = FALSE)
+  if (!is.null(records_snapshot$labels)) {
+    utils::write.csv(records_snapshot$labels, paths$labels, row.names = FALSE)
+  }
 
   metadata <- list(
     source = "redcapAPI",
     snapshot_type = "records",
+    family = family,
     refreshed_at = format(
       as.POSIXct(snapshot_time, tz = "UTC"),
       "%Y-%m-%dT%H:%M:%SZ",
@@ -437,17 +536,28 @@ be_admin_write_records_snapshot <- function(
     ),
     redcap_url = config$redcap_url,
     keyring = config$keyring,
-    project_alias = config$project_alias,
-    connection_name = config$connection_name,
-    files = list(
-      raw = basename(paths$raw),
-      labels = basename(paths$labels)
+    project_alias = project_alias,
+    connection_name = connection_name,
+    files = Filter(
+      Negate(is.null),
+      list(
+        raw = basename(paths$raw),
+        labels = if (!is.null(paths$labels)) basename(paths$labels) else NULL
+      )
     ),
     counts = list(
       raw_rows = nrow(records_snapshot$raw),
       raw_cols = ncol(records_snapshot$raw),
-      labels_rows = nrow(records_snapshot$labels),
-      labels_cols = ncol(records_snapshot$labels)
+      labels_rows = if (!is.null(records_snapshot$labels)) {
+        nrow(records_snapshot$labels)
+      } else {
+        NULL
+      },
+      labels_cols = if (!is.null(records_snapshot$labels)) {
+        ncol(records_snapshot$labels)
+      } else {
+        NULL
+      }
     ),
     probe = list(
       record_probe_only = isTRUE(config$record_probe_only),
@@ -482,6 +592,7 @@ be_admin_write_snapshot_index <- function(
   config,
   schema_result = NULL,
   records_result = NULL,
+  psg_result = NULL,
   snapshot_time = Sys.time()
 ) {
   index_path <- be_admin_snapshot_index_path(config$shared_root)
@@ -493,7 +604,7 @@ be_admin_write_snapshot_index <- function(
       "%Y-%m-%dT%H:%M:%SZ",
       tz = "UTC"
     ),
-    families = "redcap",
+    families = c("redcap", "psg"),
     snapshots = list(
       redcap = list(
         metadata = if (!is.null(records_result)) {
@@ -503,6 +614,13 @@ be_admin_write_snapshot_index <- function(
         },
         schema_metadata = if (!is.null(schema_result)) {
           file.path("schema", basename(schema_result$paths$metadata))
+        } else {
+          NULL
+        }
+      ),
+      psg = list(
+        metadata = if (!is.null(psg_result)) {
+          basename(psg_result$paths$metadata)
         } else {
           NULL
         }
@@ -546,9 +664,11 @@ be_admin_execute_refresh <- function(
   envir = parent.frame(),
   api = be_admin_redcap_api_functions(),
   snapshot_time = Sys.time(),
-  unlocker = be_admin_unlock_connections
+  unlocker = be_admin_unlock_connections,
+  psg_unlocker = be_admin_unlock_psg_connection
 ) {
   unlocker(config, envir = envir)
+  psg_unlocker(config, envir = envir)
 
   schema_snapshot <- be_admin_collect_schema_snapshot(
     config = config,
@@ -562,17 +682,38 @@ be_admin_execute_refresh <- function(
   )
 
   records_result <- NULL
+  psg_result <- NULL
   if (!isTRUE(config$schema_snapshot_only)) {
     records_snapshot <- be_admin_collect_records_snapshot(
       config = config,
       envir = envir,
-      api = api
+      api = api,
+      connection_name = config$connection_name,
+      include_labels = TRUE
     )
     records_result <- be_admin_write_records_snapshot(
       config = config,
       records_snapshot = records_snapshot,
       schema_result = schema_result,
-      snapshot_time = snapshot_time
+      snapshot_time = snapshot_time,
+      family = "redcap",
+      project_alias = config$project_alias,
+      connection_name = config$connection_name
+    )
+    psg_snapshot <- be_admin_collect_records_snapshot(
+      config = config,
+      envir = envir,
+      api = api,
+      connection_name = config$psg_connection_name,
+      include_labels = FALSE
+    )
+    psg_result <- be_admin_write_records_snapshot(
+      config = config,
+      records_snapshot = psg_snapshot,
+      snapshot_time = snapshot_time,
+      family = "psg",
+      project_alias = config$psg_project_alias,
+      connection_name = config$psg_connection_name
     )
   }
 
@@ -580,12 +721,14 @@ be_admin_execute_refresh <- function(
     config = config,
     schema_result = schema_result,
     records_result = records_result,
+    psg_result = psg_result,
     snapshot_time = snapshot_time
   )
 
   invisible(list(
     schema = schema_result,
     records = records_result,
+    psg = psg_result,
     snapshot_index = index_result
   ))
 }

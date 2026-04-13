@@ -10,7 +10,7 @@ be_refresh_snapshots_runtime <- function() {
     package_available = function(package) {
       requireNamespace(package, quietly = TRUE)
     },
-    init_keyring = be_admin_unlock_connections,
+    init_keyring = be_admin_init_connections,
     execute_refresh = be_admin_execute_refresh,
     inform = message
   )
@@ -43,6 +43,7 @@ refresh_snapshots_main <- function(
       "Populate admin settings with env vars",
       "BACH_REDCAP_URL, BACH_REDCAP_KEYRING,",
       "BACH_REDCAP_PROJECT_ALIAS, BACH_REDCAP_CONNECTION_NAME,",
+      "BACH_PSG_REDCAP_PROJECT_ALIAS, BACH_PSG_REDCAP_CONNECTION_NAME,",
       "BACH_SCHEMA_SNAPSHOT_ONLY, BACH_RECORD_PROBE_ONLY, BACH_PROBE_RECORDS"
     )
   )
@@ -54,9 +55,11 @@ refresh_snapshots_main <- function(
   runtime$inform(sprintf("Keyring: %s", config$keyring))
   runtime$inform(sprintf("Project alias: %s", config$project_alias))
   runtime$inform(sprintf("Connection name: %s", config$connection_name))
+  runtime$inform(sprintf("PSG project alias: %s", config$psg_project_alias))
+  runtime$inform(sprintf("PSG connection name: %s", config$psg_connection_name))
   runtime$inform(sprintf(
     "Schema snapshot dir: %s",
-    plan$snapshot_paths$schema_dir
+    plan$snapshot_paths$redcap_schema$schema_dir
   ))
   runtime$inform(sprintf(
     "Schema-only mode: %s",
@@ -90,7 +93,7 @@ refresh_snapshots_main <- function(
   if (init_keyring) {
     runtime$inform("Initializing or unlocking redcapAPI keyring.")
     runtime$inform(
-      "You will be prompted for the keyring password and, if needed, the REDCap API token."
+      "You will be prompted for the keyring password and, if needed, the REDCap API tokens for both the main and PSG projects."
     )
     runtime$init_keyring(config)
     runtime$inform("Keyring initialization complete.")
@@ -132,6 +135,14 @@ refresh_snapshots_main <- function(
   } else {
     runtime$inform(
       "Skipped record export because schema_snapshot_only is true."
+    )
+  }
+  if (!is.null(result$psg)) {
+    runtime$inform(sprintf("Wrote %s", result$psg$paths$raw))
+    runtime$inform(sprintf("Wrote %s", result$psg$paths$metadata))
+  } else {
+    runtime$inform(
+      "Skipped PSG record export because schema_snapshot_only is true."
     )
   }
   runtime$inform(sprintf("Wrote %s", result$snapshot_index$path))

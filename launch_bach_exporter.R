@@ -296,6 +296,24 @@ be_launcher_tmp_dir <- function() {
   normalizePath(path, winslash = "/", mustWork = FALSE)
 }
 
+be_launcher_local_library_dir <- function() {
+  root <- be_launcher_local_cache_root()
+  platform <- paste(
+    R.version$platform,
+    paste(R.version$major, R.version$minor, sep = "."),
+    sep = "-"
+  )
+  path <- file.path(root, "bootstrap-library", platform)
+  dir.create(path, recursive = TRUE, showWarnings = FALSE)
+  normalizePath(path, winslash = "/", mustWork = FALSE)
+}
+
+be_launcher_use_local_library <- function() {
+  library_dir <- be_launcher_local_library_dir()
+  .libPaths(unique(c(library_dir, .libPaths())))
+  library_dir
+}
+
 be_launcher_use_tmp_dir <- function() {
   path <- be_launcher_tmp_dir()
   Sys.setenv(
@@ -308,6 +326,13 @@ be_launcher_use_tmp_dir <- function() {
 
 be_launcher_current_tempdir <- function() {
   normalizePath(tempdir(), winslash = "/", mustWork = FALSE)
+}
+
+be_launcher_prepare_tempdir_cleanup <- function(
+  current_tempdir = be_launcher_current_tempdir()
+) {
+  be_make_tree_user_writable(current_tempdir)
+  invisible(current_tempdir)
 }
 
 be_launcher_tempdir_ready <- function(
@@ -502,23 +527,33 @@ be_launcher_validate_shared_root <- function(shared_root, allow_dev = TRUE) {
 
 launch_bach_exporter <- function() {
   be_launcher_use_tmp_dir()
+  on.exit(be_launcher_prepare_tempdir_cleanup(), add = TRUE)
+  bootstrap_library <- be_launcher_use_local_library()
 
   ensure_bootstrap_package <- function(pkg) {
     if (!requireNamespace(pkg, quietly = TRUE)) {
-      install.packages(pkg, repos = "https://cloud.r-project.org")
+      install.packages(
+        pkg,
+        lib = bootstrap_library,
+        repos = "https://cloud.r-project.org"
+      )
     }
   }
 
-  bootstrap_packages <- c(
-    "shiny",
-    "shinyFiles",
-    "jsonlite",
-    "bslib",
-    "renv",
-    "remotes"
-  )
-  invisible(lapply(bootstrap_packages, ensure_bootstrap_package))
-  be_patch_bslib_dependency_copies()
+  ensure_bootstrap_package("jsonlite")
+
+  shared_root <- be_launcher_load_shared_root()
+  validation <- be_launcher_validate_shared_root(shared_root %||% "")
+
+  if (!isTRUE(validation$ok)) {
+    bootstrap_packages <- c(
+      "shiny",
+      "shinyFiles",
+      "bslib"
+    )
+    invisible(lapply(bootstrap_packages, ensure_bootstrap_package))
+    be_patch_bslib_dependency_copies()
+  }
 
   launch_bootstrap <- function(initial_root = NULL) {
     ui <- shiny::fluidPage(
@@ -601,8 +636,6 @@ launch_bach_exporter <- function() {
     )
   }
 
-  shared_root <- be_launcher_load_shared_root()
-  validation <- be_launcher_validate_shared_root(shared_root %||% "")
   if (!isTRUE(validation$ok)) {
     validation <- launch_bootstrap(shared_root)
   }
