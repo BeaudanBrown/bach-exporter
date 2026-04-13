@@ -239,14 +239,14 @@ be_write_export_targets_script <- function(
         mustWork = TRUE
       ))
     ),
-    "if (exists('be_target_graph', mode = 'function', inherits = TRUE)) {",
+    "if (requireNamespace('bachExporter', quietly = TRUE)) {",
+    "  be_target_graph <- get('be_target_graph', envir = asNamespace('bachExporter'))",
+    "} else if (exists('be_target_graph', mode = 'function', inherits = TRUE)) {",
     "  be_target_graph <- get('be_target_graph', inherits = TRUE)",
     "} else if (dir.exists(file.path(project_root, 'R'))) {",
     "  for (path in sort(Sys.glob(file.path(project_root, 'R', '*.R')))) {",
     "    source(path, local = FALSE)",
     "  }",
-    "} else if (requireNamespace('bachExporter', quietly = TRUE)) {",
-    "  be_target_graph <- get('be_target_graph', envir = asNamespace('bachExporter'))",
     "} else {",
     "  stop('Cannot find bachExporter package or project R sources.', call. = FALSE)",
     "}",
