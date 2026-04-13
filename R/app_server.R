@@ -27,6 +27,51 @@ be_update_output_path <- function(session, value) {
   shiny::updateTextInput(session, "output_path", value = value)
 }
 
+be_send_live_log_line <- function(session, line, id = "live_log") {
+  session$sendCustomMessage(
+    "be-append-log-line",
+    list(id = id, line = line)
+  )
+  flush_react <- tryCatch(
+    get("flushReact", envir = asNamespace("shiny")),
+    error = function(err) NULL
+  )
+  if (is.function(flush_react)) {
+    tryCatch(flush_react(), error = function(err) NULL)
+  }
+  invisible(line)
+}
+
+be_export_runner_accepts_log_callback <- function(export_runner) {
+  runner_args <- names(formals(export_runner))
+  "..." %in% runner_args || "log_callback" %in% runner_args
+}
+
+be_call_export_runner <- function(
+  export_runner,
+  spec,
+  refresh_mode,
+  parallel_workers = 1L,
+  log_callback = NULL
+) {
+  args <- list(
+    spec = spec,
+    refresh_mode = refresh_mode
+  )
+  runner_args <- names(formals(export_runner))
+  if ("..." %in% runner_args || "parallel_workers" %in% runner_args) {
+    args$parallel_workers <- parallel_workers
+  }
+  if (
+    is.function(log_callback) &&
+      isTRUE(be_export_runner_accepts_log_callback(export_runner))
+  ) {
+    args$log_callback <- log_callback
+  }
+
+  do.call(export_runner, args)
+}
+
 be_resolve_output_save_path <- function(selected) {
   if (is.null(selected) || !nrow(selected)) {
     return(NULL)
@@ -83,6 +128,7 @@ be_app_server <- function(
     )
 
     status_log <- shiny::reactiveVal("App started.")
+    live_log <- shiny::reactiveVal("App started.")
     export_busy <- shiny::reactiveVal(FALSE)
     export_busy_message <- shiny::reactiveVal(NULL)
     export_error_message <- shiny::reactiveVal(NULL)
@@ -135,8 +181,14 @@ be_app_server <- function(
       spec$domains <- input$domains
       spec$options$cat_labels <- input$cat_labels
       spec$output$path <- input$output_path
+      parallel_workers <- suppressWarnings(as.integer(input$parallel_workers))
+      if (length(parallel_workers) != 1L || is.na(parallel_workers)) {
+        parallel_workers <- 1L
+      }
 
       export_busy(TRUE)
+      live_log("Export started.")
+      be_send_live_log_line(session, "Export started.")
       export_busy_message(
         "Export in progress. Keep this window open until the result appears."
       )
@@ -144,6 +196,15 @@ be_app_server <- function(
       status_log(
         "Export started. Preparing shared snapshots and export output."
       )
+      append_live_log <- function(line) {
+        lines <- c(strsplit(live_log(), "\n", fixed = TRUE)[[1]], line)
+        live_log(paste(tail(lines, 300), collapse = "\n"))
+        be_send_live_log_line(session, line)
+        invisible(line)
+      }
+      log_callback <- function(entry, log_path) {
+        append_live_log(be_format_export_log_entry(entry))
+      }
       be_set_button_busy_state(
         session = session,
         id = "run_export_btn",
@@ -177,9 +238,12 @@ be_app_server <- function(
                 0.2,
                 detail = "Reading snapshots and assembling the export."
               )
-              result <- export_runner(
+              result <- be_call_export_runner(
+                export_runner = export_runner,
                 spec = spec,
-                refresh_mode = input$refresh_mode
+                refresh_mode = input$refresh_mode,
+                parallel_workers = parallel_workers,
+                log_callback = log_callback
               )
               shiny::incProgress(
                 0.8,
@@ -196,6 +260,7 @@ be_app_server <- function(
         error_message <- conditionMessage(result)
         export_error_message(error_message)
         status_log(sprintf("Export failed: %s", error_message))
+        append_live_log(sprintf("Export failed: %s", error_message))
         notification_runner(
           ui = paste("Export failed:", error_message),
           type = "error",
@@ -204,6 +269,11 @@ be_app_server <- function(
       } else {
         export_error_message(NULL)
         status_log(sprintf("Export completed: %s", result$output))
+        if (!is.null(result$log) && file.exists(result$log)) {
+          live_log(paste(be_read_export_log(result$log), collapse = "\n"))
+        } else {
+          append_live_log(sprintf("Export completed: %s", result$output))
+        }
       }
       history_nonce(history_nonce() + 1)
     })
@@ -239,6 +309,10 @@ be_app_server <- function(
 
     output$status_log <- shiny::renderText({
       status_log()
+    })
+
+    output$live_log <- shiny::renderText({
+      live_log()
     })
 
     output$export_history <- shiny::renderTable(

@@ -137,8 +137,66 @@ test_that("app server wraps exports in progress feedback and button busy state",
       )
       expect_length(notifications, 0)
       expect_equal(output$status_log, "Export completed: /tmp/export.csv")
+      expect_match(output$live_log, "Export completed")
       expect_match(output$history_detail, "run-1")
       expect_null(output$export_error_banner)
+    }
+  )
+})
+
+test_that("app server streams export log callback entries to the live log", {
+  app_env$be_load_shared_root <- function() NULL
+  app_env$be_validate_shared_root <- function(shared_root) {
+    list(ok = TRUE, message = "ok")
+  }
+  app_env$be_save_shared_root <- function(shared_root) NULL
+  app_env$be_read_export_history <- function(limit = 20, history_path = NULL) {
+    data.frame()
+  }
+  app_env$be_default_export_spec <- function(shared_root = NULL) {
+    list(
+      shared = list(root = shared_root),
+      cohort = list(years = "baseline", participant_ids = "", subset_file = ""),
+      domains = "participants",
+      options = list(cat_labels = "named"),
+      output = list(path = "", format = "csv")
+    )
+  }
+  app_env$be_send_live_log_line <- function(session, line, id = "live_log") {
+    invisible(line)
+  }
+
+  shiny::testServer(
+    app_env$be_app_server(
+      notification_runner = function(...) NULL,
+      export_runner = function(spec, refresh_mode, log_callback = NULL) {
+        log_callback(
+          entry = list(
+            at = "2026-04-13T00:00:00Z",
+            level = "INFO",
+            message = "Running targets pipeline with crew.",
+            data = list(parallel_workers = 2L, use_crew = TRUE)
+          ),
+          log_path = "/tmp/export.log"
+        )
+        list(output = "/tmp/export.csv")
+      }
+    ),
+    {
+      session$setInputs(
+        shared_root = "/tmp/shared-root",
+        years = "baseline",
+        domains = "participants",
+        cat_labels = "named",
+        participant_ids = "",
+        subset_file = "",
+        output_path = "/tmp/export.csv",
+        refresh_mode = "auto",
+        run_export_btn = 1
+      )
+
+      expect_match(output$live_log, "Running targets pipeline with crew")
+      expect_match(output$live_log, "parallel_workers")
     }
   )
 })

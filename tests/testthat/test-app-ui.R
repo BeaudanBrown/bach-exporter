@@ -7,7 +7,9 @@ test_that("main app tabs keep shared root on export page", {
 
   expect_match(ui_html, "Export")
   expect_match(ui_html, "Status")
+  expect_match(ui_html, "Logs")
   expect_match(ui_html, "History")
+  expect_match(ui_html, "live_log")
   expect_match(ui_html, "shared_root")
   expect_match(ui_html, "browse_shared_root")
   expect_match(ui_html, "save_shared_root")

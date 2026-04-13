@@ -39,6 +39,17 @@ be_app_ui <- function() {
              gap: 4px;
              font-weight: 600;
            }
+           .log-feed {
+             min-height: 420px;
+             max-height: 620px;
+             overflow: auto;
+             padding: 12px;
+             border: 1px solid #ced4da;
+             border-radius: 6px;
+             background: #111;
+             color: #f8f9fa;
+             white-space: pre-wrap;
+           }
            @keyframes be-spin {
              from { transform: rotate(0deg); }
              to { transform: rotate(360deg); }
@@ -54,6 +65,13 @@ be_app_ui <- function() {
              if (message.label) {
                el.textContent = message.label;
              }
+           });
+           Shiny.addCustomMessageHandler('be-append-log-line', function(message) {
+             var el = document.getElementById(message.id || 'live_log');
+             if (!el) return;
+             var line = message.line || '';
+             el.textContent = el.textContent ? el.textContent + '\\n' + line : line;
+             el.scrollTop = el.scrollHeight;
            });"
         )
       )
@@ -144,6 +162,17 @@ be_app_ui <- function() {
                 choices = c("auto", "use_cache", "force"),
                 selected = "auto"
               ),
+              shiny::selectInput(
+                "parallel_workers",
+                "Targets workers",
+                choices = c(
+                  "Serial" = "1",
+                  "Crew: 2 workers" = "2",
+                  "Crew: 4 workers" = "4",
+                  "Crew: 7 workers" = "7"
+                ),
+                selected = "2"
+              ),
               shiny::actionButton("run_export_btn", "Run export"),
               shiny::uiOutput("export_busy_banner"),
               shiny::uiOutput("export_error_banner")
@@ -153,6 +182,15 @@ be_app_ui <- function() {
         shiny::tabPanel(
           "Status",
           shiny::verbatimTextOutput("status_log")
+        ),
+        shiny::tabPanel(
+          "Logs",
+          shiny::p(
+            class = "app-note",
+            "Live export logs include targets setup, crew selection, fallback warnings, and file output."
+          ),
+          shiny::verbatimTextOutput("live_log") |>
+            shiny::tagAppendAttributes(class = "log-feed")
         ),
         shiny::tabPanel(
           "History",
