@@ -47,6 +47,14 @@
     - `export_snapshot_metadata_redcap`
     - `export_snapshot_metadata_psg`
     - `export_snapshot_metadata_biomarkers`
+  - switched hidden `targets` storage from `rds` to `qs`; in the installed `targets` version the accepted format name is `qs`, and the backend uses the `qs2` package internally.
+  - promoted `qs2` to a runtime import and refreshed `renv.lock` so `launch_from_share()` can restore the serialization dependency into the user-local release library before a thin-client export.
+  - split the hidden graph's broad `export_spec` target into narrower request targets (`export_source`, `export_cohort_years`, `export_participant_ids_input`, `export_subset_file`, `export_cat_labels`, `export_domains`, and `export_output`) so Shiny setting changes disturb only the relevant downstream graph.
+  - moved domain builders and label application off the full spec object; domain targets now receive `years` and `cat_labels` directly, and participant filtering resolves from separate participant-id/subset-file targets.
+  - updated shared-app staging/publishing so `just refresh-app` also places the user-facing `launch_bach_exporter.R` script at the top of the shared root, next to the deployed `app/` directory.
+  - added a Shiny Logs tab backed by the export log stream; exports now emit targets setup, crew/serial selection, crew fallback warnings, and raw `targets` reporter output into the run log.
+  - fixed thin-client crew execution by resolving generated targets scripts to the deployed shared app bundle (`<shared_root>/app`) when the launch directory has no `R/` sources; the previous scratch-launch script generated `project_root` as the user scratch directory, so crew workers loaded only exported package symbols and could not see internal helpers such as `be_export_manifest_source()`.
+  - restored parallel exports as the default path with a conservative worker count, and added an explicit "Targets workers" Shiny control defaulting to 2 crew workers.
   - replaced the monolithic metadata reader with `be_build_snapshot_metadata()` composition over the split targets.
   - updated `targets_graph` so snapshot metadata can be assembled from discrete intermediate inputs while preserving prior manifest output shape.
   - added focused graph coverage in `tests/testthat/test-export-run.R` to assert presence of the split metadata targets in the hidden pipeline.
@@ -98,6 +106,36 @@
 ## Verification baseline
 
 - `bash ./bin/in-env Rscript tests/testthat.R`
+
+Most recent verification for the `qs` storage/runtime dependency update:
+
+- `bash ./bin/in-env Rscript scripts/check-dev-env.R`
+- `bash ./bin/in-env Rscript -e 'testthat::test_file("tests/testthat/test-release-runtime.R")'`
+- `bash ./bin/in-env Rscript -e 'testthat::test_file("tests/testthat/test-export-run.R")'`
+- `bash ./bin/in-env Rscript tests/testthat.R` passed with one warning from the existing crew parallel retry path in the packaged-runtime smoke test; the retry completed successfully in serial mode.
+
+Most recent verification for the shared-root launcher publish update:
+
+- `bash ./bin/in-env Rscript -e 'testthat::test_file("tests/testthat/test-release-runtime.R")'`
+
+Most recent verification for the Shiny Logs tab and targets log capture:
+
+- `bash ./bin/in-env air format R/app_ui.R R/app_server.R R/export_history.R R/export_run.R R/export_pipeline.R tests/testthat/test-app-ui.R tests/testthat/test-app-server.R tests/testthat/test-export-run.R`
+- `bash ./bin/in-env Rscript -e 'testthat::test_file("tests/testthat/test-app-ui.R")'`
+- `bash ./bin/in-env Rscript -e 'testthat::test_file("tests/testthat/test-app-server.R")'`
+- `bash ./bin/in-env Rscript -e 'testthat::test_file("tests/testthat/test-export-history.R")'`
+- `bash ./bin/in-env Rscript -e 'testthat::test_file("tests/testthat/test-export-run.R")'`
+- Direct diagnostic: running the old generated scratch targets script with `project_root` changed from `/home/beau/monash/scratch/export-test` to `/s/Pase-ED/Studies/BACH/Data/Exporter/app` allowed the real BACH pipeline to progress under `use_crew = TRUE` instead of stalling at dispatched targets.
+- `bash ./bin/in-env Rscript scripts/refresh_shared_root.R --skip-refresh` published build `3f81bfe3959f-dirty-20260413T043919Z` to `/s/Pase-ED/Studies/BACH/Data/Exporter`; the refreshed root launcher was also copied to `/home/beau/monash/scratch/export-test/launch_bach_exporter.R`.
+
+Most recent live hang investigation on 2026-04-13:
+
+- The earlier crew hang was worker startup failure: local crew worker logs showed fresh worker R processes could not load `crew` because they did not inherit the researcher launcher's release-local renv library. The pipeline now exports the current `.libPaths()` through `R_LIBS` while invoking crew, writes crew worker logs under the generated export-pipeline directory, and sets `crashes_max = 1L` so worker crashes fail fast instead of looking like an indefinite targets stall.
+- The later scratch export was not using crew (`parallel_workers = 1`, `use_crew = false`) and stopped at `export_domain_redcap`. Reproducing that target directly showed `be_build_export_domain_redcap()` exceeded a 90-second timeout on the live cached participant REDCap input (`2561 x 2523`) because `be_reduce_redcap_rows()` rebuilt one data frame per key group and rescanned every column. The reducer now preserves the old key-group ordering but uses a fast unique-key path plus a column-wise duplicate path; the same live target completes in about 20 seconds.
+- Verification after the reducer fix:
+  - `bash ./bin/in-env air format R/assemble_export.R tests/testthat/test-export-run.R`
+  - `bash ./bin/in-env Rscript -e 'testthat::test_file("tests/testthat/test-app-server.R")'`
+  - `bash ./bin/in-env Rscript -e 'testthat::test_file("tests/testthat/test-export-run.R", reporter = "summary")'` passed with one existing skip because `{bachExporter}` is not installed in that test context.
 
 Most recent verification for `coordinator-jor.3`:
 
