@@ -53,6 +53,8 @@ The backend will be an R package-like codebase with:
 - A stable service function `run_export()`
 - A stable service function `run_app()`
 
+For export execution, the backend should keep one shared per-export context for prepared/filterable REDCap data, compute shared lookup/scaffold intermediates once, build requested domains independently, and let the hidden `targets` graph mirror those same reusable stages rather than hiding all export work inside one monolithic target.
+
 ### 3.3 Deployment model
 
 The deployed runtime model will be:
@@ -69,7 +71,7 @@ Normal researcher sessions will not call REDCap directly.
 
 Instead:
 
-- An admin-only refresh process will use the REDCap API token.
+- An admin-only refresh process will use the REDCap API tokens for the main REDCap and PSG REDCap projects.
 - That process will write refreshed snapshots to the shared drive.
 - Researcher launches will read those snapshots from the shared drive.
 - The admin refresh implementation will use `redcapAPI`, with token management through `unlockREDCap()` keyrings.
@@ -401,6 +403,11 @@ Normal researcher runs use shared snapshots under `<shared_root>/snapshots/`.
 ### 11.2 Admin refresh mode
 
 Admin refresh updates those snapshots from REDCap and any other source systems.
+
+At minimum, the current refresh flow should maintain:
+
+- `snapshots/redcap/*` from the main BACH REDCap project
+- `snapshots/psg/raw.csv` plus PSG metadata from the PSG REDCap project
 
 ### 11.3 Snapshot requirements
 

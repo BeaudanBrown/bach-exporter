@@ -13,7 +13,7 @@ After `just refresh`, the shared root should contain:
 
 - `app/` with the current runnable backend bundle
 - `app/manifest.json` with the current `build_id`
-- `snapshots/` with the latest admin-refreshed data
+- `snapshots/` with the latest admin-refreshed data from both the main BACH REDCap project and the PSG REDCap project
 - `side-data/` with shared lookup tables
 
 ## Researcher workflow
