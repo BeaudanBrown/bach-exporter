@@ -372,6 +372,18 @@ test_that("launcher re-exec can use RStudio active document path", {
   expect_equal(calls[[1]]$args, launcher_path)
 })
 
+test_that("launcher stays in process for interactive and RStudio sessions", {
+  expect_false(env$be_launcher_should_reexec(interactive_session = TRUE))
+  expect_false(env$be_launcher_should_reexec(
+    interactive_session = FALSE,
+    running_in_rstudio = TRUE
+  ))
+  expect_true(env$be_launcher_should_reexec(
+    interactive_session = FALSE,
+    running_in_rstudio = FALSE
+  ))
+})
+
 test_that("launcher skips re-exec when tempdir is already user-local", {
   local_cache <- tempfile("launcher-cache-")
   dir.create(local_cache, recursive = TRUE, showWarnings = FALSE)

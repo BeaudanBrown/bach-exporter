@@ -548,6 +548,18 @@ be_launcher_reexec_status <- function(
   as.integer(status %||% 0L)
 }
 
+be_launcher_running_in_rstudio <- function() {
+  identical(Sys.getenv("RSTUDIO", unset = ""), "1") ||
+    nzchar(Sys.getenv("RSTUDIO_SESSION_PID", unset = ""))
+}
+
+be_launcher_should_reexec <- function(
+  interactive_session = interactive(),
+  running_in_rstudio = be_launcher_running_in_rstudio()
+) {
+  !isTRUE(interactive_session) && !isTRUE(running_in_rstudio)
+}
+
 be_launcher_config_path <- function() {
   config_dir <- tools::R_user_dir("bachExporter", which = "config")
   dir.create(config_dir, recursive = TRUE, showWarnings = FALSE)
@@ -809,10 +821,14 @@ launch_bach_exporter <- function(shared_root = NULL) {
 }
 
 if (sys.nframe() == 0) {
-  reexec_status <- be_launcher_reexec_status()
-  if (is.null(reexec_status)) {
+  if (!be_launcher_should_reexec()) {
     launch_bach_exporter()
   } else {
-    quit(save = "no", status = reexec_status)
+    reexec_status <- be_launcher_reexec_status()
+    if (is.null(reexec_status)) {
+      launch_bach_exporter()
+    } else {
+      quit(save = "no", status = reexec_status)
+    }
   }
 }
