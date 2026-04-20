@@ -13,6 +13,10 @@ prompt.md
 
 data/
 
+# Default local export output from app smoke tests
+/output.csv
+/output.csv.manifest.json
+
 # History files
 .Rlib
 .Rhistory
