@@ -263,10 +263,56 @@ test_that("launcher resolves script path from RStudio active document fallback",
   expect_equal(
     env$be_launcher_script_path(
       command_args = character(),
-      active_document_path = launcher_path
+      active_document_path = launcher_path,
+      source_frames = list()
     ),
     launcher_path
   )
+})
+
+test_that("launcher resolves script path from source metadata", {
+  launcher_path <- normalizePath(
+    file.path("..", "..", "launch_bach_exporter.R"),
+    winslash = "/",
+    mustWork = TRUE
+  )
+  source_frame <- new.env(parent = emptyenv())
+  source_frame$ofile <- launcher_path
+
+  expect_equal(
+    env$be_launcher_script_path(
+      command_args = character(),
+      source_frames = list(source_frame),
+      install_rstudioapi = FALSE
+    ),
+    launcher_path
+  )
+})
+
+test_that("launcher installs rstudioapi when needed for active document fallback", {
+  launcher_path <- normalizePath(
+    file.path("..", "..", "launch_bach_exporter.R"),
+    winslash = "/",
+    mustWork = TRUE
+  )
+  installed <- FALSE
+  installs <- list()
+
+  result <- env$be_launcher_rstudio_document_path(
+    install_rstudioapi = TRUE,
+    install_package_runner = function(pkgs, repos) {
+      installs[[length(installs) + 1]] <<- list(pkgs = pkgs, repos = repos)
+      installed <<- TRUE
+    },
+    rstudioapi_available = function() installed,
+    rstudioapi_is_available = function() TRUE,
+    rstudioapi_path_reader = function() launcher_path
+  )
+
+  expect_equal(result, launcher_path)
+  expect_length(installs, 1)
+  expect_equal(installs[[1]]$pkgs, "rstudioapi")
+  expect_equal(installs[[1]]$repos, "https://cloud.r-project.org")
 })
 
 test_that("launcher uses its own directory as the default shared root", {
@@ -279,7 +325,8 @@ test_that("launcher uses its own directory as the default shared root", {
   expect_equal(
     env$be_launcher_default_shared_root(
       command_args = character(),
-      active_document_path = launcher_path
+      active_document_path = launcher_path,
+      source_frames = list()
     ),
     dirname(launcher_path)
   )
@@ -308,6 +355,7 @@ test_that("launcher re-exec can use RStudio active document path", {
     trailing_args = character(),
     current_tempdir = "/tmp/Rtmp123",
     active_document_path = launcher_path,
+    source_frames = list(),
     system2_runner = function(command, args, env, wait) {
       calls[[length(calls) + 1]] <<- list(
         command = command,

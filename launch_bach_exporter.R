@@ -343,42 +343,132 @@ be_launcher_tempdir_ready <- function(
     startsWith(current_tempdir, paste0(desired, "/"))
 }
 
+be_launcher_normalize_existing_file <- function(path) {
+  if (
+    is.null(path) || !length(path) || is.na(path[[1]]) || !nzchar(path[[1]])
+  ) {
+    return(NULL)
+  }
+
+  path <- as.character(path[[1]])
+  if (!file.exists(path)) {
+    return(NULL)
+  }
+
+  normalizePath(path, winslash = "/", mustWork = TRUE)
+}
+
+be_launcher_source_path <- function(source_frames = sys.frames()) {
+  if (!length(source_frames)) {
+    return(NULL)
+  }
+
+  for (frame in rev(source_frames)) {
+    candidates <- character()
+    if (
+      is.environment(frame) && exists("ofile", envir = frame, inherits = FALSE)
+    ) {
+      candidates <- c(candidates, get("ofile", envir = frame, inherits = FALSE))
+    }
+
+    srcfile <- attr(frame, "srcfile", exact = TRUE)
+    if (
+      is.environment(frame) &&
+        exists("srcfile", envir = frame, inherits = FALSE)
+    ) {
+      srcfile <- srcfile %||% get("srcfile", envir = frame, inherits = FALSE)
+    }
+    if (!is.null(srcfile)) {
+      candidates <- c(
+        candidates,
+        srcfile$filename %||% NULL,
+        attr(srcfile, "filename", exact = TRUE) %||% NULL
+      )
+    }
+
+    for (candidate in candidates) {
+      path <- be_launcher_normalize_existing_file(candidate)
+      if (!is.null(path)) {
+        return(path)
+      }
+    }
+  }
+
+  NULL
+}
+
+be_launcher_rstudio_document_path <- function(
+  active_document_path = NULL,
+  install_rstudioapi = interactive(),
+  install_package_runner = utils::install.packages,
+  rstudioapi_available = function() {
+    requireNamespace("rstudioapi", quietly = TRUE)
+  },
+  rstudioapi_is_available = function() {
+    rstudioapi::isAvailable()
+  },
+  rstudioapi_path_reader = function() {
+    rstudioapi::getActiveDocumentContext()$path
+  }
+) {
+  path <- be_launcher_normalize_existing_file(active_document_path)
+  if (!is.null(path)) {
+    return(path)
+  }
+
+  if (!isTRUE(rstudioapi_available())) {
+    if (!isTRUE(install_rstudioapi)) {
+      return(NULL)
+    }
+    message(
+      paste(
+        "Installing rstudioapi so the launcher can find the open RStudio file."
+      )
+    )
+    install_package_runner("rstudioapi", repos = "https://cloud.r-project.org")
+  }
+
+  if (!isTRUE(rstudioapi_available()) || !isTRUE(rstudioapi_is_available())) {
+    return(NULL)
+  }
+
+  path <- tryCatch(
+    rstudioapi_path_reader(),
+    error = function(err) NULL
+  )
+  be_launcher_normalize_existing_file(path)
+}
+
 be_launcher_script_path <- function(
   command_args = commandArgs(trailingOnly = FALSE),
   active_document_path = NULL,
+  source_frames = sys.frames(),
+  install_rstudioapi = interactive(),
+  install_package_runner = utils::install.packages,
   required = TRUE
 ) {
   file_arg <- command_args[grepl("^--file=", command_args)]
   if (length(file_arg)) {
-    return(normalizePath(
-      sub("^--file=", "", file_arg[[1]]),
-      winslash = "/",
-      mustWork = TRUE
-    ))
-  }
-
-  if (is.null(active_document_path) && interactive()) {
-    active_document_path <- tryCatch(
-      {
-        if (
-          requireNamespace("rstudioapi", quietly = TRUE) &&
-            rstudioapi::isAvailable()
-        ) {
-          rstudioapi::getActiveDocumentContext()$path
-        } else {
-          NULL
-        }
-      },
-      error = function(err) NULL
+    path <- be_launcher_normalize_existing_file(
+      sub("^--file=", "", file_arg[[1]])
     )
+    if (!is.null(path)) {
+      return(path)
+    }
   }
 
-  if (!is.null(active_document_path) && nzchar(active_document_path)) {
-    return(normalizePath(
-      active_document_path,
-      winslash = "/",
-      mustWork = TRUE
-    ))
+  path <- be_launcher_source_path(source_frames = source_frames)
+  if (!is.null(path)) {
+    return(path)
+  }
+
+  path <- be_launcher_rstudio_document_path(
+    active_document_path = active_document_path,
+    install_rstudioapi = install_rstudioapi,
+    install_package_runner = install_package_runner
+  )
+  if (!is.null(path)) {
+    return(path)
   }
 
   if (isTRUE(required)) {
@@ -397,11 +487,17 @@ be_launcher_script_path <- function(
 
 be_launcher_default_shared_root <- function(
   command_args = commandArgs(trailingOnly = FALSE),
-  active_document_path = NULL
+  active_document_path = NULL,
+  source_frames = sys.frames(),
+  install_rstudioapi = interactive(),
+  install_package_runner = utils::install.packages
 ) {
   script_path <- be_launcher_script_path(
     command_args = command_args,
     active_document_path = active_document_path,
+    source_frames = source_frames,
+    install_rstudioapi = install_rstudioapi,
+    install_package_runner = install_package_runner,
     required = FALSE
   )
   if (is.null(script_path)) {
@@ -416,6 +512,9 @@ be_launcher_reexec_status <- function(
   trailing_args = commandArgs(trailingOnly = TRUE),
   current_tempdir = be_launcher_current_tempdir(),
   active_document_path = NULL,
+  source_frames = sys.frames(),
+  install_rstudioapi = interactive(),
+  install_package_runner = utils::install.packages,
   system2_runner = system2
 ) {
   if (
@@ -429,7 +528,10 @@ be_launcher_reexec_status <- function(
   desired <- be_launcher_tmp_dir()
   script_path <- be_launcher_script_path(
     command_args = command_args,
-    active_document_path = active_document_path
+    active_document_path = active_document_path,
+    source_frames = source_frames,
+    install_rstudioapi = install_rstudioapi,
+    install_package_runner = install_package_runner
   )
   rscript <- file.path(R.home("bin"), "Rscript")
   status <- system2_runner(
