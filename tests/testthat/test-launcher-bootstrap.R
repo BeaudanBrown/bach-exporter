@@ -253,6 +253,77 @@ test_that("launcher re-execs itself with user-local tmpdir when needed", {
   )
 })
 
+test_that("launcher resolves script path from RStudio active document fallback", {
+  launcher_path <- normalizePath(
+    file.path("..", "..", "launch_bach_exporter.R"),
+    winslash = "/",
+    mustWork = TRUE
+  )
+
+  expect_equal(
+    env$be_launcher_script_path(
+      command_args = character(),
+      active_document_path = launcher_path
+    ),
+    launcher_path
+  )
+})
+
+test_that("launcher uses its own directory as the default shared root", {
+  launcher_path <- normalizePath(
+    file.path("..", "..", "launch_bach_exporter.R"),
+    winslash = "/",
+    mustWork = TRUE
+  )
+
+  expect_equal(
+    env$be_launcher_default_shared_root(
+      command_args = character(),
+      active_document_path = launcher_path
+    ),
+    dirname(launcher_path)
+  )
+})
+
+test_that("launcher re-exec can use RStudio active document path", {
+  local_cache <- tempfile("launcher-cache-")
+  dir.create(local_cache, recursive = TRUE, showWarnings = FALSE)
+  Sys.setenv(BACH_EXPORTER_LOCAL_CACHE_DIR = local_cache)
+  on.exit(
+    {
+      Sys.unsetenv("BACH_EXPORTER_LOCAL_CACHE_DIR")
+      unlink(local_cache, recursive = TRUE)
+    },
+    add = TRUE
+  )
+  launcher_path <- normalizePath(
+    file.path("..", "..", "launch_bach_exporter.R"),
+    winslash = "/",
+    mustWork = TRUE
+  )
+
+  calls <- list()
+  status <- env$be_launcher_reexec_status(
+    command_args = character(),
+    trailing_args = character(),
+    current_tempdir = "/tmp/Rtmp123",
+    active_document_path = launcher_path,
+    system2_runner = function(command, args, env, wait) {
+      calls[[length(calls) + 1]] <<- list(
+        command = command,
+        args = args,
+        env = env,
+        wait = wait
+      )
+      0L
+    }
+  )
+
+  expect_equal(status, 0L)
+  expect_length(calls, 1)
+  expect_equal(calls[[1]]$args, launcher_path)
+})
+
 test_that("launcher skips re-exec when tempdir is already user-local", {
   local_cache <- tempfile("launcher-cache-")
   dir.create(local_cache, recursive = TRUE, showWarnings = FALSE)

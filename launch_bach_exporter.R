@@ -344,24 +344,78 @@ be_launcher_tempdir_ready <- function(
 }
 
 be_launcher_script_path <- function(
-  command_args = commandArgs(trailingOnly = FALSE)
+  command_args = commandArgs(trailingOnly = FALSE),
+  active_document_path = NULL,
+  required = TRUE
 ) {
   file_arg <- command_args[grepl("^--file=", command_args)]
-  if (!length(file_arg)) {
-    stop("Could not resolve launcher script path.", call. = FALSE)
+  if (length(file_arg)) {
+    return(normalizePath(
+      sub("^--file=", "", file_arg[[1]]),
+      winslash = "/",
+      mustWork = TRUE
+    ))
   }
 
-  normalizePath(
-    sub("^--file=", "", file_arg[[1]]),
-    winslash = "/",
-    mustWork = TRUE
+  if (is.null(active_document_path) && interactive()) {
+    active_document_path <- tryCatch(
+      {
+        if (
+          requireNamespace("rstudioapi", quietly = TRUE) &&
+            rstudioapi::isAvailable()
+        ) {
+          rstudioapi::getActiveDocumentContext()$path
+        } else {
+          NULL
+        }
+      },
+      error = function(err) NULL
+    )
+  }
+
+  if (!is.null(active_document_path) && nzchar(active_document_path)) {
+    return(normalizePath(
+      active_document_path,
+      winslash = "/",
+      mustWork = TRUE
+    ))
+  }
+
+  if (isTRUE(required)) {
+    stop(
+      paste(
+        "Could not resolve launcher script path.",
+        "Run with Rscript <path>, open the launcher file in RStudio and run all lines,",
+        "or call launch_bach_exporter('/path/to/shared/root')."
+      ),
+      call. = FALSE
+    )
+  }
+
+  NULL
+}
+
+be_launcher_default_shared_root <- function(
+  command_args = commandArgs(trailingOnly = FALSE),
+  active_document_path = NULL
+) {
+  script_path <- be_launcher_script_path(
+    command_args = command_args,
+    active_document_path = active_document_path,
+    required = FALSE
   )
+  if (is.null(script_path)) {
+    return(NULL)
+  }
+
+  dirname(script_path)
 }
 
 be_launcher_reexec_status <- function(
   command_args = commandArgs(trailingOnly = FALSE),
   trailing_args = commandArgs(trailingOnly = TRUE),
   current_tempdir = be_launcher_current_tempdir(),
+  active_document_path = NULL,
   system2_runner = system2
 ) {
   if (
@@ -373,7 +427,10 @@ be_launcher_reexec_status <- function(
   }
 
   desired <- be_launcher_tmp_dir()
-  script_path <- be_launcher_script_path(command_args = command_args)
+  script_path <- be_launcher_script_path(
+    command_args = command_args,
+    active_document_path = active_document_path
+  )
   rscript <- file.path(R.home("bin"), "Rscript")
   status <- system2_runner(
     rscript,
@@ -525,7 +582,7 @@ be_launcher_validate_shared_root <- function(shared_root, allow_dev = TRUE) {
   validation
 }
 
-launch_bach_exporter <- function() {
+launch_bach_exporter <- function(shared_root = NULL) {
   be_launcher_use_tmp_dir()
   on.exit(be_launcher_prepare_tempdir_cleanup(), add = TRUE)
   bootstrap_library <- be_launcher_use_local_library()
@@ -542,7 +599,9 @@ launch_bach_exporter <- function() {
 
   ensure_bootstrap_package("jsonlite")
 
-  shared_root <- be_launcher_load_shared_root()
+  shared_root <- shared_root %||%
+    be_launcher_default_shared_root() %||%
+    be_launcher_load_shared_root()
   validation <- be_launcher_validate_shared_root(shared_root %||% "")
 
   if (!isTRUE(validation$ok)) {
