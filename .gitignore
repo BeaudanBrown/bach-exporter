@@ -5,6 +5,12 @@
 .pre-commit-cache/
 .cache/
 
+# Repo-local coordinator/runtime artifacts
+.loom/
+manifest.json
+old-script.R
+prompt.md
+
 data/
 
 # History files
