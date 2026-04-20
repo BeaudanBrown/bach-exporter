@@ -50,6 +50,56 @@ test_that("stage_shared_app stages a valid shared app bundle", {
   expect_equal(manifest$built_at, "2026-03-21T02:00:00Z")
 })
 
+test_that("stage_shared_app writes a client runtime lockfile", {
+  repo_root <- normalizePath(
+    file.path("..", ".."),
+    winslash = "/",
+    mustWork = TRUE
+  )
+  output_root <- tempfile("prepared-app-root-")
+  on.exit(unlink(output_root, recursive = TRUE), add = TRUE)
+
+  be_stage_shared_app(
+    output_root = output_root,
+    repo_root = repo_root,
+    build_id = "build-client-lockfile",
+    include_side_data = FALSE
+  )
+
+  source_lockfile <- jsonlite::read_json(
+    file.path(repo_root, "renv.lock"),
+    simplifyVector = FALSE
+  )
+  client_lockfile <- jsonlite::read_json(
+    file.path(output_root, "app", "renv.lock"),
+    simplifyVector = FALSE
+  )
+  source_packages <- names(source_lockfile$Packages)
+  client_packages <- names(client_lockfile$Packages)
+
+  expect_lt(length(client_packages), length(source_packages))
+  expect_true(all(
+    c(
+      "bslib",
+      "jsonlite",
+      "remotes",
+      "shiny",
+      "shinyFiles",
+      "targets"
+    ) %in%
+      client_packages
+  ))
+  expect_false(any(
+    c(
+      "redcapAPI",
+      "testthat",
+      "pkgload",
+      "waldo"
+    ) %in%
+      client_packages
+  ))
+})
+
 test_that("publish_shared_app deploys the staged app to the fixed app directory", {
   repo_root <- normalizePath(
     file.path("..", ".."),

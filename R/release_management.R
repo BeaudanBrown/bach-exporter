@@ -104,6 +104,115 @@ be_release_copy_file <- function(from, to) {
   invisible(to)
 }
 
+be_release_dependency_name <- function(dependency) {
+  dependency <- trimws(as.character(dependency %||% ""))
+  dependency <- sub("\\s*\\(.*$", "", dependency)
+  dependency <- trimws(dependency)
+  dependency[nzchar(dependency)]
+}
+
+be_release_dependency_names <- function(value) {
+  if (is.null(value) || !length(value)) {
+    return(character())
+  }
+
+  dependencies <- unlist(value, use.names = FALSE)
+  dependencies <- unlist(
+    strsplit(as.character(dependencies), ","),
+    use.names = FALSE
+  )
+  unique(be_release_dependency_name(dependencies))
+}
+
+be_release_description_runtime_packages <- function(description_path) {
+  if (!file.exists(description_path)) {
+    return(character())
+  }
+
+  description <- read.dcf(description_path)
+  fields <- intersect(
+    c("Depends", "Imports", "LinkingTo"),
+    colnames(description)
+  )
+  dependencies <- unlist(description[1, fields, drop = TRUE], use.names = FALSE)
+  packages <- be_release_dependency_names(dependencies)
+  setdiff(packages, "R")
+}
+
+be_release_lockfile_package_dependencies <- function(package_record) {
+  fields <- intersect(
+    c("Depends", "Imports", "LinkingTo"),
+    names(package_record)
+  )
+  dependencies <- unlist(
+    package_record[fields],
+    recursive = FALSE,
+    use.names = FALSE
+  )
+  setdiff(be_release_dependency_names(dependencies), "R")
+}
+
+be_release_lockfile_runtime_packages <- function(
+  lockfile,
+  seed_packages
+) {
+  packages <- lockfile$Packages %||% list()
+  package_names <- names(packages)
+  selected <- character()
+  queue <- unique(seed_packages)
+
+  while (length(queue)) {
+    package <- queue[[1]]
+    queue <- queue[-1]
+    if (package %in% selected || !(package %in% package_names)) {
+      next
+    }
+
+    selected <- c(selected, package)
+    dependencies <- be_release_lockfile_package_dependencies(packages[[
+      package
+    ]])
+    queue <- unique(c(queue, setdiff(dependencies, selected)))
+  }
+
+  package_names[package_names %in% selected]
+}
+
+be_write_client_release_lockfile <- function(
+  source_lockfile,
+  description_path,
+  output_lockfile,
+  extra_packages = c("remotes")
+) {
+  if (!file.exists(source_lockfile)) {
+    writeLines("{}", output_lockfile)
+    return(invisible(character()))
+  }
+
+  lockfile <- jsonlite::read_json(source_lockfile, simplifyVector = FALSE)
+  packages <- lockfile$Packages %||% list()
+  seed_packages <- unique(c(
+    be_release_description_runtime_packages(description_path),
+    extra_packages
+  ))
+  runtime_packages <- be_release_lockfile_runtime_packages(
+    lockfile = lockfile,
+    seed_packages = seed_packages
+  )
+
+  lockfile$Packages <- packages[runtime_packages]
+  dir.create(dirname(output_lockfile), recursive = TRUE, showWarnings = FALSE)
+  jsonlite::write_json(
+    lockfile,
+    path = output_lockfile,
+    auto_unbox = TRUE,
+    pretty = TRUE,
+    null = "null"
+  )
+
+  invisible(runtime_packages)
+}
+
 be_release_git_metadata <- function(repo_root) {
   run_git <- function(args) {
     output <- tryCatch(
@@ -246,11 +355,11 @@ be_stage_shared_app <- function(
     file.path(app_root, "DESCRIPTION")
   )
   be_release_copy_file(repo_paths$namespace, file.path(app_root, "NAMESPACE"))
-  if (file.exists(repo_paths$lockfile)) {
-    be_release_copy_file(repo_paths$lockfile, file.path(app_root, "renv.lock"))
-  } else {
-    writeLines("{}", file.path(app_root, "renv.lock"))
-  }
+  be_write_client_release_lockfile(
+    source_lockfile = repo_paths$lockfile,
+    description_path = repo_paths$description,
+    output_lockfile = file.path(app_root, "renv.lock")
+  )
   if (file.exists(repo_paths$targets)) {
     be_release_copy_file(repo_paths$targets, file.path(app_root, "_targets.R"))
   }
