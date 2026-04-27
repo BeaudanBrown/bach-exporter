@@ -89,6 +89,7 @@
               air-formatter
             ])
             ++ (with rPackages; [
+              ggplot2
               shiny
               shinyFiles
               bslib
