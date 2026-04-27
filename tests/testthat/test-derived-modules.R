@@ -1,3 +1,4 @@
+source(file.path("..", "..", "R", "normalize_redcap.R"))
 source(file.path("..", "..", "R", "derived_clinical.R"))
 source(file.path("..", "..", "R", "derived_neuropsych.R"))
 source(file.path("..", "..", "R", "derived_biomarkers.R"))
@@ -67,7 +68,11 @@ test_that("sleep derived helpers normalize and widen PSG values", {
   )
   expect_equal(
     be_normalize_psg_powerspec_id(c("BACH001_07082023", " bach002_01012024 ")),
-    c("001", "002")
+    c("0001", "0002")
+  )
+  expect_equal(
+    be_normalize_psg_powerspec_id(c("BACH0007_07082023", "0007_01012024")),
+    c("0007", "0007")
   )
   expect_equal(
     be_normalize_psg_channel_name(c("C3_M2", "F4_M1")),

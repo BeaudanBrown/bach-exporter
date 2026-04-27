@@ -288,7 +288,9 @@ be_read_psg_lookup <- function(shared_root) {
     stop("PSG snapshot is missing idno.", call. = FALSE)
   }
 
-  psg_lookup$participant_id <- be_clean_participant_id(psg_lookup$idno)
+  psg_lookup$participant_id <- be_normalize_participant_merge_id(
+    psg_lookup$idno
+  )
   psg_lookup <- psg_lookup[
     !is.na(psg_lookup$participant_id) & psg_lookup$participant_id != "10000",
     ,
@@ -323,9 +325,19 @@ be_build_psg_external_base <- function(
   if (is.null(psg_lookup)) {
     psg_lookup <- be_read_psg_lookup(shared_root)
   }
+  if (
+    !"participant_id" %in% names(psg_lookup) && "idno" %in% names(psg_lookup)
+  ) {
+    psg_lookup$participant_id <- be_normalize_participant_merge_id(
+      psg_lookup$idno
+    )
+  }
 
   output <- scaffold[, c("participant_id", "event_name", "year"), drop = FALSE]
-  match_rows <- match(output$participant_id, psg_lookup$participant_id)
+  match_rows <- match(
+    be_normalize_participant_merge_id(output$participant_id),
+    be_normalize_participant_merge_id(psg_lookup$participant_id)
+  )
   source_names <- be_psg_external_source_names()
 
   for (source_name in source_names) {
@@ -515,7 +527,10 @@ be_build_psg_powerspec_domain <- function(
   }
 
   output <- scaffold[, c("participant_id", "event_name", "year"), drop = FALSE]
-  match_rows <- match(output$participant_id, powerspec_wide$participant_id)
+  match_rows <- match(
+    be_normalize_participant_merge_id(output$participant_id),
+    be_normalize_participant_merge_id(powerspec_wide$participant_id)
+  )
   for (column in setdiff(names(powerspec_wide), "participant_id")) {
     output[[column]] <- powerspec_wide[[column]][match_rows]
   }

@@ -1,12 +1,5 @@
 be_normalize_biomarker_participant_id <- function(x) {
-  values <- trimws(as.character(x))
-  values[!nzchar(values)] <- NA_character_
-  values <- be_clean_participant_id(values)
-
-  numeric_values <- suppressWarnings(as.integer(values))
-  has_numeric <- !is.na(numeric_values)
-  values[has_numeric] <- sprintf("%03d", numeric_values[has_numeric])
-  values
+  be_normalize_participant_merge_id(x, width = 4L)
 }
 
 be_normalize_biomarker_sampletype <- function(x) {
@@ -38,14 +31,14 @@ be_biomarker_value_fields <- function() {
 }
 
 be_biomarker_subject_column <- function(biomarkers) {
-  if ("subject_id" %in% names(biomarkers)) {
-    return("subject_id")
-  }
   if ("Sample ID" %in% names(biomarkers)) {
     return("Sample ID")
   }
   if ("Sample.ID" %in% names(biomarkers)) {
     return("Sample.ID")
+  }
+  if ("subject_id" %in% names(biomarkers)) {
+    return("subject_id")
   }
 
   stop(
@@ -162,7 +155,10 @@ be_build_biomarkers_domain <- function(
   }
 
   output <- scaffold[, c("participant_id", "event_name", "year"), drop = FALSE]
-  match_rows <- match(output$participant_id, biomarker_wide$participant_id)
+  match_rows <- match(
+    be_normalize_biomarker_participant_id(output$participant_id),
+    be_normalize_biomarker_participant_id(biomarker_wide$participant_id)
+  )
   for (column in setdiff(names(biomarker_wide), "participant_id")) {
     output[[column]] <- biomarker_wide[[column]][match_rows]
   }

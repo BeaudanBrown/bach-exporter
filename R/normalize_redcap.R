@@ -15,6 +15,21 @@ be_clean_participant_id <- function(x) {
   cleaned
 }
 
+be_normalize_participant_merge_id <- function(x, width = 4L) {
+  values <- trimws(as.character(x))
+  values[!nzchar(values)] <- NA_character_
+  values <- gsub("^sub-?", "", values, ignore.case = TRUE)
+  values <- be_clean_participant_id(values)
+
+  numeric_values <- suppressWarnings(as.integer(values))
+  has_numeric <- !is.na(numeric_values)
+  values[has_numeric] <- sprintf(
+    paste0("%0", as.integer(width), "d"),
+    numeric_values[has_numeric]
+  )
+  values
+}
+
 be_is_secondary_repeat_id <- function(x) {
   value <- trimws(as.character(x))
   grepl("(?:(?:--)|-)2$", value, perl = TRUE)

@@ -65,5 +65,10 @@ be_filter_participants <- function(df, participant_ids = NULL) {
     )
   }
 
-  df[df$participant_id %in% participant_ids, , drop = FALSE]
+  df[
+    be_normalize_participant_merge_id(df$participant_id) %in%
+      be_normalize_participant_merge_id(participant_ids),
+    ,
+    drop = FALSE
+  ]
 }

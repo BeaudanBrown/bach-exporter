@@ -1,8 +1,5 @@
 be_normalize_mri_subject_id <- function(x) {
-  values <- trimws(as.character(x))
-  values[!nzchar(values)] <- NA_character_
-  values <- gsub("^sub-?", "", values, ignore.case = TRUE)
-  be_clean_participant_id(values)
+  be_normalize_participant_merge_id(x)
 }
 
 be_read_mri_lookup <- function(shared_root) {
@@ -66,7 +63,10 @@ be_build_mri_domain <- function(
     c("participant_id", "subject_id")
   )
   if (length(lookup_columns)) {
-    match_rows <- match(mri$participant_id, mri_lookup$participant_id)
+    match_rows <- match(
+      be_normalize_participant_merge_id(mri$participant_id),
+      be_normalize_participant_merge_id(mri_lookup$participant_id)
+    )
     for (column in lookup_columns) {
       mri[[column]] <- mri_lookup[[column]][match_rows]
     }

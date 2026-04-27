@@ -1204,6 +1204,35 @@ test_that("MRI domain merges baseline REDCap fields with shared side-data", {
   expect_equal(result$hippo_left, c(3.2, 2.9))
 })
 
+test_that("MRI side-data merge keys use the four digit BACH participant standard", {
+  redcap_df <- data.frame(
+    idno = "BACH0007",
+    redcap_event_name = "Baseline",
+    mri_date = "2026-01-06",
+    mri_time = "09:30",
+    stringsAsFactors = FALSE
+  )
+  mri_lookup <- data.frame(
+    subject_id = "7",
+    brainvol_novent = 1100.5,
+    stringsAsFactors = FALSE
+  )
+  mri_lookup$participant_id <- be_normalize_mri_subject_id(
+    mri_lookup$subject_id
+  )
+
+  result <- be_build_mri_domain(
+    redcap_df = redcap_df,
+    shared_root = tempdir(),
+    years = "baseline",
+    mri_lookup = mri_lookup
+  )
+
+  expect_equal(mri_lookup$participant_id, "0007")
+  expect_equal(result$participant_id, "0007")
+  expect_equal(result$brainvol_novent, 1100.5)
+})
+
 test_that("LP domain maps REDCap event fields using legacy names", {
   shared_root <- make_export_shared_root()
   on.exit(unlink(shared_root, recursive = TRUE), add = TRUE)
@@ -2332,6 +2361,39 @@ test_that("run_export supports PSG summary and full domains", {
   expect_equal(numbered_df$psg_rswa, c(1, 0, 0))
 })
 
+test_that("PSG summary merge keys use the four digit BACH participant standard", {
+  redcap_df <- data.frame(
+    idno = "BACH0007",
+    redcap_event_name = "Baseline",
+    stringsAsFactors = FALSE
+  )
+  scaffold <- be_build_core_scaffold_domain(redcap_df, years = "baseline")
+  psg_lookup <- data.frame(
+    idno = "BACH0007",
+    psg_ess = 6,
+    psg_tot_sleep_time = 390,
+    stringsAsFactors = FALSE
+  )
+  psg_base <- be_build_psg_external_base(
+    redcap_df = redcap_df,
+    shared_root = tempdir(),
+    years = "baseline",
+    scaffold = scaffold,
+    psg_lookup = psg_lookup
+  )
+  result <- be_build_psg_summary_domain(
+    redcap_df = redcap_df,
+    shared_root = tempdir(),
+    years = "baseline",
+    scaffold = scaffold,
+    psg_base = psg_base
+  )
+
+  expect_equal(psg_base$psg_ess, 6)
+  expect_equal(result$psg_ess, 6)
+  expect_equal(result$psg_tst, 390)
+})
+
 test_that("run_export supports PSG power-spectral domain", {
   shared_root <- make_export_shared_root()
   on.exit(unlink(shared_root, recursive = TRUE), add = TRUE)
@@ -2357,6 +2419,30 @@ test_that("run_export supports PSG power-spectral domain", {
   expect_equal(export_df$RELPSD_ALPHA_C3M2_REM, c(0.18, NA, NA))
   expect_equal(export_df$PSD_DELTA_F4M1_N2, c(NA, 9.1, 9.1))
   expect_equal(export_df$RELPSD_THETA_F4M1_N1, c(NA, 0.11, 0.11))
+})
+
+test_that("PSG power-spectral merge keys use the four digit BACH participant standard", {
+  redcap_df <- data.frame(
+    idno = "BACH0007",
+    redcap_event_name = "Baseline",
+    stringsAsFactors = FALSE
+  )
+  scaffold <- be_build_core_scaffold_domain(redcap_df, years = "baseline")
+  powerspec_wide <- data.frame(
+    participant_id = be_normalize_psg_powerspec_id("BACH0007_07082023"),
+    PSD_DELTA_C3M2_N2 = 12.5,
+    stringsAsFactors = FALSE
+  )
+  result <- be_build_psg_powerspec_domain(
+    redcap_df = redcap_df,
+    shared_root = tempdir(),
+    years = "baseline",
+    scaffold = scaffold,
+    powerspec_wide = powerspec_wide
+  )
+
+  expect_equal(powerspec_wide$participant_id, "0007")
+  expect_equal(result$PSD_DELTA_C3M2_N2, 12.5)
 })
 
 test_that("run_export supports biomarkers snapshots with spaced sample headers", {
@@ -2407,6 +2493,82 @@ test_that("run_export supports biomarkers snapshots with spaced sample headers",
   expect_equal(export_df$participant_id, c(1, 2, 2))
   expect_equal(export_df$ab40_mean_conc_plasma, c(200, 220, 220))
   expect_equal(export_df$ab42_mean_conc_csf, c(250, 230, 230))
+})
+
+test_that("biomarker merge keys use the four digit BACH participant standard", {
+  redcap_df <- data.frame(
+    idno = "BACH0007",
+    redcap_event_name = "Baseline",
+    stringsAsFactors = FALSE
+  )
+  scaffold <- be_build_core_scaffold_domain(redcap_df, years = "baseline")
+  biomarkers <- data.frame(
+    check.names = FALSE,
+    "Sample ID" = "7",
+    "Sample Type" = "Plasma",
+    AB40_mean_conc = 200,
+    AB42_mean_conc = 12,
+    stringsAsFactors = FALSE
+  )
+
+  biomarker_wide <- be_build_biomarkers_participant_wide(biomarkers)
+  result <- be_build_biomarkers_domain(
+    redcap_df = redcap_df,
+    shared_root = tempdir(),
+    years = "baseline",
+    scaffold = scaffold,
+    biomarker_wide = biomarker_wide
+  )
+
+  expect_equal(
+    be_normalize_biomarker_participant_id(c(
+      "7",
+      "0007",
+      "BACH0007",
+      "0007--1"
+    )),
+    rep("0007", 4)
+  )
+  expect_equal(scaffold$participant_id, "0007")
+  expect_equal(biomarker_wide$participant_id, "0007")
+  expect_equal(result$ab42_mean_conc_plasma, 12)
+  expect_equal(result$ab4240ratio_plasma, 0.06)
+  expect_equal(
+    be_filter_participants(
+      data.frame(participant_id = "0007", stringsAsFactors = FALSE),
+      participant_ids = "7"
+    )$participant_id,
+    "0007"
+  )
+})
+
+test_that("biomarker Sample ID is preferred over noncanonical subject_id", {
+  redcap_df <- data.frame(
+    idno = "BACH0007",
+    redcap_event_name = "Baseline",
+    stringsAsFactors = FALSE
+  )
+  scaffold <- be_build_core_scaffold_domain(redcap_df, years = "baseline")
+  biomarkers <- data.frame(
+    check.names = FALSE,
+    subject_id = "unrelated-subject-value",
+    "Sample ID" = "7",
+    "Sample Type" = "Plasma",
+    AB42_mean_conc = 12,
+    stringsAsFactors = FALSE
+  )
+
+  biomarker_wide <- be_build_biomarkers_participant_wide(biomarkers)
+  result <- be_build_biomarkers_domain(
+    redcap_df = redcap_df,
+    shared_root = tempdir(),
+    years = "baseline",
+    scaffold = scaffold,
+    biomarker_wide = biomarker_wide
+  )
+
+  expect_equal(biomarker_wide$participant_id, "0007")
+  expect_equal(result$ab42_mean_conc_plasma, 12)
 })
 
 test_that("run_export supports CDR and MMSE neuropsych domains", {

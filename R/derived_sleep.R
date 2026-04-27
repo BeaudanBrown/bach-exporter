@@ -21,9 +21,8 @@ be_normalize_psg_rswa <- function(x, cat_labels = c("named", "numbered")) {
 be_normalize_psg_powerspec_id <- function(x) {
   values <- trimws(as.character(x))
   values[!nzchar(values)] <- NA_character_
-  values <- gsub("^BACH", "", values, ignore.case = TRUE)
   values <- gsub("_[0-9]{8}$", "", values)
-  values
+  be_normalize_participant_merge_id(values)
 }
 
 be_normalize_psg_channel_name <- function(x) {
