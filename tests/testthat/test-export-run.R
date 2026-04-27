@@ -4182,7 +4182,7 @@ test_that("be_assemble_export merges participant and event domains in one result
   expect_equal(export_df$age, 71)
 })
 
-test_that("be_target_graph exposes reusable context, intermediate, and domain targets", {
+test_that("be_target_graph exposes a stable reusable graph", {
   shared_root <- make_export_shared_root()
   on.exit(unlink(shared_root, recursive = TRUE), add = TRUE)
 
@@ -4192,8 +4192,17 @@ test_that("be_target_graph exposes reusable context, intermediate, and domain ta
 
   graph <- be_target_graph(spec, shared_root)
   target_names <- vapply(graph, function(target) target$name, character(1))
+  other_spec <- spec
+  other_spec$domains <- c("participants", "psg_summary", "biomarkers")
+  other_graph <- be_target_graph(other_spec, shared_root)
+  other_target_names <- vapply(
+    other_graph,
+    function(target) target$name,
+    character(1)
+  )
 
   expect_equal(anyDuplicated(target_names), 0L)
+  expect_equal(target_names, other_target_names)
   expect_true(all(
     c(
       "export_participant_ids",
@@ -4209,8 +4218,23 @@ test_that("be_target_graph exposes reusable context, intermediate, and domain ta
       "export_domain_redcap",
       "export_baseline_demographics",
       "export_scaffold",
+      "export_participant_scaffold",
+      "export_participants_base",
+      "export_participant_year_rows",
+      "export_demographics",
+      "export_ses_lookup",
+      "export_ses",
+      "export_aria_lookup",
+      "export_mri_lookup",
+      "export_biomarkers_wide",
+      "export_genomics_participant",
+      "export_psg_lookup",
+      "export_psg_external_base",
+      "export_psg_powerspec_wide",
+      "export_domain_participants",
       "export_domain_participant_screening",
       "export_domain_moca",
+      "export_domain_psg_summary",
       "participant_domain_outputs",
       "event_domain_outputs",
       "export_data"
@@ -4218,8 +4242,14 @@ test_that("be_target_graph exposes reusable context, intermediate, and domain ta
       target_names
   ))
   expect_false("export_spec" %in% target_names)
-  expect_false("export_psg_lookup" %in% target_names)
-  expect_false("export_ses" %in% target_names)
+  expect_true(all(
+    vapply(
+      be_supported_export_domains(),
+      be_export_domain_target_name,
+      character(1)
+    ) %in%
+      target_names
+  ))
 })
 
 test_that("be_target_graph extracts snapshot metadata split targets", {
@@ -4245,7 +4275,7 @@ test_that("be_target_graph extracts snapshot metadata split targets", {
   ))
 })
 
-test_that("be_target_graph extracts shared lookup targets only when needed", {
+test_that("be_export_pipeline_target_names narrows tar_make to selected domains", {
   shared_root <- make_export_shared_root()
   on.exit(unlink(shared_root, recursive = TRUE), add = TRUE)
 
@@ -4255,6 +4285,7 @@ test_that("be_target_graph extracts shared lookup targets only when needed", {
 
   graph <- be_target_graph(spec, shared_root)
   target_names <- vapply(graph, function(target) target$name, character(1))
+  selected_target_names <- be_export_pipeline_target_names(spec)
 
   expect_true(all(
     c(
@@ -4268,10 +4299,26 @@ test_that("be_target_graph extracts shared lookup targets only when needed", {
     ) %in%
       target_names
   ))
-  expect_false("export_psg_powerspec_wide" %in% target_names)
+  expect_true("export_psg_powerspec_wide" %in% target_names)
+  expect_true(all(
+    c(
+      "export_domain_participants",
+      "export_domain_ses",
+      "export_domain_aria",
+      "export_domain_psg_summary",
+      "export_domain_psg_full",
+      "participant_domain_outputs",
+      "event_domain_outputs",
+      "export_data",
+      "export_manifest"
+    ) %in%
+      selected_target_names
+  ))
+  expect_false("export_domain_psg_powerspec" %in% selected_target_names)
+  expect_false("export_psg_powerspec_wide" %in% selected_target_names)
 })
 
-test_that("be_target_graph extracts biomarker and genomics shared targets only when needed", {
+test_that("be_target_graph always declares biomarker and genomics shared targets", {
   shared_root <- make_export_shared_root()
   on.exit(unlink(shared_root, recursive = TRUE), add = TRUE)
 
@@ -4286,14 +4333,14 @@ test_that("be_target_graph extracts biomarker and genomics shared targets only w
     c(
       "export_participant_scaffold",
       "export_biomarkers_wide",
-      "export_genomics_participant"
+      "export_genomics_participant",
+      "export_psg_lookup"
     ) %in%
       target_names
   ))
-  expect_false("export_psg_lookup" %in% target_names)
 })
 
-test_that("be_target_graph extracts participant-year and participants-base targets only when needed", {
+test_that("be_target_graph always declares participant-year and participants-base targets", {
   shared_root <- make_export_shared_root()
   on.exit(unlink(shared_root, recursive = TRUE), add = TRUE)
 
@@ -4316,11 +4363,11 @@ test_that("be_target_graph extracts participant-year and participants-base targe
     c(
       "export_participant_scaffold",
       "export_participants_base",
-      "export_participant_year_rows"
+      "export_participant_year_rows",
+      "export_psg_lookup"
     ) %in%
       target_names
   ))
-  expect_false("export_psg_lookup" %in% target_names)
 })
 
 test_that("domain-output reduction merges participant and event results", {

@@ -352,6 +352,7 @@ be_run_export_pipeline <- function(
   )
 
   tar_make_args <- list(
+    names = be_export_pipeline_target_names(spec),
     script = script_path,
     store = store_path,
     callr_function = NULL,
@@ -367,6 +368,7 @@ be_run_export_pipeline <- function(
         targets_dir = targets_dir,
         store = store_path,
         script = script_path,
+        targets = tar_make_args$names,
         parallel_workers = parallel_workers,
         use_crew = use_crew
       ),

@@ -164,6 +164,30 @@ be_export_domain_output_target <- function(name, domains, level) {
   )
 }
 
+be_export_pipeline_target_names <- function(spec) {
+  domains <- unique(spec$domains %||% character())
+  supported_domains <- be_supported_export_domains()
+  unsupported_domains <- setdiff(domains, supported_domains)
+
+  if (length(unsupported_domains)) {
+    stop(
+      sprintf(
+        "The following domains are not implemented yet: %s",
+        paste(unsupported_domains, collapse = ", ")
+      ),
+      call. = FALSE
+    )
+  }
+
+  unique(c(
+    vapply(domains, be_export_domain_target_name, character(1)),
+    "participant_domain_outputs",
+    "event_domain_outputs",
+    "export_data",
+    "export_manifest"
+  ))
+}
+
 be_target_graph <- function(
   spec = NULL,
   shared_root = NULL,
@@ -196,28 +220,7 @@ be_target_graph <- function(
     )
   }
 
-  domain_targets <- lapply(domains, be_export_domain_target)
-  needs_demographics <- any(c("demographics", "ses", "aria") %in% domains)
-  needs_ses_lookup <- any(c("ses", "aria") %in% domains)
-  needs_ses <- any(c("ses", "aria") %in% domains)
-  needs_aria_lookup <- "aria" %in% domains
-  needs_mri_lookup <- "mri" %in% domains
-  needs_biomarkers_wide <- "biomarkers" %in% domains
-  needs_genomics_participant <- "genomics" %in% domains
-  needs_psg_lookup <- any(c("psg_summary", "psg_full") %in% domains)
-  needs_psg_powerspec <- "psg_powerspec" %in% domains
-  needs_participant_scaffold <- "participants" %in% domains
-  needs_participant_year_rows <- any(
-    c(
-      "moca",
-      "ad8",
-      "ucla",
-      "similarities",
-      "prose_passages",
-      "cognitive_screening"
-    ) %in%
-      domains
-  )
+  domain_targets <- lapply(supported_domains, be_export_domain_target)
 
   shared_targets <- list(
     targets::tar_target(
@@ -372,176 +375,92 @@ be_target_graph <- function(
     )
   )
 
-  if (isTRUE(needs_participant_scaffold)) {
-    shared_targets <- c(
-      shared_targets,
-      list(
-        targets::tar_target(
-          export_participant_scaffold,
-          be_build_core_scaffold_domain(
-            export_participant_redcap,
-            years = export_cohort_years
-          )
+  shared_targets <- c(
+    shared_targets,
+    list(
+      targets::tar_target(
+        export_participant_scaffold,
+        be_build_core_scaffold_domain(
+          export_participant_redcap,
+          years = export_cohort_years
         )
+      ),
+      targets::tar_target(
+        export_participants_base,
+        be_build_participants_base(
+          redcap_df = export_participant_redcap,
+          years = export_cohort_years,
+          baseline_demographics = export_baseline_demographics,
+          scaffold = export_participant_scaffold
+        )
+      ),
+      targets::tar_target(
+        export_participant_year_rows,
+        be_participant_year_rows_input(
+          export_domain_redcap,
+          years = export_cohort_years
+        )
+      ),
+      targets::tar_target(
+        export_demographics,
+        be_build_demographics_domain(
+          redcap_df = export_domain_redcap,
+          years = export_cohort_years
+        )
+      ),
+      targets::tar_target(
+        export_ses_lookup,
+        be_read_ses_lookup(export_shared_root)
+      ),
+      targets::tar_target(
+        export_ses,
+        be_build_ses_domain(
+          redcap_df = export_domain_redcap,
+          shared_root = export_shared_root,
+          years = export_cohort_years,
+          demographics = export_demographics,
+          ses_lookup = export_ses_lookup
+        )
+      ),
+      targets::tar_target(
+        export_aria_lookup,
+        be_read_aria_lookup(export_shared_root)
+      ),
+      targets::tar_target(
+        export_mri_lookup,
+        be_read_mri_lookup(export_shared_root)
+      ),
+      targets::tar_target(
+        export_biomarkers_wide,
+        be_read_biomarkers_wide(export_shared_root)
+      ),
+      targets::tar_target(
+        export_genomics_participant,
+        be_build_genomics_participant_domain(
+          redcap_df = export_domain_redcap,
+          years = export_cohort_years
+        )
+      ),
+      targets::tar_target(
+        export_psg_lookup,
+        be_read_psg_lookup(export_shared_root)
+      ),
+      targets::tar_target(
+        export_psg_external_base,
+        be_build_psg_external_base(
+          redcap_df = export_domain_redcap,
+          shared_root = export_shared_root,
+          years = export_cohort_years,
+          scaffold = export_scaffold,
+          psg_lookup = export_psg_lookup
+        )
+      ),
+      targets::tar_target(
+        export_psg_powerspec_wide,
+        be_read_psg_powerspec_wide(export_shared_root)
       )
     )
-  }
-  if (isTRUE(needs_participant_scaffold)) {
-    shared_targets <- c(
-      shared_targets,
-      list(
-        targets::tar_target(
-          export_participants_base,
-          be_build_participants_base(
-            redcap_df = export_participant_redcap,
-            years = export_cohort_years,
-            baseline_demographics = export_baseline_demographics,
-            scaffold = export_participant_scaffold
-          )
-        )
-      )
-    )
-  }
-  if (isTRUE(needs_participant_year_rows)) {
-    shared_targets <- c(
-      shared_targets,
-      list(
-        targets::tar_target(
-          export_participant_year_rows,
-          be_participant_year_rows_input(
-            export_domain_redcap,
-            years = export_cohort_years
-          )
-        )
-      )
-    )
-  }
-  if (isTRUE(needs_demographics)) {
-    shared_targets <- c(
-      shared_targets,
-      list(
-        targets::tar_target(
-          export_demographics,
-          be_build_demographics_domain(
-            redcap_df = export_domain_redcap,
-            years = export_cohort_years
-          )
-        )
-      )
-    )
-  }
-  if (isTRUE(needs_ses_lookup)) {
-    shared_targets <- c(
-      shared_targets,
-      list(
-        targets::tar_target(
-          export_ses_lookup,
-          be_read_ses_lookup(export_shared_root)
-        )
-      )
-    )
-  }
-  if (isTRUE(needs_ses)) {
-    shared_targets <- c(
-      shared_targets,
-      list(
-        targets::tar_target(
-          export_ses,
-          be_build_ses_domain(
-            redcap_df = export_domain_redcap,
-            shared_root = export_shared_root,
-            years = export_cohort_years,
-            demographics = export_demographics,
-            ses_lookup = export_ses_lookup
-          )
-        )
-      )
-    )
-  }
-  if (isTRUE(needs_aria_lookup)) {
-    shared_targets <- c(
-      shared_targets,
-      list(
-        targets::tar_target(
-          export_aria_lookup,
-          be_read_aria_lookup(export_shared_root)
-        )
-      )
-    )
-  }
-  if (isTRUE(needs_mri_lookup)) {
-    shared_targets <- c(
-      shared_targets,
-      list(
-        targets::tar_target(
-          export_mri_lookup,
-          be_read_mri_lookup(export_shared_root)
-        )
-      )
-    )
-  }
-  if (isTRUE(needs_biomarkers_wide)) {
-    shared_targets <- c(
-      shared_targets,
-      list(
-        targets::tar_target(
-          export_biomarkers_wide,
-          be_read_biomarkers_wide(export_shared_root)
-        )
-      )
-    )
-  }
-  if (isTRUE(needs_genomics_participant)) {
-    shared_targets <- c(
-      shared_targets,
-      list(
-        targets::tar_target(
-          export_genomics_participant,
-          be_build_genomics_participant_domain(
-            redcap_df = export_domain_redcap,
-            years = export_cohort_years
-          )
-        )
-      )
-    )
-  }
-  if (isTRUE(needs_psg_lookup)) {
-    shared_targets <- c(
-      shared_targets,
-      list(
-        targets::tar_target(
-          export_psg_lookup,
-          be_read_psg_lookup(export_shared_root)
-        )
-      )
-    )
-    shared_targets <- c(
-      shared_targets,
-      list(
-        targets::tar_target(
-          export_psg_external_base,
-          be_build_psg_external_base(
-            redcap_df = export_domain_redcap,
-            shared_root = export_shared_root,
-            years = export_cohort_years,
-            scaffold = export_scaffold,
-            psg_lookup = export_psg_lookup
-          )
-        )
-      )
-    )
-  }
-  if (isTRUE(needs_psg_powerspec)) {
-    shared_targets <- c(
-      shared_targets,
-      list(
-        targets::tar_target(
-          export_psg_powerspec_wide,
-          be_read_psg_powerspec_wide(export_shared_root)
-        )
-      )
-    )
-  }
+  )
 
   c(
     shared_targets,
