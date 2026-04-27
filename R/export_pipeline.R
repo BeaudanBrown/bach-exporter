@@ -198,7 +198,8 @@ be_write_export_targets_script <- function(
   refresh_mode = "auto",
   project_root = getwd(),
   parallel_workers = be_default_export_parallel_workers(),
-  prefer_package = isNamespace(be_export_targets_parent_environment())
+  prefer_package = isNamespace(be_export_targets_parent_environment()),
+  prefer_project_sources = !identical(Sys.getenv("TESTTHAT"), "true")
 ) {
   quote_r_string <- function(value) {
     encodeString(as.character(value), quote = "\"")
@@ -206,9 +207,17 @@ be_write_export_targets_script <- function(
 
   parallel_workers <- be_normalize_export_parallel_workers(parallel_workers)
   use_crew <- be_export_pipeline_uses_crew(parallel_workers)
+  resolved_project_root <- normalizePath(
+    project_root,
+    winslash = "/",
+    mustWork = TRUE
+  )
+  source_project <- isTRUE(prefer_project_sources) &&
+    dir.exists(file.path(resolved_project_root, "R"))
+  use_package_imports <- isTRUE(prefer_package) && !isTRUE(source_project)
   spec_lines <- capture.output(dput(spec))
   tar_option_lines <- c("target_packages <- c('jsonlite')")
-  if (isTRUE(prefer_package)) {
+  if (isTRUE(use_package_imports)) {
     tar_option_lines <- c(
       tar_option_lines,
       "target_imports <- character()",
@@ -250,7 +259,18 @@ be_write_export_targets_script <- function(
   }
   tar_option_lines <- c(tar_option_lines, ")")
 
-  graph_loader_lines <- if (isTRUE(prefer_package)) {
+  graph_loader_lines <- if (isTRUE(source_project)) {
+    c(
+      "if (dir.exists(file.path(project_root, 'R'))) {",
+      "  for (path in sort(Sys.glob(file.path(project_root, 'R', '*.R')))) {",
+      "    source(path, local = TRUE)",
+      "  }",
+      "  if (!exists('be_target_graph', mode = 'function', inherits = TRUE)) {",
+      "    stop('Project R sources did not define be_target_graph.', call. = FALSE)",
+      "  }",
+      "  be_target_graph <- get('be_target_graph', inherits = TRUE)"
+    )
+  } else if (isTRUE(prefer_package)) {
     c(
       "if (requireNamespace('bachExporter', quietly = TRUE)) {",
       "  be_target_graph <- get('be_target_graph', envir = asNamespace('bachExporter'))",
@@ -269,14 +289,7 @@ be_write_export_targets_script <- function(
   script_lines <- c(
     "library(targets)",
     tar_option_lines,
-    sprintf(
-      "project_root <- %s",
-      quote_r_string(normalizePath(
-        project_root,
-        winslash = "/",
-        mustWork = TRUE
-      ))
-    ),
+    sprintf("project_root <- %s", quote_r_string(resolved_project_root)),
     graph_loader_lines,
     "} else if (dir.exists(file.path(project_root, 'R'))) {",
     "  for (path in sort(Sys.glob(file.path(project_root, 'R', '*.R')))) {",

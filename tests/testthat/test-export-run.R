@@ -3166,6 +3166,35 @@ test_that("targets script writer emits ASCII-quoted paths", {
   expect_false(any(grepl("[“”]", script_lines)))
 })
 
+test_that("targets script writer prefers project sources over package imports", {
+  script_path <- tempfile("targets-script-", fileext = ".R")
+  on.exit(unlink(script_path), add = TRUE)
+
+  spec <- be_default_export_spec(shared_root = "/tmp/shared-root")
+  spec$output$path <- "/tmp/output.csv"
+
+  be_write_export_targets_script(
+    script_path = script_path,
+    spec = spec,
+    shared_root = "/tmp/shared-root",
+    refresh_mode = "auto",
+    project_root = normalizePath(file.path("..", ".."), mustWork = TRUE),
+    prefer_package = TRUE,
+    prefer_project_sources = TRUE
+  )
+
+  script_lines <- readLines(script_path, warn = FALSE)
+
+  expect_true(any(grepl(
+    "Sys.glob\\(file.path\\(project_root, 'R'",
+    script_lines
+  )))
+  expect_false(any(grepl(
+    "target_imports <- c\\(target_imports, 'bachExporter'\\)",
+    script_lines
+  )))
+})
+
 test_that("targets script writer configures crew when parallel workers are requested", {
   skip_if_not_installed("crew")
   skip_if_not_installed("bachExporter")
