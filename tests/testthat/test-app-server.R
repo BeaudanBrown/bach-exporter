@@ -99,6 +99,7 @@ test_that("app server wraps exports in progress feedback and button busy state",
 
   shiny::testServer(
     app_env$be_app_server(
+      shared_root = "/tmp/shared-root",
       notification_runner = function(ui, type = "default", duration = 5, ...) {
         notifications[[length(notifications) + 1]] <<- list(
           ui = ui,
@@ -117,12 +118,10 @@ test_that("app server wraps exports in progress feedback and button busy state",
     ),
     {
       session$setInputs(
-        shared_root = "/tmp/shared-root",
         years = "baseline",
         domains = "participants",
         cat_labels = "named",
         participant_ids = "",
-        subset_file = "",
         output_path = "/tmp/export.csv",
         refresh_mode = "auto",
         run_export_btn = 1
@@ -130,6 +129,7 @@ test_that("app server wraps exports in progress feedback and button busy state",
 
       expect_length(export_calls, 1)
       expect_equal(export_calls[[1]]$refresh_mode, "auto")
+      expect_equal(export_calls[[1]]$spec$shared$root, "/tmp/shared-root")
       expect_equal(export_calls[[1]]$spec$output$path, "/tmp/export.csv")
       expect_equal(
         vapply(button_messages, `[[`, logical(1), "busy"),
@@ -138,7 +138,6 @@ test_that("app server wraps exports in progress feedback and button busy state",
       expect_length(notifications, 0)
       expect_equal(output$status_log, "Export completed: /tmp/export.csv")
       expect_match(output$live_log, "Export completed")
-      expect_match(output$history_detail, "run-1")
       expect_null(output$export_error_banner)
     }
   )
@@ -168,6 +167,7 @@ test_that("app server streams export log callback entries to the live log", {
 
   shiny::testServer(
     app_env$be_app_server(
+      shared_root = "/tmp/shared-root",
       notification_runner = function(...) NULL,
       export_runner = function(spec, refresh_mode, log_callback = NULL) {
         log_callback(
@@ -184,12 +184,10 @@ test_that("app server streams export log callback entries to the live log", {
     ),
     {
       session$setInputs(
-        shared_root = "/tmp/shared-root",
         years = "baseline",
         domains = "participants",
         cat_labels = "named",
         participant_ids = "",
-        subset_file = "",
         output_path = "/tmp/export.csv",
         refresh_mode = "auto",
         run_export_btn = 1
@@ -329,6 +327,7 @@ test_that("app server reports export failures and restores idle button state", {
 
   shiny::testServer(
     app_env$be_app_server(
+      shared_root = "/tmp/shared-root",
       notification_runner = function(ui, type = "default", duration = 5, ...) {
         notifications[[length(notifications) + 1]] <<- list(
           ui = ui,
@@ -343,12 +342,10 @@ test_that("app server reports export failures and restores idle button state", {
     ),
     {
       session$setInputs(
-        shared_root = "/tmp/shared-root",
         years = "baseline",
         domains = "participants",
         cat_labels = "named",
         participant_ids = "",
-        subset_file = "",
         output_path = "/tmp/export.csv",
         refresh_mode = "auto",
         run_export_btn = 1
@@ -369,7 +366,6 @@ test_that("app server reports export failures and restores idle button state", {
       )
       expect_match(error_banner, "Export failed")
       expect_match(error_banner, "boom")
-      expect_match(output$history_detail, "boom")
     }
   )
 })

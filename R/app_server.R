@@ -113,12 +113,6 @@ be_app_server <- function(
 ) {
   function(input, output, session) {
     roots <- be_shiny_roots()
-    shinyFiles::shinyDirChoose(
-      input,
-      "browse_shared_root",
-      roots = roots,
-      session = session
-    )
     shinyFiles::shinyFileSave(
       input,
       "browse_output",
@@ -132,18 +126,9 @@ be_app_server <- function(
     export_busy <- shiny::reactiveVal(FALSE)
     export_busy_message <- shiny::reactiveVal(NULL)
     export_error_message <- shiny::reactiveVal(NULL)
-    history_nonce <- shiny::reactiveVal(0)
 
-    initial_shared_root <- shared_root %||% be_load_shared_root() %||% ""
-    shiny::updateTextInput(session, "shared_root", value = initial_shared_root)
+    resolved_shared_root <- shared_root %||% be_load_shared_root() %||% ""
     be_update_output_path(session, be_default_output_path())
-
-    shiny::observeEvent(input$browse_shared_root, {
-      selected <- shinyFiles::parseDirPath(roots, input$browse_shared_root)
-      if (length(selected) == 1 && nzchar(selected)) {
-        shiny::updateTextInput(session, "shared_root", value = selected)
-      }
-    })
 
     shiny::observeEvent(input$browse_output, {
       selected <- shinyFiles::parseSavePath(roots, input$browse_output)
@@ -151,17 +136,6 @@ be_app_server <- function(
       if (!is.null(output_path) && nzchar(output_path)) {
         be_update_output_path(session, output_path)
       }
-    })
-
-    shiny::observeEvent(input$save_shared_root, {
-      validation <- be_validate_shared_root(input$shared_root)
-      if (!isTRUE(validation$ok)) {
-        status_log(sprintf("Shared root not saved: %s", validation$message))
-        return()
-      }
-      be_save_shared_root(input$shared_root)
-      status_log(sprintf("Shared root saved: %s", input$shared_root))
-      history_nonce(history_nonce() + 1)
     })
 
     shiny::observeEvent(input$select_all_domains_btn, {
@@ -174,10 +148,9 @@ be_app_server <- function(
         return()
       }
 
-      spec <- be_default_export_spec(shared_root = input$shared_root)
+      spec <- be_default_export_spec(shared_root = resolved_shared_root)
       spec$cohort$years <- input$years
       spec$cohort$participant_ids <- input$participant_ids
-      spec$cohort$subset_file <- input$subset_file
       spec$domains <- input$domains
       spec$options$cat_labels <- input$cat_labels
       spec$output$path <- input$output_path
@@ -275,12 +248,6 @@ be_app_server <- function(
           append_live_log(sprintf("Export completed: %s", result$output))
         }
       }
-      history_nonce(history_nonce() + 1)
-    })
-
-    export_history <- shiny::reactive({
-      history_nonce()
-      be_read_export_history()
     })
 
     output$export_busy_banner <- shiny::renderUI({
@@ -313,39 +280,6 @@ be_app_server <- function(
 
     output$live_log <- shiny::renderText({
       live_log()
-    })
-
-    output$export_history <- shiny::renderTable(
-      {
-        history <- export_history()
-        if (!nrow(history)) {
-          return(NULL)
-        }
-
-        history[,
-          c(
-            "completed_at",
-            "status",
-            "domains",
-            "row_count",
-            "output_path",
-            "build_id"
-          ),
-          drop = FALSE
-        ]
-      },
-      striped = TRUE,
-      bordered = TRUE,
-      spacing = "xs"
-    )
-
-    output$history_detail <- shiny::renderPrint({
-      history <- export_history()
-      if (!nrow(history)) {
-        return("No local export history recorded yet.")
-      }
-
-      as.list(history[1, , drop = FALSE])
     })
   }
 }

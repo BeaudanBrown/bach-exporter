@@ -92,28 +92,11 @@ be_app_ui <- function() {
           "Export",
           shiny::fluidRow(
             shiny::column(
-              width = 12,
-              shiny::textInput("shared_root", "Shared folder root", value = ""),
-              shinyFiles::shinyDirButton(
-                "browse_shared_root",
-                "Browse",
-                "Choose shared folder"
-              ),
-              shiny::actionButton("save_shared_root", "Save shared root"),
-              shiny::p(
-                class = "app-note",
-                "Researcher exports read snapshots from this shared folder."
-              ),
-              shiny::hr()
-            )
-          ),
-          shiny::fluidRow(
-            shiny::column(
               width = 6,
               shiny::selectInput(
                 "years",
                 "Years",
-                choices = c("baseline", "year2", "year3"),
+                choices = c("baseline", "year2", "year3", "year4"),
                 multiple = TRUE,
                 selected = "baseline"
               ),
@@ -137,14 +120,8 @@ be_app_ui <- function() {
                 "participant_ids",
                 "Participant IDs",
                 value = "",
-                placeholder = "Optional. Enter BACH001, 002, etc. separated by commas or new lines.",
+                placeholder = "Optional. Enter BACH0007, 0007, 7, etc. separated by commas or new lines.",
                 rows = 4
-              ),
-              shiny::textInput(
-                "subset_file",
-                "Subset file path",
-                value = "",
-                placeholder = "Optional text file with one participant ID per line."
               )
             ),
             shiny::column(
@@ -180,10 +157,6 @@ be_app_ui <- function() {
           )
         ),
         shiny::tabPanel(
-          "Status",
-          shiny::verbatimTextOutput("status_log")
-        ),
-        shiny::tabPanel(
           "Logs",
           shiny::p(
             class = "app-note",
@@ -191,16 +164,6 @@ be_app_ui <- function() {
           ),
           shiny::verbatimTextOutput("live_log") |>
             shiny::tagAppendAttributes(class = "log-feed")
-        ),
-        shiny::tabPanel(
-          "History",
-          shiny::p(
-            class = "app-note",
-            "Recent exports are recorded locally on this machine, including their output path, row count, and log file."
-          ),
-          shiny::tableOutput("export_history"),
-          shiny::hr(),
-          shiny::verbatimTextOutput("history_detail")
         )
       )
     )
