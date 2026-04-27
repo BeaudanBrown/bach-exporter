@@ -67,7 +67,7 @@ be_validate_export_spec <- function(spec) {
     ))
   }
 
-  supported_years <- c("baseline", "year2", "year3")
+  supported_years <- c("baseline", "year2", "year3", "year4")
   years <- spec$cohort$years %||% character()
   if (!length(years)) {
     return(list(
@@ -106,64 +106,7 @@ be_validate_export_spec <- function(spec) {
     ))
   }
 
-  supported_domains <- c(
-    "participants",
-    "participant_screening",
-    "mri_screening",
-    "mri",
-    "lp_screening",
-    "lp",
-    "moca",
-    "ad8",
-    "ucla",
-    "demographics",
-    "cesd",
-    "stai",
-    "pss",
-    "cdrisc",
-    "ses",
-    "aria",
-    "ipaq",
-    "rhhi",
-    "minddiet",
-    "alcohol",
-    "cfi",
-    "global_health",
-    "biomarkers",
-    "genomics",
-    "bloods",
-    "vitals",
-    "bp24h",
-    "medical_history",
-    "cdr",
-    "mmse",
-    "sydbat",
-    "logical_memory",
-    "visual_reproduction",
-    "tmt",
-    "fab",
-    "cowat",
-    "hvot",
-    "tasit",
-    "topf",
-    "dementia_status",
-    "psqi",
-    "ess",
-    "isi",
-    "psg_screening",
-    "psg_sleephealth",
-    "psg_sleepmed",
-    "psg_morningquest",
-    "psg_summary",
-    "psg_full",
-    "psg_powerspec",
-    "actigraphy_full",
-    "actigraphy_summary",
-    "similarities",
-    "prose_passages",
-    "cognitive_screening",
-    "medications"
-  )
+  supported_domains <- be_supported_export_domains()
   unsupported_domains <- setdiff(domains, supported_domains)
   if (length(unsupported_domains)) {
     return(list(

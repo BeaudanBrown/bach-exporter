@@ -1,16 +1,34 @@
 be_normalize_year_name <- function(x) {
   value <- tolower(trimws(as.character(x)))
+  tokenized <- gsub("[^a-z0-9]+", " ", value)
+  tokenized <- trimws(tokenized)
 
   ifelse(
-    grepl("baseline", value, fixed = TRUE),
+    grepl("\\bbaseline\\b", tokenized),
     "baseline",
     ifelse(
-      grepl("year 2|year2|2 year|2yr", value),
+      grepl(
+        "\\byear\\s*2\\b|\\byear2\\b|\\b2\\s*year\\b|\\b2\\s*yr\\b",
+        tokenized
+      ),
       "year2",
       ifelse(
-        grepl("year 3|year3|3 year|3yr", value),
+        grepl(
+          "\\byear\\s*3\\b|\\byear3\\b|\\b3\\s*year\\b|\\b3\\s*yr\\b",
+          tokenized
+        ),
         "year3",
-        value
+        ifelse(
+          grepl(
+            paste0(
+              "\\byear\\s*4\\b|\\byear4\\b|\\b4\\s*year\\b|\\b4\\s*yr\\b|",
+              "\\bfollow\\s*up\\b|\\bfollowup\\b"
+            ),
+            tokenized
+          ),
+          "year4",
+          value
+        )
       )
     )
   )

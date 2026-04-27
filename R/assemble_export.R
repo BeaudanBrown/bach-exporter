@@ -571,6 +571,9 @@ be_supported_export_domains <- function() {
     "stai",
     "pss",
     "cdrisc",
+    "das",
+    "informant_das",
+    "mfi",
     "ses",
     "aria",
     "ipaq",
@@ -700,6 +703,15 @@ be_export_domain_registry <- function(
     }),
     cdrisc = list(level = "event", build = function() {
       be_build_cdrisc_domain(redcap_df = redcap_df, years = years)
+    }),
+    das = list(level = "event", build = function() {
+      be_build_das_domain(redcap_df = redcap_df, years = years)
+    }),
+    informant_das = list(level = "event", build = function() {
+      be_build_informant_das_domain(redcap_df = redcap_df, years = years)
+    }),
+    mfi = list(level = "event", build = function() {
+      be_build_mfi_domain(redcap_df = redcap_df, years = years)
     }),
     ses = list(level = "event", build = function() {
       export_intermediates$ses %||%

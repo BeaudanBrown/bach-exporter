@@ -18,3 +18,11 @@ test_that("main app keeps configuration-only controls out of the UI", {
   expect_false(grepl(">Shared Root<", ui_html, fixed = TRUE))
   expect_false(grepl("preset_detail", ui_html, fixed = TRUE))
 })
+
+test_that("domain choices include DAS and MFI questionnaires", {
+  choices <- ui_env$be_domain_choices()
+
+  expect_equal(unname(choices["DAS"]), "das")
+  expect_equal(unname(choices["Informant DAS"]), "informant_das")
+  expect_equal(unname(choices["MFI"]), "mfi")
+})

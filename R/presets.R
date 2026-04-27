@@ -7,7 +7,7 @@ be_default_presets <- function() {
     ),
     annual_phone = list(
       label = "Annual Phone",
-      years = c("baseline", "year2", "year3"),
+      years = c("baseline", "year2", "year3", "year4"),
       domains = c(
         "participants",
         "moca",
@@ -20,7 +20,7 @@ be_default_presets <- function() {
     ),
     clinical_medications = list(
       label = "Clinical Medications",
-      years = c("baseline", "year2", "year3"),
+      years = c("baseline", "year2", "year3", "year4"),
       domains = c(
         "participants",
         "medications"
@@ -59,7 +59,7 @@ be_default_presets <- function() {
     ),
     medical_history = list(
       label = "Medical History",
-      years = c("baseline", "year2", "year3"),
+      years = c("baseline", "year2", "year3", "year4"),
       domains = c(
         "participants",
         "medical_history"

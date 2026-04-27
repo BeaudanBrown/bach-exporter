@@ -17,6 +17,7 @@ source(file.path("..", "..", "R", "domain_annual_phone_aux.R"))
 source(file.path("..", "..", "R", "domain_screening_aux.R"))
 source(file.path("..", "..", "R", "domain_imaging.R"))
 source(file.path("..", "..", "R", "domain_surveys.R"))
+source(file.path("..", "..", "R", "domain_questionnaires.R"))
 source(file.path("..", "..", "R", "domain_clinical.R"))
 source(file.path("..", "..", "R", "domain_biomarkers.R"))
 source(file.path("..", "..", "R", "domain_genomics.R"))
@@ -32,6 +33,22 @@ source(file.path("..", "..", "R", "export_validate.R"))
 source(file.path("..", "..", "R", "targets_graph.R"))
 source(file.path("..", "..", "R", "export_pipeline.R"))
 source(file.path("..", "..", "R", "export_run.R"))
+
+test_that("REDCap arm event names normalize to supported cohort years", {
+  expect_equal(
+    be_normalize_year_name(c(
+      "baseline_arm_1",
+      "year_2_arm_1",
+      "year_3_arm_1",
+      "followup_arm_1",
+      "Year 2",
+      "Year 3",
+      "Year 4",
+      "Follow-Up"
+    )),
+    c("baseline", "year2", "year3", "year4", "year2", "year3", "year4", "year4")
+  )
+})
 
 populate_test_shared_app <- function(shared_root, build_id = "dev") {
   app_root <- file.path(shared_root, "app")
@@ -243,6 +260,91 @@ make_export_shared_root <- function() {
     pss_total = c(10, 12, NA),
     cd_risc_date = c("2026-01-03", "2026-01-04", NA),
     cd_risc_total = c(28, 26, NA),
+    sdas_completion = c("2026-01-03", "2026-01-04", NA),
+    sdas_1 = c(1, 2, NA),
+    sdas_2 = c(2, 3, NA),
+    sdas_3 = c(3, 4, NA),
+    sdas_4 = c(4, 1, NA),
+    sdas_5 = c(1, 2, NA),
+    sdas_6 = c(2, 3, NA),
+    sdas_7 = c(3, 4, NA),
+    sdas_8 = c(4, 1, NA),
+    sdas_9 = c(1, 2, NA),
+    sdas_10 = c(2, 3, NA),
+    sdas_11 = c(3, 4, NA),
+    sdas_12 = c(4, 1, NA),
+    sdas_13 = c(1, 2, NA),
+    sdas_14 = c(2, 3, NA),
+    sdas_15 = c(3, 4, NA),
+    sdas_16 = c(4, 1, NA),
+    sdas_17 = c(1, 2, NA),
+    sdas_18 = c(2, 3, NA),
+    sdas_19 = c(3, 4, NA),
+    sdas_20 = c(4, 1, NA),
+    sdas_21 = c(1, 2, NA),
+    sdas_22 = c(2, 3, NA),
+    sdas_23 = c(3, 4, NA),
+    sdas_24 = c(4, 1, NA),
+    sdas_total = c(60, 66, NA),
+    sdas_executive_score = c(20, 22, NA),
+    sdas_emotional_score = c(18, 20, NA),
+    sdas_cognitive_score = c(22, 24, NA),
+    i_das_date = c("2026-01-03", "2026-01-04", NA),
+    i_das_1 = c(2, 1, NA),
+    i_das_2 = c(3, 2, NA),
+    i_das_3 = c(4, 3, NA),
+    i_das_4 = c(1, 4, NA),
+    i_das_5 = c(2, 1, NA),
+    i_das_6 = c(3, 2, NA),
+    i_das_7 = c(4, 3, NA),
+    i_das_8 = c(1, 4, NA),
+    i_das_9 = c(2, 1, NA),
+    i_das_10 = c(3, 2, NA),
+    i_das_11 = c(4, 3, NA),
+    i_das_12 = c(1, 4, NA),
+    i_das_13 = c(2, 1, NA),
+    i_das_14 = c(3, 2, NA),
+    i_das_15 = c(4, 3, NA),
+    i_das_16 = c(1, 4, NA),
+    i_das_17 = c(2, 1, NA),
+    i_das_18 = c(3, 2, NA),
+    i_das_19 = c(4, 3, NA),
+    i_das_20 = c(1, 4, NA),
+    i_das_21 = c(2, 1, NA),
+    i_das_22 = c(3, 2, NA),
+    i_das_23 = c(4, 3, NA),
+    i_das_24 = c(1, 4, NA),
+    i_das_total = c(58, 61, NA),
+    i_das_executive_score = c(19, 21, NA),
+    i_das_emotional_score = c(17, 19, NA),
+    i_das_behaviour_score = c(22, 21, NA),
+    mfi_date = c("2026-01-03", "2026-01-04", NA),
+    mfi_1 = c(1, 2, NA),
+    mfi_2 = c(2, 3, NA),
+    mfi_3 = c(3, 4, NA),
+    mfi_4 = c(4, 1, NA),
+    mfi_5 = c(1, 2, NA),
+    mfi_6 = c(2, 3, NA),
+    mfi_7 = c(3, 4, NA),
+    mfi_8 = c(4, 1, NA),
+    mfi_9 = c(1, 2, NA),
+    mfi_10 = c(2, 3, NA),
+    mfi_11 = c(3, 4, NA),
+    mfi_12 = c(4, 1, NA),
+    mfi_13 = c(1, 2, NA),
+    mfi_14 = c(2, 3, NA),
+    mfi_15 = c(3, 4, NA),
+    mfi_16 = c(4, 1, NA),
+    mfi_17 = c(1, 2, NA),
+    mfi_18 = c(2, 3, NA),
+    mfi_19 = c(3, 4, NA),
+    mfi_20 = c(4, 1, NA),
+    mfi_total = c(52, 55, NA),
+    mfi_general_fatigue_score = c(11, 12, NA),
+    mfi_phys_fatigue_score = c(10, 11, NA),
+    mfi_reduced_act_score = c(9, 10, NA),
+    mfi_reduced_motiv_score = c(8, 9, NA),
+    mfi_mental_fatigue_score = c(14, 13, NA),
     ipaq_date = c("2026-01-03", "2026-01-04", NA),
     ipaq_vig_met = c(100, 200, NA),
     ipaq_mod_met = c(50, 80, NA),
@@ -1276,6 +1378,30 @@ test_that("SES and ARIA domains enrich demographics from shared side-data", {
   expect_equal(aria$RAcategory, c("Urban", "Rural"))
 })
 
+test_that("DAS and MFI questionnaire domains map REDCap fields", {
+  shared_root <- make_export_shared_root()
+  on.exit(unlink(shared_root, recursive = TRUE), add = TRUE)
+
+  redcap_df <- be_read_redcap_snapshot(shared_root)
+  das <- be_build_das_domain(redcap_df, years = "baseline")
+  informant_das <- be_build_informant_das_domain(redcap_df, years = "baseline")
+  mfi <- be_build_mfi_domain(redcap_df, years = "baseline")
+
+  expect_equal(das$participant_id, c("001", "002"))
+  expect_equal(das$das_total, c(60, 66))
+  expect_equal(das$das_executive_score, c(20, 22))
+  expect_equal(das$das_cognitive_score, c(22, 24))
+
+  expect_equal(informant_das$participant_id, c("001", "002"))
+  expect_equal(informant_das$informant_das_total, c(58, 61))
+  expect_equal(informant_das$informant_das_behaviour_score, c(22, 21))
+
+  expect_equal(mfi$participant_id, c("001", "002"))
+  expect_equal(mfi$mfi_total, c(52, 55))
+  expect_equal(mfi$mfi_general_fatigue_score, c(11, 12))
+  expect_equal(mfi$mfi_mental_fatigue_score, c(14, 13))
+})
+
 test_that("clinical domains map baseline clinical fields and derived outcomes", {
   shared_root <- make_export_shared_root()
   on.exit(unlink(shared_root, recursive = TRUE), add = TRUE)
@@ -1303,58 +1429,58 @@ test_that("clinical domains map baseline clinical fields and derived outcomes", 
 
 test_that("medical history domain maps baseline and follow-up clinical history fields", {
   redcap_df <- data.frame(
-    idno = c("BACH001", "BACH001", "BACH001"),
-    redcap_event_name = c("Baseline", "Year 2", "Year 3"),
-    medical_history_date = c("2026-02-01", NA, NA),
-    smoked_recent = c("No", NA, NA),
-    smoked_lifetime = c("Yes", NA, NA),
-    smoked_years = c(10, NA, NA),
-    smoked_number = c(0.5, NA, NA),
-    smoked_agequit = c(50, NA, NA),
-    cvd_heartattack = c("No", NA, NA),
-    cvd_atrialfibrillation = c("No", NA, NA),
-    medical_diabetes = c("No", NA, NA),
-    medical_hypertension = c("Yes", NA, NA),
-    medical_apnoea = c("No", NA, NA),
-    mh_notes = c("Baseline note", NA, NA),
-    mh_follow_cogimpair_v2 = c(NA, "Yes", "No"),
-    mh_follow_cogimpair_y_v2 = c(NA, "Memory issues", ""),
-    mh_follow_cd_v2 = c(NA, "No", "Yes"),
-    mh_follow_mycardial_v2 = c(NA, "No", "Yes"),
-    mh_follow_stroke_v2 = c(NA, "No", "Yes"),
-    mh_follow_stroke_t_v2 = c(NA, "", "Ischemic"),
-    mh_follow_tia_v2 = c(NA, "No", "Yes"),
-    mh_follow_hf_v2 = c(NA, "No", "No"),
-    mh_follow_af_v2 = c(NA, "Yes", "No"),
-    mh_follow_cvd_other_v2 = c(NA, "", "Valve repair"),
-    mh_follow_cancer_v2 = c(NA, "No", "Yes"),
-    mh_follow_cancer_y_v2 = c(NA, "", "Skin"),
-    mh_follow_sleep_v2 = c(NA, "Yes", "No"),
-    mh_follow_sleep_y_v2 = c(NA, "Insomnia", ""),
-    mh_follow_psych_v2 = c(NA, "No", "Yes"),
-    mh_follow_psych_y_v2 = c(NA, "", "Anxiety"),
-    mh_follow_hosp_v2 = c(NA, "Yes", "No"),
-    mh_follow_hosp_y_v2 = c(NA, "Knee surgery", ""),
-    mh_follow_notes = c(NA, "Year 2 note", "Year 3 note"),
+    idno = c("BACH001", "BACH001", "BACH001", "BACH001"),
+    redcap_event_name = c("Baseline", "Year 2", "Year 3", "Follow-Up"),
+    medical_history_date = c("2026-02-01", NA, NA, NA),
+    smoked_recent = c("No", NA, NA, NA),
+    smoked_lifetime = c("Yes", NA, NA, NA),
+    smoked_years = c(10, NA, NA, NA),
+    smoked_number = c(0.5, NA, NA, NA),
+    smoked_agequit = c(50, NA, NA, NA),
+    cvd_heartattack = c("No", NA, NA, NA),
+    cvd_atrialfibrillation = c("No", NA, NA, NA),
+    medical_diabetes = c("No", NA, NA, NA),
+    medical_hypertension = c("Yes", NA, NA, NA),
+    medical_apnoea = c("No", NA, NA, NA),
+    mh_notes = c("Baseline note", NA, NA, NA),
+    mh_follow_cogimpair_v2 = c(NA, "Yes", "No", "Yes"),
+    mh_follow_cogimpair_y_v2 = c(NA, "Memory issues", "", "Follow-up"),
+    mh_follow_cd_v2 = c(NA, "No", "Yes", "No"),
+    mh_follow_mycardial_v2 = c(NA, "No", "Yes", "No"),
+    mh_follow_stroke_v2 = c(NA, "No", "Yes", "No"),
+    mh_follow_stroke_t_v2 = c(NA, "", "Ischemic", ""),
+    mh_follow_tia_v2 = c(NA, "No", "Yes", "No"),
+    mh_follow_hf_v2 = c(NA, "No", "No", "No"),
+    mh_follow_af_v2 = c(NA, "Yes", "No", "No"),
+    mh_follow_cvd_other_v2 = c(NA, "", "Valve repair", ""),
+    mh_follow_cancer_v2 = c(NA, "No", "Yes", "No"),
+    mh_follow_cancer_y_v2 = c(NA, "", "Skin", ""),
+    mh_follow_sleep_v2 = c(NA, "Yes", "No", "Yes"),
+    mh_follow_sleep_y_v2 = c(NA, "Insomnia", "", "Sleep clinic"),
+    mh_follow_psych_v2 = c(NA, "No", "Yes", "No"),
+    mh_follow_psych_y_v2 = c(NA, "", "Anxiety", ""),
+    mh_follow_hosp_v2 = c(NA, "Yes", "No", "No"),
+    mh_follow_hosp_y_v2 = c(NA, "Knee surgery", "", ""),
+    mh_follow_notes = c(NA, "Year 2 note", "Year 3 note", "Year 4 note"),
     stringsAsFactors = FALSE
   )
 
   result <- be_build_medical_history_domain(
     redcap_df,
-    years = c("baseline", "year2", "year3")
+    years = c("baseline", "year2", "year3", "year4")
   )
 
-  expect_equal(result$participant_id, c("001", "001", "001"))
-  expect_equal(result$year, c("baseline", "year2", "year3"))
+  expect_equal(result$participant_id, c("001", "001", "001", "001"))
+  expect_equal(result$year, c("baseline", "year2", "year3", "year4"))
   expect_equal(result$medhx_date[[1]], "2026-02-01")
   expect_equal(result$smoking_current[[1]], "No")
   expect_equal(result$medhx_htn[[1]], "Yes")
   expect_equal(result$medhx_cogimpair[2:3], c("Yes", "No"))
-  expect_equal(result$medhx_sleep_follow[2:3], c("Yes", "No"))
+  expect_equal(result$medhx_sleep_follow[2:4], c("Yes", "No", "Yes"))
   expect_equal(result$medhx_hosp_detail[2], "Knee surgery")
   expect_equal(
     result$medhx_notes,
-    c("Baseline note", "Year 2 note", "Year 3 note")
+    c("Baseline note", "Year 2 note", "Year 3 note", "Year 4 note")
   )
 })
 
@@ -2370,6 +2496,37 @@ test_that("run_export supports extended neuropsych battery domains", {
   expect_equal(export_df$topf_total_corrected, c(3, 2, 4))
 })
 
+test_that("run_export supports DAS and MFI questionnaire domains", {
+  shared_root <- make_export_shared_root()
+  on.exit(unlink(shared_root, recursive = TRUE), add = TRUE)
+
+  output_dir <- tempfile("export-dir-")
+  dir.create(output_dir, recursive = TRUE)
+  on.exit(unlink(output_dir, recursive = TRUE), add = TRUE)
+
+  spec <- be_default_export_spec(shared_root = shared_root)
+  spec$output$path <- file.path(output_dir, "questionnaires.csv")
+  spec$domains <- c("participants", "das", "informant_das", "mfi")
+  spec$cohort$years <- "baseline"
+
+  result <- run_export(
+    spec,
+    refresh_mode = "auto"
+  )
+
+  export_df <- utils::read.csv(
+    result$output,
+    stringsAsFactors = FALSE,
+    check.names = FALSE
+  )
+
+  expect_equal(export_df$participant_id, c(1, 2))
+  expect_equal(export_df$das_total, c(60, 66))
+  expect_equal(export_df$informant_das_total, c(58, 61))
+  expect_equal(export_df$mfi_total, c(52, 55))
+  expect_equal(export_df$mfi_mental_fatigue_score, c(14, 13))
+})
+
 test_that("run_export supports dementia status domain", {
   shared_root <- make_export_shared_root()
   on.exit(unlink(shared_root, recursive = TRUE), add = TRUE)
@@ -2911,8 +3068,12 @@ test_that("export validation rejects unsupported source modes and years", {
   spec$source$mode <- "snapshot"
   spec$cohort$years <- c("baseline", "year4")
   year_result <- be_validate_export_spec(spec)
-  expect_false(year_result$ok)
-  expect_match(year_result$message, "not supported")
+  expect_true(year_result$ok)
+
+  spec$cohort$years <- c("baseline", "year6")
+  unsupported_year_result <- be_validate_export_spec(spec)
+  expect_false(unsupported_year_result$ok)
+  expect_match(unsupported_year_result$message, "not supported")
 })
 
 test_that("export validation rejects extra researcher source settings", {
