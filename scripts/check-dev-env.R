@@ -6,7 +6,6 @@ required_packages <- c(
   "tarchetypes",
   "crew",
   "future",
-  "qs",
   "qs2",
   "dotenv",
   "jsonlite",

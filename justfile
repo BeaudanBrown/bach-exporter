@@ -25,4 +25,4 @@ refresh-shared-root SHARED_ROOT:
 launch:
     tmp_root="${BACH_EXPORTER_LOCAL_CACHE_DIR:-$HOME/.cache/R/bachExporter}/tmp"; \
     mkdir -p "$tmp_root"; \
-    TMPDIR="$tmp_root" TMP="$tmp_root" TEMP="$tmp_root" Rscript launch_bach_exporter.R
+    TMPDIR="$tmp_root" TMP="$tmp_root" TEMP="$tmp_root" Rscript -e 'source("R/paths.R"); source("R/config.R"); source("launch_bach_exporter.R"); launch_bach_exporter(be_load_shared_root())'

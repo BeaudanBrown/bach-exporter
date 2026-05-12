@@ -97,7 +97,6 @@
               tarchetypes
               crew
               future
-              qs
               qs2
               languageserver
               dotenv

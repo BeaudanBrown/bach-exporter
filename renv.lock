@@ -2104,11 +2104,6 @@
       "Maintainer": "Gábor Csárdi <csardi.gabor@gmail.com>",
       "Repository": "CRAN"
     },
-    "qs": {
-      "Package": "qs",
-      "Version": "0.27.3",
-      "Source": "Repository"
-    },
     "qs2": {
       "Package": "qs2",
       "Version": "0.1.5",
