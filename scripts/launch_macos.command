@@ -55,9 +55,15 @@ update_process_path() {
   export PATH
 }
 
+is_r_lib_rig() {
+  local candidate="$1"
+  [[ -x "$candidate" ]] || return 1
+  "$candidate" list >/dev/null 2>&1
+}
+
 get_rig_command() {
   local rig
-  if rig="$(command -v rig 2>/dev/null)"; then
+  if rig="$(command -v rig 2>/dev/null)" && is_r_lib_rig "$rig"; then
     printf '%s\n' "$rig"
     return 0
   fi
@@ -67,7 +73,7 @@ get_rig_command() {
     "/opt/homebrew/bin/rig" \
     "/usr/local/bin/rig" \
     "$HOME/.local/bin/rig"; do
-    if [[ -x "$candidate" ]]; then
+    if is_r_lib_rig "$candidate"; then
       printf '%s\n' "$candidate"
       return 0
     fi
@@ -112,8 +118,9 @@ install_rig_with_homebrew() {
   local brew
   brew="$(get_brew_command)" || return 1
 
-  write_step "Installing rig with Homebrew..."
-  "$brew" install rig >&2
+  write_step "Installing r-lib rig with Homebrew..."
+  "$brew" tap r-lib/rig >&2
+  "$brew" install --cask rig >&2
   local status=$?
   update_process_path
   return "$status"
@@ -137,11 +144,16 @@ ensure_rig() {
 
   fail "rig is required to install and launch the required R version.
 
-Install rig from:
+Install r-lib rig from:
 https://github.com/r-lib/rig/releases
 
-If Homebrew just installed rig, close this window, open a new Terminal window,
-and rerun this launcher. This launcher does not change your default R version."
+If Homebrew installed the unrelated identity-generator rig formula, remove it with:
+brew uninstall rig
+brew tap r-lib/rig
+brew install --cask rig
+
+Then close this window, open a new Terminal window, and rerun this launcher.
+This launcher does not change your default R version."
 }
 
 get_r_minor_version() {
