@@ -24,36 +24,41 @@
       let
         pkgs = nixpkgs.legacyPackages.${system};
         pkgsUnstable = nixpkgsUnstable.legacyPackages.${system};
+        bachRuntimePackages = with pkgs.rPackages; [
+          bslib
+          crew
+          dotenv
+          future
+          ggplot2
+          jsonlite
+          languageserver
+          qs2
+          redcapAPI
+          remotes
+          renv
+          shiny
+          shinyFiles
+          targets
+          tarchetypes
+          testthat
+        ];
+        bachExporterPackage = pkgs.rPackages.buildRPackage {
+          name = "bachExporter-0.0.1";
+          src = self;
+          propagatedBuildInputs = bachRuntimePackages;
+          dontCheck = true;
+        };
         bachR = pkgs.rWrapper.override {
-          packages = with pkgs.rPackages; [
-            bslib
-            crew
-            dotenv
-            future
-            ggplot2
-            jsonlite
-            languageserver
-            qs2
-            redcapAPI
-            remotes
-            renv
-            shiny
-            shinyFiles
-            targets
-            tarchetypes
-            testthat
-          ];
+          packages = bachRuntimePackages ++ [ bachExporterPackage ];
         };
         bachExporter = pkgs.writeShellApplication {
           name = "bach-exporter";
           runtimeInputs = [ bachR ];
           text = ''
-            export BACH_EXPORTER_SKIP_R_VERSION_CHECK=1
             exec Rscript - "$@" <<'RSCRIPT'
             args <- commandArgs(trailingOnly = TRUE)
             shared_root <- if (length(args) > 0L && nzchar(args[[1L]])) args[[1L]] else NULL
-            source("${self}/launch_bach_exporter.R", chdir = TRUE)
-            launch_bach_exporter(shared_root)
+            shiny::runApp(bachExporter::run_app(shared_root), launch.browser = TRUE)
             RSCRIPT
           '';
         };
