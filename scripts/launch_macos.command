@@ -183,7 +183,19 @@ run_rig_capture() {
   "$rig" "$@" >"$output_file" 2>&1
 }
 
-run_sudo_rig_capture() {
+run_rig_visible_capture() {
+  local output_file="$1"
+  local rig="$2"
+  shift 2
+
+  set +e
+  "$rig" "$@" 2>&1 | tee "$output_file" >&2
+  local status=${PIPESTATUS[0]}
+  set -e
+  return "$status"
+}
+
+run_sudo_rig_visible_capture() {
   local output_file="$1"
   local rig="$2"
   shift 2
@@ -191,7 +203,12 @@ run_sudo_rig_capture() {
   command -v sudo >/dev/null 2>&1 || return 1
   write_step "Requesting administrator permission for the R installation..."
   sudo -v || return 1
-  sudo "$rig" "$@" >"$output_file" 2>&1
+
+  set +e
+  sudo "$rig" "$@" 2>&1 | tee "$output_file" >&2
+  local status=${PIPESTATUS[0]}
+  set -e
+  return "$status"
 }
 
 print_rig_output() {
@@ -224,15 +241,12 @@ ensure_r_version() {
   fi
 
   write_step "Installing R $required_minor.x with rig..."
-  if ! run_rig_capture "$output_file" "$rig" add "$required_minor"; then
-    print_rig_output "$output_file"
+  if ! run_rig_visible_capture "$output_file" "$rig" add "$required_minor"; then
     write_step "Retrying R $required_minor.x installation with sudo rig..."
-    if ! run_sudo_rig_capture "$output_file" "$rig" add "$required_minor"; then
-      print_rig_output "$output_file"
+    if ! run_sudo_rig_visible_capture "$output_file" "$rig" add "$required_minor"; then
       fail "rig failed to install R $required_minor.x, even when retried with sudo."
     fi
   fi
-  print_rig_output "$output_file"
 
   if ! run_rig_capture "$output_file" "$rig" list; then
     print_rig_output "$output_file"
