@@ -156,6 +156,81 @@ Then close this window, open a new Terminal window, and rerun this launcher.
 This launcher does not change your default R version."
 }
 
+append_env_path() {
+  local env_name="$1"
+  local path="$2"
+  local current="${!env_name:-}"
+
+  [[ -d "$path" ]] || return 1
+  if [[ -z "$current" ]]; then
+    export "$env_name=$path"
+  elif [[ ":$current:" != *":$path:"* ]]; then
+    export "$env_name=$path:$current"
+  fi
+}
+
+configure_gettext_build_env() {
+  local prefix="$1"
+
+  [[ -d "$prefix" ]] || return 1
+  append_env_path PATH "$prefix/bin" || true
+  append_env_path PKG_CONFIG_PATH "$prefix/lib/pkgconfig" || true
+  export CPPFLAGS="-I$prefix/include ${CPPFLAGS:-}"
+  export LDFLAGS="-L$prefix/lib ${LDFLAGS:-}"
+  export PATH
+  return 0
+}
+
+find_gettext_prefix() {
+  local brew prefix
+  if brew="$(get_brew_command)"; then
+    prefix="$($brew --prefix gettext 2>/dev/null || true)"
+    if [[ -n "$prefix" && -d "$prefix" ]]; then
+      printf '%s\n' "$prefix"
+      return 0
+    fi
+  fi
+
+  for prefix in "/opt/homebrew/opt/gettext" "/usr/local/opt/gettext"; do
+    if [[ -d "$prefix" ]]; then
+      printf '%s\n' "$prefix"
+      return 0
+    fi
+  done
+
+  return 1
+}
+
+ensure_gettext() {
+  local prefix brew
+  if prefix="$(find_gettext_prefix)"; then
+    configure_gettext_build_env "$prefix"
+    return 0
+  fi
+
+  brew="$(get_brew_command)" || fail "Homebrew is required to install gettext, needed if R packages compile from source. Install Homebrew or ask IT to install gettext."
+  write_step "Installing gettext with Homebrew for R package builds..."
+  "$brew" install gettext >&2
+
+  prefix="$(find_gettext_prefix)" || fail "Homebrew installed gettext, but its install prefix could not be found."
+  configure_gettext_build_env "$prefix"
+}
+
+ensure_xcode_command_line_tools() {
+  if xcrun --find clang >/dev/null 2>&1; then
+    return 0
+  fi
+
+  write_step "Installing Apple Command Line Tools for R package builds..."
+  xcode-select --install >/dev/null 2>&1 || true
+  fail "Apple Command Line Tools are required if R packages compile from source. Complete the installer that just opened, then rerun this launcher."
+}
+
+ensure_macos_build_requirements() {
+  ensure_gettext
+  ensure_xcode_command_line_tools
+}
+
 get_r_minor_version() {
   local version="$1"
   awk -F. 'NF >= 2 { print $1 "." $2 }' <<<"$version"
@@ -274,6 +349,7 @@ REQUIRED_R="$(read_required_r_version "$SHARED_ROOT")" || exit $?
 RIG="$(ensure_rig)" || exit $?
 RUN_R="$(ensure_r_version "$RIG" "$REQUIRED_R")" || exit $?
 CACHE_ROOT="$(use_launcher_cache)" || exit $?
+ensure_macos_build_requirements
 
 write_step "Launching BACH Exporter with R $RUN_R..."
 printf 'Shared root: %s\n' "$SHARED_ROOT"
