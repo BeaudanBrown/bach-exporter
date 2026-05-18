@@ -236,24 +236,33 @@ ensure_homebrew_package() {
 
 find_gcc_lib_dir() {
   local brew prefix candidate
+  local search_roots=()
+
   if brew="$(get_brew_command)"; then
     prefix="$($brew --prefix gcc 2>/dev/null || true)"
-    if [[ -n "$prefix" ]]; then
-      for candidate in "$prefix/lib/gcc/current" "$prefix/lib/gcc" "$prefix/lib"; do
-        if [[ -f "$candidate/libemutls_w.a" || -f "$candidate/libemutls_w.dylib" ]]; then
-          printf '%s\n' "$candidate"
-          return 0
-        fi
-      done
+    if [[ -n "$prefix" && -d "$prefix" ]]; then
+      search_roots+=("$prefix")
     fi
   fi
 
-  for candidate in /opt/homebrew/lib/gcc/current /usr/local/lib/gcc/current; do
-    if [[ -f "$candidate/libemutls_w.a" || -f "$candidate/libemutls_w.dylib" ]]; then
-      printf '%s\n' "$candidate"
-      return 0
-    fi
+  for candidate in \
+    /opt/homebrew/opt/gcc \
+    /usr/local/opt/gcc \
+    /opt/homebrew/lib/gcc \
+    /usr/local/lib/gcc; do
+    [[ -d "$candidate" ]] && search_roots+=("$candidate")
   done
+
+  if [[ ${#search_roots[@]} -gt 0 ]]; then
+    while IFS= read -r candidate; do
+      printf '%s\n' "$(dirname "$candidate")"
+      return 0
+    done < <(
+      find "${search_roots[@]}" \
+        \( -name libemutls_w.a -o -name libemutls_w.dylib \) \
+        -print 2>/dev/null | sort -V
+    )
+  fi
 
   return 1
 }
