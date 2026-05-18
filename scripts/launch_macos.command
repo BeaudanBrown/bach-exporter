@@ -223,9 +223,10 @@ ensure_gettext() {
 ensure_homebrew_package() {
   local package="$1"
   local description="$2"
+  local command_name="${3:-$package}"
   local brew
 
-  command -v "$package" >/dev/null 2>&1 && return 0
+  command -v "$command_name" >/dev/null 2>&1 && return 0
   brew="$(get_brew_command)" || fail "Homebrew is required to install $description. Install Homebrew or ask IT to install $package."
 
   write_step "Installing $description with Homebrew..."
@@ -233,20 +234,73 @@ ensure_homebrew_package() {
   update_process_path
 }
 
+find_gcc_lib_dir() {
+  local brew prefix candidate
+  if brew="$(get_brew_command)"; then
+    prefix="$($brew --prefix gcc 2>/dev/null || true)"
+    if [[ -n "$prefix" ]]; then
+      for candidate in "$prefix/lib/gcc/current" "$prefix/lib/gcc" "$prefix/lib"; do
+        if [[ -f "$candidate/libemutls_w.a" || -f "$candidate/libemutls_w.dylib" ]]; then
+          printf '%s\n' "$candidate"
+          return 0
+        fi
+      done
+    fi
+  fi
+
+  for candidate in /opt/homebrew/lib/gcc/current /usr/local/lib/gcc/current; do
+    if [[ -f "$candidate/libemutls_w.a" || -f "$candidate/libemutls_w.dylib" ]]; then
+      printf '%s\n' "$candidate"
+      return 0
+    fi
+  done
+
+  return 1
+}
+
+configure_gcc_runtime_env() {
+  local gcc_lib_dir="$1"
+
+  [[ -d "$gcc_lib_dir" ]] || return 1
+  export BACH_EXPORTER_GCC_LIB_DIR="$gcc_lib_dir"
+  export LDFLAGS="-L$gcc_lib_dir ${LDFLAGS:-}"
+  export FLIBS="-L$gcc_lib_dir ${FLIBS:-}"
+  write_step "Configured GCC runtime libraries for R package builds: $gcc_lib_dir"
+}
+
+ensure_gcc_runtime() {
+  local gcc_lib_dir
+  if ! gcc_lib_dir="$(find_gcc_lib_dir)"; then
+    ensure_homebrew_package gcc "GCC/gfortran runtime libraries for R package builds" gfortran
+    gcc_lib_dir="$(find_gcc_lib_dir)" || fail "Homebrew installed gcc, but libemutls_w could not be found."
+  fi
+
+  configure_gcc_runtime_env "$gcc_lib_dir"
+}
+
 write_r_makevars() {
   local cache_root="$1"
   local gettext_prefix="${BACH_EXPORTER_GETTEXT_PREFIX:-}"
+  local gcc_lib_dir="${BACH_EXPORTER_GCC_LIB_DIR:-}"
   local makevars_dir="$cache_root/r-build"
   local makevars_path="$makevars_dir/Makevars"
 
-  [[ -n "$gettext_prefix" && -d "$gettext_prefix" ]] || return 0
   mkdir -p "$makevars_dir" || fail "Could not create R build configuration directory."
-  cat >"$makevars_path" <<EOF
+  : >"$makevars_path"
+  if [[ -n "$gettext_prefix" && -d "$gettext_prefix" ]]; then
+    cat >>"$makevars_path" <<EOF
 CPPFLAGS += -I$gettext_prefix/include
 LDFLAGS += -L$gettext_prefix/lib
 PKG_CPPFLAGS += -I$gettext_prefix/include
 PKG_LIBS += -L$gettext_prefix/lib -lintl
 EOF
+  fi
+  if [[ -n "$gcc_lib_dir" && -d "$gcc_lib_dir" ]]; then
+    cat >>"$makevars_path" <<EOF
+LDFLAGS += -L$gcc_lib_dir
+FLIBS += -L$gcc_lib_dir
+EOF
+  fi
   export R_MAKEVARS_USER="$makevars_path"
   write_step "Configured R Makevars for source package builds: $makevars_path"
 }
@@ -265,6 +319,7 @@ ensure_macos_build_requirements() {
   local cache_root="$1"
 
   ensure_gettext
+  ensure_gcc_runtime
   write_r_makevars "$cache_root"
   ensure_homebrew_package cmake "CMake for R package builds"
   ensure_xcode_command_line_tools
