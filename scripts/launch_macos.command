@@ -164,9 +164,13 @@ get_r_minor_version() {
 find_compatible_r_version() {
   local required_minor="$1"
   awk -v minor="$required_minor" '
-    $0 ~ "(^|[[:space:]])" minor "\\.[0-9]+($|[[:space:]])" {
+    {
       for (i = 1; i <= NF; i++) {
         if ($i ~ "^" minor "\\.[0-9]+$") {
+          print $i
+          exit
+        }
+        if ($i ~ "^" minor "-(arm64|x86_64|x86_64-arm64|arm64-x86_64)$") {
           print $i
           exit
         }
