@@ -7,6 +7,116 @@ be_launcher_status_text <- function(text) {
   paste(as.character(text), collapse = "\n")
 }
 
+be_launcher_package_repos <- function() {
+  c(CRAN = "https://packagemanager.posit.co/cran/latest")
+}
+
+be_launcher_configure_package_repos <- function() {
+  repos <- be_launcher_package_repos()
+  options(
+    repos = repos,
+    renv.config.repos.override = repos
+  )
+  Sys.setenv(RENV_CONFIG_REPOS_OVERRIDE = unname(repos[["CRAN"]]))
+
+  if (
+    .Platform$OS.type == "windows" ||
+      identical(Sys.info()[["sysname"]], "Darwin")
+  ) {
+    options(pkgType = "binary")
+  }
+
+  invisible(repos)
+}
+
+be_launcher_required_r_version <- function(shared_root) {
+  if (is.null(shared_root) || !nzchar(shared_root)) {
+    return(NULL)
+  }
+
+  lockfile <- file.path(shared_root, "app", "renv.lock")
+  if (!file.exists(lockfile)) {
+    lockfile <- file.path(shared_root, "renv.lock")
+  }
+  if (!file.exists(lockfile)) {
+    return(NULL)
+  }
+
+  lines <- tryCatch(
+    readLines(lockfile, warn = FALSE),
+    error = function(err) character()
+  )
+  r_section <- grep('"R"[[:space:]]*:', lines)
+  if (!length(r_section)) {
+    return(NULL)
+  }
+
+  version_line <- grep(
+    '"Version"[[:space:]]*:',
+    lines[seq.int(r_section[[1]], min(length(lines), r_section[[1]] + 6L))],
+    value = TRUE
+  )
+  if (!length(version_line)) {
+    return(NULL)
+  }
+
+  version <- sub(
+    '^[^:]+:[[:space:]]*"([^"]+)".*$',
+    "\\1",
+    version_line[[1]]
+  )
+  if (is.null(version) || !nzchar(version)) {
+    return(NULL)
+  }
+
+  as.character(version)
+}
+
+be_launcher_r_version_compatible <- function(
+  required,
+  current = getRversion()
+) {
+  if (is.null(required) || !nzchar(required)) {
+    return(TRUE)
+  }
+
+  version_minor <- function(version) {
+    version <- as.character(version)
+    version <- trimws(version[[1]] %||% "")
+    parts <- strsplit(version, ".", fixed = TRUE)[[1]]
+    if (length(parts) < 2L || !nzchar(parts[[1]]) || !nzchar(parts[[2]])) {
+      return(NULL)
+    }
+
+    paste(parts[[1]], parts[[2]], sep = ".")
+  }
+
+  identical(version_minor(current), version_minor(required))
+}
+
+be_launcher_check_r_version <- function(shared_root) {
+  required <- be_launcher_required_r_version(shared_root)
+  if (be_launcher_r_version_compatible(required)) {
+    return(invisible(TRUE))
+  }
+
+  stop(
+    sprintf(
+      paste(
+        "This BACH Exporter release requires R %s or compatible R %s.x.",
+        "Detected: R %s.",
+        "Launch with the Windows or macOS launcher in the shared root so the",
+        "project uses the required R version without changing your default R",
+        "installation."
+      ),
+      required,
+      paste(strsplit(required, ".", fixed = TRUE)[[1]][1:2], collapse = "."),
+      as.character(getRversion())
+    ),
+    call. = FALSE
+  )
+}
+
 be_make_tree_user_writable <- function(path) {
   if (is.null(path) || !nzchar(path) || !file.exists(path)) {
     return(invisible(FALSE))
@@ -425,7 +535,7 @@ be_launcher_rstudio_document_path <- function(
         "Installing rstudioapi so the launcher can find the open RStudio file."
       )
     )
-    install_package_runner("rstudioapi", repos = "https://cloud.r-project.org")
+    install_package_runner("rstudioapi", repos = be_launcher_package_repos())
   }
 
   if (!isTRUE(rstudioapi_available()) || !isTRUE(rstudioapi_is_available())) {
@@ -455,6 +565,34 @@ be_launcher_script_path <- function(
     if (!is.null(path)) {
       return(path)
     }
+  }
+
+  script_arg_index <- which(command_args %in% c("-f", "--script"))
+  if (length(script_arg_index)) {
+    next_arg <- script_arg_index[[1]] + 1L
+    if (next_arg <= length(command_args)) {
+      path <- be_launcher_normalize_existing_file(command_args[[next_arg]])
+      if (!is.null(path)) {
+        return(path)
+      }
+    }
+  }
+
+  script_arg <- command_args[grepl("^--script=", command_args)]
+  if (length(script_arg)) {
+    path <- be_launcher_normalize_existing_file(
+      sub("^--script=", "", script_arg[[1]])
+    )
+    if (!is.null(path)) {
+      return(path)
+    }
+  }
+
+  path <- be_launcher_normalize_existing_file(
+    Sys.getenv("BACH_EXPORTER_LAUNCHER", unset = "")
+  )
+  if (!is.null(path)) {
+    return(path)
   }
 
   path <- be_launcher_source_path(source_frames = source_frames)
@@ -504,7 +642,15 @@ be_launcher_default_shared_root <- function(
     return(NULL)
   }
 
-  dirname(script_path)
+  root <- dirname(script_path)
+  if (
+    identical(basename(root), "launcher") &&
+      dir.exists(file.path(dirname(root), "app"))
+  ) {
+    return(dirname(root))
+  }
+
+  root
 }
 
 be_launcher_reexec_status <- function(
@@ -699,6 +845,7 @@ be_launcher_validate_shared_root <- function(shared_root, allow_dev = TRUE) {
 launch_bach_exporter <- function(shared_root = NULL) {
   be_launcher_use_tmp_dir()
   on.exit(be_launcher_prepare_tempdir_cleanup(), add = TRUE)
+  be_launcher_configure_package_repos()
   bootstrap_library <- be_launcher_use_local_library()
 
   ensure_bootstrap_package <- function(pkg) {
@@ -706,16 +853,20 @@ launch_bach_exporter <- function(shared_root = NULL) {
       install.packages(
         pkg,
         lib = bootstrap_library,
-        repos = "https://cloud.r-project.org"
+        repos = be_launcher_package_repos()
       )
     }
   }
 
+  default_shared_root <- shared_root %||% be_launcher_default_shared_root()
+  if (!is.null(default_shared_root)) {
+    be_launcher_check_r_version(default_shared_root)
+  }
+
   ensure_bootstrap_package("jsonlite")
 
-  shared_root <- shared_root %||%
-    be_launcher_default_shared_root() %||%
-    be_launcher_load_shared_root()
+  shared_root <- default_shared_root %||% be_launcher_load_shared_root()
+  be_launcher_check_r_version(shared_root)
   validation <- be_launcher_validate_shared_root(shared_root %||% "")
 
   if (!isTRUE(validation$ok)) {
@@ -828,6 +979,14 @@ if (sys.nframe() == 0) {
     if (is.null(reexec_status)) {
       launch_bach_exporter()
     } else {
+      if (!identical(as.integer(reexec_status), 0L)) {
+        message(
+          sprintf(
+            "BACH Exporter internal Rscript launch exited with status %s.",
+            reexec_status
+          )
+        )
+      }
       quit(save = "no", status = reexec_status)
     }
   }

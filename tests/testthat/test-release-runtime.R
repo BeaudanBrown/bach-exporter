@@ -270,7 +270,21 @@ test_that("shared app staging and publish place the launcher at the shared root"
 
   expect_true(file.exists(file.path(
     stage_result$shared_root,
+    "launcher",
     "launch_bach_exporter.R"
+  )))
+  expect_true(file.exists(file.path(
+    stage_result$shared_root,
+    "launcher",
+    "Launch-BACH-Exporter.ps1"
+  )))
+  expect_true(file.exists(file.path(
+    stage_result$shared_root,
+    "Launch BACH Exporter - Windows.cmd"
+  )))
+  expect_true(file.exists(file.path(
+    stage_result$shared_root,
+    "Launch BACH Exporter - macOS.command"
   )))
   expect_true(file.exists(file.path(
     stage_result$app_root,
@@ -285,8 +299,25 @@ test_that("shared app staging and publish place the launcher at the shared root"
     sync_side_data = FALSE
   )
 
-  shared_launcher <- file.path(shared_root, "launch_bach_exporter.R")
+  shared_launcher <- file.path(
+    shared_root,
+    "launcher",
+    "launch_bach_exporter.R"
+  )
   expect_true(file.exists(shared_launcher))
+  expect_true(file.exists(file.path(
+    shared_root,
+    "launcher",
+    "Launch-BACH-Exporter.ps1"
+  )))
+  expect_true(file.exists(file.path(
+    shared_root,
+    "Launch BACH Exporter - Windows.cmd"
+  )))
+  expect_true(file.exists(file.path(
+    shared_root,
+    "Launch BACH Exporter - macOS.command"
+  )))
   expect_true(file.exists(file.path(
     publish_result$app_root,
     "scripts",

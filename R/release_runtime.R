@@ -298,7 +298,30 @@ be_release_runtime_hook <- function(name, default) {
   hook
 }
 
+be_release_runtime_package_repos <- function() {
+  c(CRAN = "https://packagemanager.posit.co/cran/latest")
+}
+
+be_release_runtime_configure_package_repos <- function() {
+  repos <- be_release_runtime_package_repos()
+  options(
+    repos = repos,
+    renv.config.repos.override = repos
+  )
+  Sys.setenv(RENV_CONFIG_REPOS_OVERRIDE = unname(repos[["CRAN"]]))
+
+  if (
+    .Platform$OS.type == "windows" ||
+      identical(Sys.info()[["sysname"]], "Darwin")
+  ) {
+    options(pkgType = "binary")
+  }
+
+  invisible(repos)
+}
+
 be_ensure_bootstrap_package <- function(pkg, library_dir = NULL) {
+  be_release_runtime_configure_package_repos()
   if (!is.null(library_dir) && nzchar(library_dir)) {
     dir.create(library_dir, recursive = TRUE, showWarnings = FALSE)
     .libPaths(unique(c(library_dir, .libPaths())))
@@ -308,7 +331,7 @@ be_ensure_bootstrap_package <- function(pkg, library_dir = NULL) {
     install.packages(
       pkg,
       lib = library_dir %||% .libPaths()[[1]],
-      repos = "https://cloud.r-project.org"
+      repos = be_release_runtime_package_repos()
     )
   }
 }
@@ -354,6 +377,7 @@ be_restore_release_dependencies <- function(
   }
 
   be_ensure_bootstrap_package("renv", library_dir = library_dir)
+  be_release_runtime_configure_package_repos()
   renv::consent(provided = TRUE)
   package_names <- be_release_lockfile_packages(lockfile_path)
   old_libpaths <- .libPaths()

@@ -289,6 +289,65 @@ test_that("launcher resolves script path from source metadata", {
   )
 })
 
+test_that("launcher resolves script path from rig script arguments", {
+  launcher_path <- normalizePath(
+    file.path("..", "..", "launch_bach_exporter.R"),
+    winslash = "/",
+    mustWork = TRUE
+  )
+
+  expect_equal(
+    env$be_launcher_script_path(
+      command_args = c("R", "-f", launcher_path),
+      source_frames = list(),
+      install_rstudioapi = FALSE
+    ),
+    launcher_path
+  )
+  expect_equal(
+    env$be_launcher_script_path(
+      command_args = c("R", "--script", launcher_path),
+      source_frames = list(),
+      install_rstudioapi = FALSE
+    ),
+    launcher_path
+  )
+  expect_equal(
+    env$be_launcher_script_path(
+      command_args = c("R", paste0("--script=", launcher_path)),
+      source_frames = list(),
+      install_rstudioapi = FALSE
+    ),
+    launcher_path
+  )
+})
+
+test_that("launcher resolves script path from launcher environment fallback", {
+  launcher_path <- normalizePath(
+    file.path("..", "..", "launch_bach_exporter.R"),
+    winslash = "/",
+    mustWork = TRUE
+  )
+
+  Sys.setenv(BACH_EXPORTER_LAUNCHER = launcher_path)
+  on.exit(Sys.unsetenv("BACH_EXPORTER_LAUNCHER"), add = TRUE)
+
+  expect_equal(
+    env$be_launcher_script_path(
+      command_args = character(),
+      source_frames = list(),
+      install_rstudioapi = FALSE
+    ),
+    launcher_path
+  )
+})
+
+test_that("launcher accepts matching R major/minor versions", {
+  expect_true(env$be_launcher_r_version_compatible("4.5.1", "4.5.1"))
+  expect_true(env$be_launcher_r_version_compatible("4.5.1", "4.5.2"))
+  expect_false(env$be_launcher_r_version_compatible("4.5.1", "4.6.0"))
+})
+
 test_that("launcher installs rstudioapi when needed for active document fallback", {
   launcher_path <- normalizePath(
     file.path("..", "..", "launch_bach_exporter.R"),
@@ -312,7 +371,39 @@ test_that("launcher installs rstudioapi when needed for active document fallback
   expect_equal(result, launcher_path)
   expect_length(installs, 1)
   expect_equal(installs[[1]]$pkgs, "rstudioapi")
-  expect_equal(installs[[1]]$repos, "https://cloud.r-project.org")
+  expect_equal(installs[[1]]$repos, env$be_launcher_package_repos())
+})
+
+test_that("launcher configures Posit Package Manager for dependency installs", {
+  old_repos <- getOption("repos")
+  old_override <- getOption("renv.config.repos.override")
+  old_pkg_type <- getOption("pkgType")
+  old_env <- Sys.getenv("RENV_CONFIG_REPOS_OVERRIDE", unset = NA)
+  on.exit(
+    {
+      options(
+        repos = old_repos,
+        renv.config.repos.override = old_override,
+        pkgType = old_pkg_type
+      )
+      if (is.na(old_env)) {
+        Sys.unsetenv("RENV_CONFIG_REPOS_OVERRIDE")
+      } else {
+        Sys.setenv(RENV_CONFIG_REPOS_OVERRIDE = old_env)
+      }
+    },
+    add = TRUE
+  )
+
+  repos <- env$be_launcher_configure_package_repos()
+
+  expect_equal(repos, c(CRAN = "https://packagemanager.posit.co/cran/latest"))
+  expect_equal(getOption("repos"), repos)
+  expect_equal(getOption("renv.config.repos.override"), repos)
+  expect_equal(
+    Sys.getenv("RENV_CONFIG_REPOS_OVERRIDE"),
+    unname(repos[["CRAN"]])
+  )
 })
 
 test_that("launcher uses its own directory as the default shared root", {
@@ -329,6 +420,26 @@ test_that("launcher uses its own directory as the default shared root", {
       source_frames = list()
     ),
     dirname(launcher_path)
+  )
+})
+
+test_that("launcher uses parent shared root when installed under launcher dir", {
+  shared_root <- tempfile("launcher-shared-root-")
+  launcher_dir <- file.path(shared_root, "launcher")
+  dir.create(file.path(shared_root, "app"), recursive = TRUE)
+  dir.create(launcher_dir, recursive = TRUE)
+  on.exit(unlink(shared_root, recursive = TRUE), add = TRUE)
+
+  launcher_path <- file.path(launcher_dir, "launch_bach_exporter.R")
+  file.create(launcher_path)
+
+  expect_equal(
+    env$be_launcher_default_shared_root(
+      command_args = character(),
+      active_document_path = launcher_path,
+      source_frames = list()
+    ),
+    shared_root
   )
 })
 

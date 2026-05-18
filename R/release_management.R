@@ -3,7 +3,19 @@ be_release_refresh_script_path <- function(release_root) {
 }
 
 be_shared_launcher_path <- function(shared_root) {
-  file.path(shared_root, "launch_bach_exporter.R")
+  file.path(shared_root, "launcher", "launch_bach_exporter.R")
+}
+
+be_shared_windows_launcher_path <- function(shared_root) {
+  file.path(shared_root, "launcher", "Launch-BACH-Exporter.ps1")
+}
+
+be_shared_windows_user_launcher_path <- function(shared_root) {
+  file.path(shared_root, "Launch BACH Exporter - Windows.cmd")
+}
+
+be_shared_macos_user_launcher_path <- function(shared_root) {
+  file.path(shared_root, "Launch BACH Exporter - macOS.command")
 }
 
 be_release_repo_paths <- function(repo_root) {
@@ -18,6 +30,17 @@ be_release_repo_paths <- function(repo_root) {
     inst_side_data_dir = file.path(repo_root, "inst", "side-data"),
     shared_side_data_dir = file.path(repo_root, "shared", "side-data"),
     shared_launcher = file.path(repo_root, "launch_bach_exporter.R"),
+    windows_launcher = file.path(repo_root, "scripts", "launch_windows.ps1"),
+    windows_user_launcher = file.path(
+      repo_root,
+      "scripts",
+      "launch_windows.cmd"
+    ),
+    macos_user_launcher = file.path(
+      repo_root,
+      "scripts",
+      "launch_macos.command"
+    ),
     launch_script = file.path(repo_root, "scripts", "launch_from_share.R"),
     validate_script = file.path(repo_root, "scripts", "validate_release.R"),
     refresh_script = file.path(repo_root, "scripts", "refresh_snapshots.R"),
@@ -370,6 +393,29 @@ be_stage_shared_app <- function(
     repo_paths$shared_launcher,
     be_shared_launcher_path(output_root)
   )
+  if (file.exists(repo_paths$windows_launcher)) {
+    be_release_copy_file(
+      repo_paths$windows_launcher,
+      be_shared_windows_launcher_path(output_root)
+    )
+  }
+  if (file.exists(repo_paths$windows_user_launcher)) {
+    be_release_copy_file(
+      repo_paths$windows_user_launcher,
+      be_shared_windows_user_launcher_path(output_root)
+    )
+  }
+  if (file.exists(repo_paths$macos_user_launcher)) {
+    be_release_copy_file(
+      repo_paths$macos_user_launcher,
+      be_shared_macos_user_launcher_path(output_root)
+    )
+    suppressWarnings(Sys.chmod(
+      be_shared_macos_user_launcher_path(output_root),
+      mode = "755",
+      use_umask = FALSE
+    ))
+  }
   be_release_copy_tree(repo_paths$r_dir, file.path(app_root, "R"))
   if (dir.exists(repo_paths$presets_dir)) {
     be_release_copy_tree(
@@ -535,6 +581,29 @@ be_publish_shared_app <- function(
     be_shared_launcher_path(staged_root),
     be_shared_launcher_path(temp_root)
   )
+  if (file.exists(be_shared_windows_launcher_path(staged_root))) {
+    be_release_copy_file(
+      be_shared_windows_launcher_path(staged_root),
+      be_shared_windows_launcher_path(temp_root)
+    )
+  }
+  if (file.exists(be_shared_windows_user_launcher_path(staged_root))) {
+    be_release_copy_file(
+      be_shared_windows_user_launcher_path(staged_root),
+      be_shared_windows_user_launcher_path(temp_root)
+    )
+  }
+  if (file.exists(be_shared_macos_user_launcher_path(staged_root))) {
+    be_release_copy_file(
+      be_shared_macos_user_launcher_path(staged_root),
+      be_shared_macos_user_launcher_path(temp_root)
+    )
+    suppressWarnings(Sys.chmod(
+      be_shared_macos_user_launcher_path(temp_root),
+      mode = "755",
+      use_umask = FALSE
+    ))
+  }
 
   if (
     isTRUE(sync_side_data) && dir.exists(be_release_side_data_root(staged_root))
@@ -577,6 +646,11 @@ be_publish_shared_app <- function(
   if (file.exists(be_shared_launcher_path(shared_root))) {
     unlink(be_shared_launcher_path(shared_root), force = TRUE)
   }
+  dir.create(
+    dirname(be_shared_launcher_path(shared_root)),
+    recursive = TRUE,
+    showWarnings = FALSE
+  )
   if (
     !file.rename(
       be_shared_launcher_path(temp_root),
@@ -589,6 +663,71 @@ be_publish_shared_app <- function(
       call. = FALSE
     )
   }
+  if (file.exists(be_shared_windows_launcher_path(temp_root))) {
+    if (file.exists(be_shared_windows_launcher_path(shared_root))) {
+      unlink(be_shared_windows_launcher_path(shared_root), force = TRUE)
+    }
+    if (
+      !file.rename(
+        be_shared_windows_launcher_path(temp_root),
+        be_shared_windows_launcher_path(shared_root)
+      )
+    ) {
+      unlink(temp_root, recursive = TRUE, force = TRUE)
+      stop(
+        "Failed to move Windows launch script into the shared root.",
+        call. = FALSE
+      )
+    }
+  }
+  if (file.exists(be_shared_windows_user_launcher_path(temp_root))) {
+    if (file.exists(be_shared_windows_user_launcher_path(shared_root))) {
+      unlink(be_shared_windows_user_launcher_path(shared_root), force = TRUE)
+    }
+    if (
+      !file.rename(
+        be_shared_windows_user_launcher_path(temp_root),
+        be_shared_windows_user_launcher_path(shared_root)
+      )
+    ) {
+      unlink(temp_root, recursive = TRUE, force = TRUE)
+      stop(
+        "Failed to move Windows user launcher into the shared root.",
+        call. = FALSE
+      )
+    }
+  }
+  if (file.exists(be_shared_macos_user_launcher_path(temp_root))) {
+    if (file.exists(be_shared_macos_user_launcher_path(shared_root))) {
+      unlink(be_shared_macos_user_launcher_path(shared_root), force = TRUE)
+    }
+    if (
+      !file.rename(
+        be_shared_macos_user_launcher_path(temp_root),
+        be_shared_macos_user_launcher_path(shared_root)
+      )
+    ) {
+      unlink(temp_root, recursive = TRUE, force = TRUE)
+      stop(
+        "Failed to move macOS user launcher into the shared root.",
+        call. = FALSE
+      )
+    }
+    suppressWarnings(Sys.chmod(
+      be_shared_macos_user_launcher_path(shared_root),
+      mode = "755",
+      use_umask = FALSE
+    ))
+  }
+
+  legacy_root_launchers <- c(
+    file.path(shared_root, "launch_bach_exporter.R"),
+    file.path(shared_root, "Launch-BACH-Exporter.ps1")
+  )
+  unlink(
+    legacy_root_launchers[file.exists(legacy_root_launchers)],
+    force = TRUE
+  )
 
   if (dir.exists(be_release_side_data_root(temp_root))) {
     unlink(
