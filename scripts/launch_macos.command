@@ -175,6 +175,7 @@ configure_gettext_build_env() {
   [[ -d "$prefix" ]] || return 1
   append_env_path PATH "$prefix/bin" || true
   append_env_path PKG_CONFIG_PATH "$prefix/lib/pkgconfig" || true
+  export BACH_EXPORTER_GETTEXT_PREFIX="$prefix"
   export CPPFLAGS="-I$prefix/include ${CPPFLAGS:-}"
   export LDFLAGS="-L$prefix/lib ${LDFLAGS:-}"
   export PKG_CPPFLAGS="-I$prefix/include ${PKG_CPPFLAGS:-}"
@@ -219,6 +220,37 @@ ensure_gettext() {
   configure_gettext_build_env "$prefix"
 }
 
+ensure_homebrew_package() {
+  local package="$1"
+  local description="$2"
+  local brew
+
+  command -v "$package" >/dev/null 2>&1 && return 0
+  brew="$(get_brew_command)" || fail "Homebrew is required to install $description. Install Homebrew or ask IT to install $package."
+
+  write_step "Installing $description with Homebrew..."
+  "$brew" install "$package" >&2
+  update_process_path
+}
+
+write_r_makevars() {
+  local cache_root="$1"
+  local gettext_prefix="${BACH_EXPORTER_GETTEXT_PREFIX:-}"
+  local makevars_dir="$cache_root/r-build"
+  local makevars_path="$makevars_dir/Makevars"
+
+  [[ -n "$gettext_prefix" && -d "$gettext_prefix" ]] || return 0
+  mkdir -p "$makevars_dir" || fail "Could not create R build configuration directory."
+  cat >"$makevars_path" <<EOF
+CPPFLAGS += -I$gettext_prefix/include
+LDFLAGS += -L$gettext_prefix/lib
+PKG_CPPFLAGS += -I$gettext_prefix/include
+PKG_LIBS += -L$gettext_prefix/lib -lintl
+EOF
+  export R_MAKEVARS_USER="$makevars_path"
+  write_step "Configured R Makevars for source package builds: $makevars_path"
+}
+
 ensure_xcode_command_line_tools() {
   if xcrun --find clang >/dev/null 2>&1; then
     return 0
@@ -230,7 +262,11 @@ ensure_xcode_command_line_tools() {
 }
 
 ensure_macos_build_requirements() {
+  local cache_root="$1"
+
   ensure_gettext
+  write_r_makevars "$cache_root"
+  ensure_homebrew_package cmake "CMake for R package builds"
   ensure_xcode_command_line_tools
 }
 
@@ -352,7 +388,7 @@ REQUIRED_R="$(read_required_r_version "$SHARED_ROOT")" || exit $?
 RIG="$(ensure_rig)" || exit $?
 RUN_R="$(ensure_r_version "$RIG" "$REQUIRED_R")" || exit $?
 CACHE_ROOT="$(use_launcher_cache)" || exit $?
-ensure_macos_build_requirements
+ensure_macos_build_requirements "$CACHE_ROOT"
 
 write_step "Launching BACH Exporter with R $RUN_R..."
 printf 'Shared root: %s\n' "$SHARED_ROOT"
