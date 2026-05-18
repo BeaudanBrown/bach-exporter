@@ -177,7 +177,10 @@ configure_gettext_build_env() {
   append_env_path PKG_CONFIG_PATH "$prefix/lib/pkgconfig" || true
   export CPPFLAGS="-I$prefix/include ${CPPFLAGS:-}"
   export LDFLAGS="-L$prefix/lib ${LDFLAGS:-}"
+  export PKG_CPPFLAGS="-I$prefix/include ${PKG_CPPFLAGS:-}"
+  export PKG_LIBS="-L$prefix/lib -lintl ${PKG_LIBS:-}"
   export PATH
+  write_step "Configured gettext for R package builds: $prefix"
   return 0
 }
 
