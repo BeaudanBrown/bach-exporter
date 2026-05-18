@@ -48,6 +48,7 @@
           name = "bach-exporter";
           runtimeInputs = [ bachR ];
           text = ''
+            export BACH_EXPORTER_SKIP_R_VERSION_CHECK=1
             exec Rscript - "$@" <<'RSCRIPT'
             args <- commandArgs(trailingOnly = TRUE)
             shared_root <- if (length(args) > 0L && nzchar(args[[1L]])) args[[1L]] else NULL

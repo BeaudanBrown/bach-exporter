@@ -95,6 +95,10 @@ be_launcher_r_version_compatible <- function(
 }
 
 be_launcher_check_r_version <- function(shared_root) {
+  if (identical(Sys.getenv("BACH_EXPORTER_SKIP_R_VERSION_CHECK"), "1")) {
+    return(invisible(TRUE))
+  }
+
   required <- be_launcher_required_r_version(shared_root)
   if (be_launcher_r_version_compatible(required)) {
     return(invisible(TRUE))
