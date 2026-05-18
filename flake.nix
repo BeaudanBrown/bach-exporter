@@ -86,9 +86,11 @@
               }
               invisible(opened)
             }
+            options(browser = open_browser)
+            Sys.setenv(BROWSER = "")
             shiny::runApp(
               bachExporter::run_app(shared_root),
-              launch.browser = open_browser
+              launch.browser = TRUE
             )
             RSCRIPT
           '';
