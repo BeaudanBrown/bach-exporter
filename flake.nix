@@ -24,8 +24,54 @@
       let
         pkgs = nixpkgs.legacyPackages.${system};
         pkgsUnstable = nixpkgsUnstable.legacyPackages.${system};
+        bachR = pkgs.rWrapper.override {
+          packages = with pkgs.rPackages; [
+            bslib
+            crew
+            dotenv
+            future
+            ggplot2
+            jsonlite
+            languageserver
+            qs2
+            redcapAPI
+            remotes
+            renv
+            shiny
+            shinyFiles
+            targets
+            tarchetypes
+            testthat
+          ];
+        };
+        bachExporter = pkgs.writeShellApplication {
+          name = "bach-exporter";
+          runtimeInputs = [ bachR ];
+          text = ''
+            exec Rscript - "$@" <<'RSCRIPT'
+            args <- commandArgs(trailingOnly = TRUE)
+            shared_root <- if (length(args) > 0L && nzchar(args[[1L]])) args[[1L]] else NULL
+            source("${self}/launch_bach_exporter.R", chdir = TRUE)
+            launch_bach_exporter(shared_root)
+            RSCRIPT
+          '';
+        };
       in
       {
+        packages = {
+          default = bachExporter;
+          bach-exporter = bachExporter;
+        };
+        apps = {
+          default = {
+            type = "app";
+            program = "${bachExporter}/bin/bach-exporter";
+          };
+          bach-exporter = {
+            type = "app";
+            program = "${bachExporter}/bin/bach-exporter";
+          };
+        };
         checks = {
           pre-commit-check = pre-commit-hooks.lib.${system}.run {
             src = ./.;
