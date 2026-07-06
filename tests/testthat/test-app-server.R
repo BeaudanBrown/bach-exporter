@@ -54,9 +54,6 @@ test_that("app server wraps exports in progress feedback and button busy state",
     list(ok = TRUE, message = "ok")
   }
   app_env$be_save_shared_root <- function(shared_root) NULL
-  app_env$be_default_presets <- function() {
-    list(baseline_core = list(years = "baseline", domains = "participants"))
-  }
   app_env$be_read_export_history <- function(limit = 20, history_path = NULL) {
     data.frame(
       run_id = "run-1",
@@ -207,9 +204,6 @@ test_that("app server initializes the output path with the default launch path",
     list(ok = TRUE, message = "ok")
   }
   app_env$be_save_shared_root <- function(shared_root) NULL
-  app_env$be_default_presets <- function() {
-    list(baseline_core = list(years = "baseline", domains = "participants"))
-  }
   app_env$be_read_export_history <- function(limit = 20, history_path = NULL) {
     data.frame()
   }
@@ -242,9 +236,6 @@ test_that("app server select-all control selects every domain", {
     list(ok = TRUE, message = "ok")
   }
   app_env$be_save_shared_root <- function(shared_root) NULL
-  app_env$be_default_presets <- function() {
-    list(baseline_core = list(years = "baseline", domains = "participants"))
-  }
   app_env$be_read_export_history <- function(limit = 20, history_path = NULL) {
     data.frame()
   }
@@ -282,9 +273,6 @@ test_that("app server reports export failures and restores idle button state", {
     list(ok = TRUE, message = "ok")
   }
   app_env$be_save_shared_root <- function(shared_root) NULL
-  app_env$be_default_presets <- function() {
-    list(baseline_core = list(years = "baseline", domains = "participants"))
-  }
   app_env$be_read_export_history <- function(limit = 20, history_path = NULL) {
     data.frame(
       run_id = "run-1",

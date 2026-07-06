@@ -16,11 +16,73 @@ be_set_button_busy_state <- function(
 }
 
 be_update_domain_selection <- function(session, selected) {
-  shiny::updateCheckboxGroupInput(
-    session,
-    "domains",
-    selected = selected
+  groups <- be_domain_group_choices()
+  for (group in names(groups)) {
+    group_choices <- unname(groups[[group]])
+    shiny::updateCheckboxInput(
+      session,
+      be_domain_group_toggle_input_id(group),
+      value = length(group_choices) > 0 && all(group_choices %in% selected)
+    )
+    shiny::updateCheckboxGroupInput(
+      session,
+      be_domain_group_input_id(group),
+      selected = intersect(selected, group_choices)
+    )
+  }
+}
+
+be_register_domain_group_toggle_observers <- function(input, session) {
+  groups <- be_domain_group_choices()
+  for (group in names(groups)) {
+    local({
+      group_name <- group
+      group_choices <- unname(groups[[group_name]])
+      toggle_id <- be_domain_group_toggle_input_id(group_name)
+      input_id <- be_domain_group_input_id(group_name)
+      shiny::observeEvent(
+        input[[toggle_id]],
+        {
+          shiny::updateCheckboxGroupInput(
+            session,
+            input_id,
+            selected = if (isTRUE(input[[toggle_id]])) {
+              group_choices
+            } else {
+              character()
+            }
+          )
+        },
+        ignoreInit = TRUE
+      )
+    })
+  }
+}
+
+be_selected_domains_from_input <- function(input) {
+  groups <- be_domain_group_choices()
+  selected <- unique(unlist(
+    lapply(names(groups), function(group) {
+      input[[be_domain_group_input_id(group)]] %||% character()
+    }),
+    use.names = FALSE
+  ))
+  selected <- selected[nzchar(selected)]
+  unique(c("participants", selected))
+}
+
+be_app_parallel_workers <- function() {
+  if (exists("be_default_export_parallel_workers", mode = "function")) {
+    return(be_default_export_parallel_workers())
+  }
+  cores <- tryCatch(
+    parallel::detectCores(logical = TRUE),
+    error = function(err) NA_integer_
   )
+  if (is.na(cores) || cores <= 1L) {
+    return(1L)
+  }
+  max(1L, as.integer(cores) - 1L)
 }
 
 be_update_output_path <- function(session, value) {
@@ -138,6 +200,8 @@ be_app_server <- function(
       }
     })
 
+    be_register_domain_group_toggle_observers(input, session)
+
     shiny::observeEvent(input$select_all_domains_btn, {
       be_update_domain_selection(session, unname(be_domain_choices()))
     })
@@ -151,13 +215,10 @@ be_app_server <- function(
       spec <- be_default_export_spec(shared_root = resolved_shared_root)
       spec$cohort$years <- input$years
       spec$cohort$participant_ids <- input$participant_ids
-      spec$domains <- input$domains
+      spec$domains <- be_selected_domains_from_input(input)
       spec$options$cat_labels <- input$cat_labels
       spec$output$path <- input$output_path
-      parallel_workers <- suppressWarnings(as.integer(input$parallel_workers))
-      if (length(parallel_workers) != 1L || is.na(parallel_workers)) {
-        parallel_workers <- 1L
-      }
+      parallel_workers <- be_app_parallel_workers()
 
       export_busy(TRUE)
       live_log("Export started.")
@@ -214,7 +275,7 @@ be_app_server <- function(
               result <- be_call_export_runner(
                 export_runner = export_runner,
                 spec = spec,
-                refresh_mode = input$refresh_mode,
+                refresh_mode = "auto",
                 parallel_workers = parallel_workers,
                 log_callback = log_callback
               )

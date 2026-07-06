@@ -109,7 +109,7 @@ be_default_export_parallel_workers <- function() {
     return(1L)
   }
 
-  min(4L, max(1L, as.integer(cores) - 1L))
+  max(1L, as.integer(cores) - 1L)
 }
 
 be_normalize_export_parallel_workers <- function(workers = NULL) {
