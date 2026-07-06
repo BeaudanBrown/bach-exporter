@@ -7,6 +7,14 @@ be_medication_repeat_labels <- function() {
   )
 }
 
+be_medication_baseline_repeat_labels <- function() {
+  c("Medications", "medications")
+}
+
+be_medication_follow_repeat_labels <- function() {
+  c("Medication Follow", "medication_follow_2")
+}
+
 be_clean_repeat_instance <- function(x) {
   value <- trimws(as.character(x))
   value[!nzchar(value)] <- NA_character_
@@ -142,8 +150,10 @@ be_build_medications_domain <- function(redcap_df, years = NULL) {
     rep(NA_character_, nrow(medication_rows))
   }
 
-  baseline_rows <- medication_rows$repeat_instrument == "Medications"
-  follow_rows <- medication_rows$repeat_instrument == "Medication Follow"
+  baseline_rows <- medication_rows$repeat_instrument %in%
+    be_medication_baseline_repeat_labels()
+  follow_rows <- medication_rows$repeat_instrument %in%
+    be_medication_follow_repeat_labels()
 
   result <- data.frame(
     participant_id = medication_rows$participant_id,
