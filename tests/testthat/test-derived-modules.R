@@ -51,6 +51,15 @@ test_that("genomics derived helpers classify genotypes and status", {
     c("carrier", "noncarrier", NA)
   )
   expect_equal(be_derive_apoe_genotype("CC", "TC"), "e3e4")
+  expect_equal(be_derive_apoe_genotype("1", "2"), "e3e4")
+  expect_equal(
+    be_normalize_apoe_allele1(c("1", "2", "3", "CC")),
+    c("CC", "CT", "TT", "CC")
+  )
+  expect_equal(
+    be_normalize_apoe_allele2(c("1", "2", "3", "TT")),
+    c("TT", "TC", "CC", "TT")
+  )
   expect_equal(
     be_derive_apoe_e4_status(c("e3e4", "e2e3", NA)),
     c("carrier", "noncarrier", NA)

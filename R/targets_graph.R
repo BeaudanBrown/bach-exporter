@@ -370,6 +370,18 @@ be_target_graph <- function(
       }
     ),
     targets::tar_target(
+      export_baseline_redcap_rows,
+      be_export_baseline_rows(export_domain_redcap)
+    ),
+    targets::tar_target(
+      export_baseline_labels_redcap_rows,
+      if (!is.null(export_domain_labels_redcap)) {
+        be_export_baseline_rows(export_domain_labels_redcap)
+      } else {
+        NULL
+      }
+    ),
+    targets::tar_target(
       export_scaffold,
       be_build_export_scaffold(export_domain_redcap)
     )
@@ -490,9 +502,14 @@ be_target_graph <- function(
             domain_redcap_df = export_domain_redcap,
             domain_labels_redcap_df = export_domain_labels_redcap,
             baseline_demographics = export_baseline_demographics,
-            baseline_labels_demographics = export_baseline_labels_demographics
+            baseline_labels_demographics = export_baseline_labels_demographics,
+            baseline_redcap_rows = export_baseline_redcap_rows,
+            baseline_labels_redcap_rows = export_baseline_labels_redcap_rows
           ),
           source_fields = be_export_output_source_fields(
+            c(event_domain_outputs, participant_domain_outputs)
+          ),
+          source_levels = be_export_output_source_levels(
             c(event_domain_outputs, participant_domain_outputs)
           )
         )

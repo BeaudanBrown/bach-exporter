@@ -539,7 +539,10 @@ be_build_psg_powerspec_domain <- function(
 }
 
 be_psg_medication_repeat_labels <- function() {
-  "Sleep Medications In Last Two Weeks"
+  c(
+    "Sleep Medications In Last Two Weeks",
+    "sleep_medications_in_last_two_weeks"
+  )
 }
 
 be_build_psg_sleepmed_domain <- function(redcap_df, years = NULL) {

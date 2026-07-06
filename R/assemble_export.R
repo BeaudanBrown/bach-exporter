@@ -30,13 +30,42 @@ be_mark_redcap_reductions <- function(
   df
 }
 
-be_set_redcap_source_fields <- function(df, source_fields) {
+be_set_redcap_source_fields <- function(
+  df,
+  source_fields,
+  source_level = "event",
+  source_levels = NULL
+) {
   attr(df, "bach_redcap_source_fields") <- source_fields
+  if (is.null(source_levels)) {
+    source_levels <- rep(source_level, length(source_fields))
+    names(source_levels) <- names(source_fields)
+  } else {
+    source_levels <- source_levels[
+      names(source_levels) %in% names(source_fields)
+    ]
+    missing_levels <- setdiff(names(source_fields), names(source_levels))
+    if (length(missing_levels)) {
+      source_levels <- c(
+        source_levels,
+        stats::setNames(
+          rep(source_level, length(missing_levels)),
+          missing_levels
+        )
+      )
+    }
+    source_levels <- source_levels[names(source_fields)]
+  }
+  attr(df, "bach_redcap_source_levels") <- source_levels
   df
 }
 
 be_redcap_source_fields <- function(df) {
   attr(df, "bach_redcap_source_fields") %||% character()
+}
+
+be_redcap_source_levels <- function(df) {
+  attr(df, "bach_redcap_source_levels") %||% character()
 }
 
 be_reduce_redcap_rows <- function(df, key_columns) {
@@ -384,6 +413,20 @@ be_build_participant_output_accumulator <- function(participant_outputs) {
   accumulator
 }
 
+be_export_baseline_rows <- function(redcap_df) {
+  baseline_rows <- be_redcap_baseline_rows(redcap_df)
+  if (!is.null(baseline_rows)) {
+    return(baseline_rows)
+  }
+  if (!"year" %in% names(redcap_df)) {
+    return(data.frame(stringsAsFactors = FALSE))
+  }
+  be_reduce_redcap_rows(
+    redcap_df[redcap_df$year == "baseline", , drop = FALSE],
+    "participant_id"
+  )
+}
+
 be_build_export_context <- function(spec, shared_root) {
   participant_ids <- be_resolve_cohort_ids(spec)
   years <- spec$cohort$years %||% NULL
@@ -430,6 +473,12 @@ be_build_export_context <- function(spec, shared_root) {
   } else {
     NULL
   }
+  baseline_redcap_rows <- be_export_baseline_rows(domain_redcap_df)
+  baseline_labels_redcap_rows <- if (!is.null(domain_labels_redcap_df)) {
+    be_export_baseline_rows(domain_labels_redcap_df)
+  } else {
+    NULL
+  }
   scaffold <- be_build_export_scaffold(domain_redcap_df)
 
   list(
@@ -444,6 +493,8 @@ be_build_export_context <- function(spec, shared_root) {
     domain_labels_redcap_df = domain_labels_redcap_df,
     baseline_demographics = baseline_demographics,
     baseline_labels_demographics = baseline_labels_demographics,
+    baseline_redcap_rows = baseline_redcap_rows,
+    baseline_labels_redcap_rows = baseline_labels_redcap_rows,
     scaffold = scaffold
   )
 }
@@ -937,7 +988,8 @@ be_build_export_domain_output <- function(
     level = entry$level,
     allow_duplicate_keys = entry$allow_duplicate_keys %||% FALSE,
     data = data,
-    source_fields = be_redcap_source_fields(data)
+    source_fields = be_redcap_source_fields(data),
+    source_levels = be_redcap_source_levels(data)
   )
 }
 
@@ -951,6 +1003,30 @@ be_export_output_source_fields <- function(domain_outputs) {
   }
   source_fields <- source_fields[!is.na(source_fields) & nzchar(source_fields)]
   source_fields[!duplicated(names(source_fields))]
+}
+
+be_export_output_source_levels <- function(domain_outputs) {
+  source_levels <- character()
+  for (output in domain_outputs) {
+    fields <- output$source_fields %||% be_redcap_source_fields(output$data)
+    levels <- output$source_levels %||% be_redcap_source_levels(output$data)
+    if (!length(fields)) {
+      next
+    }
+    if (!length(levels)) {
+      levels <- stats::setNames(rep("event", length(fields)), names(fields))
+    }
+    missing_levels <- setdiff(names(fields), names(levels))
+    if (length(missing_levels)) {
+      levels <- c(
+        levels,
+        stats::setNames(rep("event", length(missing_levels)), missing_levels)
+      )
+    }
+    source_levels <- c(source_levels, levels[names(fields)])
+  }
+  source_levels <- source_levels[!is.na(source_levels) & nzchar(source_levels)]
+  source_levels[!duplicated(names(source_levels))]
 }
 
 be_reduce_export_domain_outputs <- function(domain_outputs, scaffold = NULL) {
@@ -1161,33 +1237,84 @@ be_apply_event_labels <- function(
   )
 }
 
+be_apply_participant_year_labels <- function(
+  output,
+  raw_redcap_df,
+  labels_redcap_df,
+  source_fields = NULL
+) {
+  be_apply_labels_for_key(
+    output = output,
+    raw_df = raw_redcap_df,
+    labels_df = labels_redcap_df,
+    key_columns = c("participant_id", "year"),
+    source_fields = source_fields
+  )
+}
+
 be_apply_export_label_mode <- function(
   output,
   cat_labels = "named",
   export_context,
-  source_fields = NULL
+  source_fields = NULL,
+  source_levels = NULL
 ) {
   if (!identical(cat_labels, "named")) {
     return(output)
   }
 
   source_fields <- source_fields %||% character()
+  source_levels <- source_levels %||% character()
   identity_source_fields <- stats::setNames(names(output), names(output))
   all_source_fields <- c(source_fields, identity_source_fields)
   all_source_fields <- all_source_fields[!duplicated(names(all_source_fields))]
 
-  output <- be_apply_event_labels(
-    output = output,
-    raw_redcap_df = export_context$domain_redcap_df,
-    labels_redcap_df = export_context$domain_labels_redcap_df,
-    source_fields = all_source_fields
-  )
-  be_apply_participant_labels(
-    output = output,
-    raw_demographics = export_context$baseline_demographics,
-    labels_demographics = export_context$baseline_labels_demographics,
-    source_fields = all_source_fields
-  )
+  missing_levels <- setdiff(names(all_source_fields), names(source_levels))
+  if (length(missing_levels)) {
+    source_levels <- c(
+      source_levels,
+      stats::setNames(rep("event", length(missing_levels)), missing_levels)
+    )
+  }
+  source_levels <- source_levels[names(all_source_fields)]
+
+  fields_by_level <- split(all_source_fields, source_levels)
+
+  event_fields <- fields_by_level[["event"]] %||% character()
+  if (length(event_fields)) {
+    output <- be_apply_event_labels(
+      output = output,
+      raw_redcap_df = export_context$domain_redcap_df,
+      labels_redcap_df = export_context$domain_labels_redcap_df,
+      source_fields = event_fields
+    )
+  }
+
+  participant_year_fields <- fields_by_level[["participant_year"]] %||%
+    character()
+  if (length(participant_year_fields)) {
+    output <- be_apply_participant_year_labels(
+      output = output,
+      raw_redcap_df = export_context$domain_redcap_df,
+      labels_redcap_df = export_context$domain_labels_redcap_df,
+      source_fields = participant_year_fields
+    )
+  }
+
+  participant_fields <- fields_by_level[["participant_baseline"]] %||%
+    character()
+  if (length(participant_fields)) {
+    output <- be_apply_participant_labels(
+      output = output,
+      raw_demographics = export_context$baseline_redcap_rows %||%
+        export_context$baseline_demographics,
+      labels_demographics = export_context$baseline_labels_redcap_rows %||%
+        export_context$baseline_labels_demographics,
+      source_fields = participant_fields
+    )
+  }
+
+  output
 }
 
 be_assemble_export <- function(spec, shared_root) {
@@ -1233,6 +1360,7 @@ be_assemble_export <- function(spec, shared_root) {
     output = output,
     cat_labels = spec$options$cat_labels %||% "named",
     export_context = export_context,
-    source_fields = be_export_output_source_fields(domain_outputs)
+    source_fields = be_export_output_source_fields(domain_outputs),
+    source_levels = be_export_output_source_levels(domain_outputs)
   )
 }

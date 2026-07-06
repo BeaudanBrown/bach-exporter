@@ -27,6 +27,12 @@ be_build_genomics_participant_domain <- function(redcap_df, years = NULL) {
   )
   genomics$aqp4_status <- be_derive_aqp4_status(genomics$aqp4_genotype)
 
+  genomics$apoe_allele1 <- be_normalize_apoe_allele1(
+    genomics$apoe_allele1 %||% NA
+  )
+  genomics$apoe_allele2 <- be_normalize_apoe_allele2(
+    genomics$apoe_allele2 %||% NA
+  )
   genomics$apoe_genotype <- be_derive_apoe_genotype(
     genomics$apoe_allele1 %||% NA,
     genomics$apoe_allele2 %||% NA
@@ -40,7 +46,36 @@ be_build_genomics_participant_domain <- function(redcap_df, years = NULL) {
   ]
   genomics <- unique(genomics)
   rownames(genomics) <- NULL
-  genomics
+  be_set_redcap_source_fields(
+    genomics,
+    stats::setNames(
+      c(
+        "aqp4_allele1",
+        "aqp4_dosage1",
+        "aqp4_allele2",
+        "aqp4_dosage2",
+        "aqp4_allele3",
+        "aqp4_dosage3",
+        "apoe_allele1",
+        "apoe_dosage1",
+        "apoe_allele2",
+        "apoe_dosage2"
+      ),
+      c(
+        "aqp4_allele1",
+        "aqp4_dosage1",
+        "aqp4_allele2",
+        "aqp4_dosage2",
+        "aqp4_allele3",
+        "aqp4_dosage3",
+        "apoe_allele1",
+        "apoe_dosage1",
+        "apoe_allele2",
+        "apoe_dosage2"
+      )
+    ),
+    source_level = "participant_baseline"
+  )
 }
 
 be_build_genomics_domain <- function(

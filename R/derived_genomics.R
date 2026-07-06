@@ -36,9 +36,25 @@ be_derive_aqp4_status <- function(genotype) {
   )
 }
 
+be_normalize_apoe_allele1 <- function(x) {
+  values <- be_genomics_string(x)
+  values[values == "1"] <- "CC"
+  values[values == "2"] <- "CT"
+  values[values == "3"] <- "TT"
+  values
+}
+
+be_normalize_apoe_allele2 <- function(x) {
+  values <- be_genomics_string(x)
+  values[values == "1"] <- "TT"
+  values[values == "2"] <- "TC"
+  values[values == "3"] <- "CC"
+  values
+}
+
 be_derive_apoe_genotype <- function(allele1, allele2) {
-  allele1 <- be_genomics_string(allele1)
-  allele2 <- be_genomics_string(allele2)
+  allele1 <- be_normalize_apoe_allele1(allele1)
+  allele2 <- be_normalize_apoe_allele2(allele2)
 
   ifelse(
     is.na(allele1) | is.na(allele2),

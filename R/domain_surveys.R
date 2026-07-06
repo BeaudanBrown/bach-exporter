@@ -21,7 +21,8 @@ be_build_baseline_field_domain <- function(redcap_df, field_map, years = NULL) {
   out <- unique(out)
   be_set_redcap_source_fields(
     out,
-    stats::setNames(available_sources, destination_columns)
+    stats::setNames(available_sources, destination_columns),
+    source_level = "participant_baseline"
   )
 }
 

@@ -1,5 +1,10 @@
 be_medication_repeat_labels <- function() {
-  c("Medications", "Medication Follow")
+  c(
+    "Medications",
+    "Medication Follow",
+    "medications",
+    "medication_follow_2"
+  )
 }
 
 be_clean_repeat_instance <- function(x) {
