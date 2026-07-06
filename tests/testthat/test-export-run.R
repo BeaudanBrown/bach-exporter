@@ -3222,7 +3222,7 @@ test_that("targets script writer configures crew when parallel workers are reque
   )))
 })
 
-test_that("release targets project root resolves to the deployed app bundle", {
+test_that("targets project root does not resolve to shared app bundle", {
   shared_root <- make_export_shared_root()
   scratch_root <- tempfile("scratch-launch-")
   dir.create(scratch_root, recursive = TRUE)
@@ -3236,11 +3236,7 @@ test_that("release targets project root resolves to the deployed app bundle", {
 
   expect_equal(
     normalizePath(resolved, winslash = "/", mustWork = FALSE),
-    normalizePath(
-      file.path(shared_root, "app"),
-      winslash = "/",
-      mustWork = TRUE
-    )
+    normalizePath(scratch_root, winslash = "/", mustWork = FALSE)
   )
 })
 

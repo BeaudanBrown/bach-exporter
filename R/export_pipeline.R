@@ -135,13 +135,6 @@ be_resolve_export_pipeline_project_root <- function(project_root, shared_root) {
     return(resolved_project_root)
   }
 
-  shared_app_root <- be_shared_runtime_root(shared_root)
-  if (
-    !is.null(shared_app_root) && dir.exists(file.path(shared_app_root, "R"))
-  ) {
-    return(normalizePath(shared_app_root, winslash = "/", mustWork = TRUE))
-  }
-
   resolved_project_root
 }
 
