@@ -53,19 +53,42 @@ be_local_log_dir <- function() {
   path
 }
 
+be_cache_key_for_string <- function(value, prefix, empty = prefix) {
+  value <- as.character(value %||% "")
+  if (!nzchar(value)) {
+    return(empty)
+  }
+
+  bytes <- utf8ToInt(value)
+  if (!length(bytes)) {
+    return(empty)
+  }
+
+  checksum <- sum(bytes * seq_along(bytes)) %% 2147483647
+  sprintf("%s-%08x", prefix, checksum)
+}
+
 be_targets_cache_key <- function(shared_root = NULL) {
   normalized <- normalizePath(
     shared_root %||% "default",
     winslash = "/",
     mustWork = FALSE
   )
-  bytes <- utf8ToInt(normalized)
-  if (!length(bytes)) {
-    return("default")
+  be_cache_key_for_string(normalized, prefix = "root", empty = "default")
+}
+
+be_code_cache_key <- function() {
+  package_path <- suppressWarnings(system.file(package = "bachExporter"))
+  if (!nzchar(package_path)) {
+    return("code-dev")
   }
 
-  checksum <- sum(bytes * seq_along(bytes)) %% 2147483647
-  sprintf("root-%08x", checksum)
+  normalized <- normalizePath(
+    package_path,
+    winslash = "/",
+    mustWork = FALSE
+  )
+  be_cache_key_for_string(normalized, prefix = "code", empty = "code-dev")
 }
 
 be_local_targets_dir <- function(build_id = "dev", shared_root = NULL) {
@@ -73,6 +96,7 @@ be_local_targets_dir <- function(build_id = "dev", shared_root = NULL) {
   path <- file.path(
     be_local_cache_dir(),
     "targets",
+    be_code_cache_key(),
     build_id,
     be_targets_cache_key(shared_root)
   )
