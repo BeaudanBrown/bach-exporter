@@ -394,8 +394,8 @@ be_build_medical_history_domain <- function(redcap_df, years = NULL) {
     redcap_df = redcap_df,
     field_map = followup_map,
     years = intersect(
-      years %||% c("year2", "year3", "year4"),
-      c("year2", "year3", "year4")
+      years %||% c("year2", "year3", "year4", "year5"),
+      c("year2", "year3", "year4", "year5")
     )
   )
 

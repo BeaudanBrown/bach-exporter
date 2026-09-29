@@ -115,7 +115,8 @@ be_app_ui <- function() {
               "Baseline" = "baseline",
               "Year 2" = "year2",
               "Year 3" = "year3",
-              "Year 4" = "year4"
+              "Year 4" = "year4",
+              "Year 5" = "year5"
             ),
             selected = "baseline"
           ),

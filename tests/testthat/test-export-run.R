@@ -41,12 +41,25 @@ test_that("REDCap arm event names normalize to supported cohort years", {
       "year_2_arm_1",
       "year_3_arm_1",
       "followup_arm_1",
+      "year_5_arm_1",
       "Year 2",
       "Year 3",
       "Year 4",
-      "Follow-Up"
+      "Follow-Up",
+      "Year 5"
     )),
-    c("baseline", "year2", "year3", "year4", "year2", "year3", "year4", "year4")
+    c(
+      "baseline",
+      "year2",
+      "year3",
+      "year4",
+      "year5",
+      "year2",
+      "year3",
+      "year4",
+      "year4",
+      "year5"
+    )
   )
 })
 
@@ -1511,6 +1524,22 @@ test_that("medical history domain maps baseline and follow-up clinical history f
     result$medhx_notes,
     c("Baseline note", "Year 2 note", "Year 3 note", "Year 4 note")
   )
+})
+
+test_that("medical history domain includes year 5 follow-up records", {
+  result <- be_build_medical_history_domain(
+    data.frame(
+      idno = "BACH001",
+      redcap_event_name = "Year 5",
+      mh_follow_notes = "Year 5 note",
+      stringsAsFactors = FALSE
+    ),
+    years = "year5"
+  )
+
+  expect_equal(result$participant_id, "001")
+  expect_equal(result$year, "year5")
+  expect_equal(result$medhx_notes, "Year 5 note")
 })
 
 test_that("similarities domain applies corrected stop-after-three-zeros score", {
@@ -3253,7 +3282,7 @@ test_that("export validation rejects unsupported source modes and years", {
   expect_match(source_result$message, "snapshot mode")
 
   spec$source$mode <- "snapshot"
-  spec$cohort$years <- c("baseline", "year4")
+  spec$cohort$years <- c("baseline", "year5")
   year_result <- be_validate_export_spec(spec)
   expect_true(year_result$ok)
 

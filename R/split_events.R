@@ -27,7 +27,14 @@ be_normalize_year_name <- function(x) {
             tokenized
           ),
           "year4",
-          value
+          ifelse(
+            grepl(
+              "\\byear\\s*5\\b|\\byear5\\b|\\b5\\s*year\\b|\\b5\\s*yr\\b",
+              tokenized
+            ),
+            "year5",
+            value
+          )
         )
       )
     )

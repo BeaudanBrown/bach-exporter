@@ -67,7 +67,7 @@ be_validate_export_spec <- function(spec) {
     ))
   }
 
-  supported_years <- c("baseline", "year2", "year3", "year4")
+  supported_years <- c("baseline", "year2", "year3", "year4", "year5")
   years <- spec$cohort$years %||% character()
   if (!length(years)) {
     return(list(
