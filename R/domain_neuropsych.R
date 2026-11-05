@@ -1,6 +1,7 @@
 be_build_olfactory_domain <- function(redcap_df, years = NULL) {
-  be_build_event_field_domain(
-    redcap_df = redcap_df,
+  redcap_df <- be_redcap_domain_input(redcap_df, years)
+  output <- be_build_event_field_domain(
+    redcap_df = be_nonrepeating_redcap_rows(redcap_df),
     years = years,
     field_map = c(
       olfactory_recent_consumption = "olfactory_1",
@@ -12,6 +13,19 @@ be_build_olfactory_domain <- function(redcap_df, years = NULL) {
       ),
       olfactory_total = "olfactory_pentotal"
     )
+  )
+  # Empty CSV cells in text columns must remain missing even when the
+  # non-repeating input has exactly one row per event (no coalescing needed).
+  for (column in names(be_redcap_source_fields(output))) {
+    if (is.character(output[[column]])) {
+      blank <- !is.na(output[[column]]) & !nzchar(trimws(output[[column]]))
+      output[[column]][blank] <- NA_character_
+    }
+  }
+  be_set_redcap_source_fields(
+    output,
+    be_redcap_source_fields(output),
+    source_level = "nonrepeating_event"
   )
 }
 

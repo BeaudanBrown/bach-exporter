@@ -2678,6 +2678,26 @@ test_that("Olfactory preserves all fields and handles missing visits without sco
   expect_equal(nrow(be_build_olfactory_domain(input[FALSE, ])), 0L)
 })
 
+test_that("Olfactory ignores repeating rows even with cached shared reductions", {
+  input <- data.frame(
+    idno = rep("BACH001", 4),
+    redcap_event_name = c("Baseline", "Baseline", "Baseline", "Year 2"),
+    redcap_repeat_instrument = c("medications", "olfactory", " ", NA),
+    redcap_repeat_instance = c(1, 1, NA, NA),
+    olfactory_pen1 = c(4, 3, 1, NA),
+    olfactory_pen2 = c(2, 2, NA, NA),
+    olfactory_pentotal = c(16, 15, 7, NA)
+  )
+  prepared <- be_attach_redcap_reductions(be_prepare_redcap_snapshot(input))
+  for (df in list(input, prepared)) {
+    output <- be_build_olfactory_domain(df)
+    expect_equal(output$olfactory_pen1, c(1, NA))
+    expect_equal(output$olfactory_total, c(7, NA))
+    expect_false("olfactory_pen2" %in% names(output))
+  }
+  expect_equal(nrow(be_build_olfactory_domain(input[1:2, ])), 0L)
+})
+
 test_that("Olfactory is selectable and exports through targets in both label modes", {
   source(file.path("..", "..", "R", "domain_choices.R"), local = TRUE)
   registry <- be_domain_registry()
@@ -2704,6 +2724,21 @@ test_that("Olfactory is selectable and exports through targets in both label mod
         c(paste0("Choice A pen ", i), NA, paste0("Choice B pen ", i))
       }
     }
+    # Put a conflicting repeating row first to exercise both reduction and
+    # raw/label matching, not merely the common empty repeat-row case.
+    repeated <- snapshot[1, , drop = FALSE]
+    repeated$redcap_repeat_instrument <- "medications"
+    repeated$redcap_repeat_instance <- 1
+    repeated$olfactory_pentotal <- 16
+    repeated$olfactory_1 <- if (mode == "raw") 0 else "No"
+    for (i in seq_len(16)) {
+      repeated[[paste0("olfactory_pen", i)]] <- if (mode == "raw") {
+        4
+      } else {
+        "Repeat-only choice"
+      }
+    }
+    snapshot <- rbind(repeated, snapshot)
     utils::write.csv(snapshot, path, row.names = FALSE, na = "")
   }
   spec <- be_default_export_spec(shared_root = shared_root)

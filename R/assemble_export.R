@@ -1,3 +1,16 @@
+be_nonrepeating_redcap_rows <- function(df) {
+  if (is.null(df)) {
+    return(NULL)
+  }
+  if (!"redcap_repeat_instrument" %in% names(df)) {
+    return(df)
+  }
+  instrument <- trimws(as.character(df$redcap_repeat_instrument))
+  df <- df[is.na(instrument) | !nzchar(instrument), , drop = FALSE]
+  # Subsetting preserves attributes, including reductions of excluded rows.
+  be_mark_redcap_reductions(df)
+}
+
 be_event_key_columns <- function() {
   c("participant_id", "event_name", "year")
 }
@@ -1291,6 +1304,21 @@ be_apply_export_label_mode <- function(
       raw_redcap_df = export_context$domain_redcap_df,
       labels_redcap_df = export_context$domain_labels_redcap_df,
       source_fields = event_fields
+    )
+  }
+
+  nonrepeating_fields <- fields_by_level[["nonrepeating_event"]] %||%
+    character()
+  if (length(nonrepeating_fields)) {
+    output <- be_apply_event_labels(
+      output = output,
+      raw_redcap_df = be_nonrepeating_redcap_rows(
+        export_context$domain_redcap_df
+      ),
+      labels_redcap_df = be_nonrepeating_redcap_rows(
+        export_context$domain_labels_redcap_df
+      ),
+      source_fields = nonrepeating_fields
     )
   }
 
