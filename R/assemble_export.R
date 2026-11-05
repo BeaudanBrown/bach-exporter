@@ -651,6 +651,7 @@ be_supported_export_domains <- function() {
     "tasit",
     "topf",
     "dementia_status",
+    "olfactory",
     "psqi",
     "ess",
     "isi",
@@ -871,6 +872,9 @@ be_export_domain_registry <- function(
     }),
     dementia_status = list(level = "event", build = function() {
       be_build_dementia_status_domain(redcap_df = redcap_df, years = years)
+    }),
+    olfactory = list(level = "event", build = function() {
+      be_build_olfactory_domain(redcap_df = redcap_df, years = years)
     }),
     psqi = list(level = "event", build = function() {
       be_build_psqi_domain(redcap_df = redcap_df, years = years)

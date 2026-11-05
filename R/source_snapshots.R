@@ -141,23 +141,218 @@ be_build_snapshot_metadata <- function(
   metadata
 }
 
-be_read_redcap_snapshot <- function(shared_root) {
-  be_read_snapshot_csv(shared_root, "redcap", "raw.csv")
+be_read_redcap_snapshot <- function(
+  shared_root,
+  exclusions = be_read_exclusions(shared_root)
+) {
+  be_apply_exclusions(
+    be_read_snapshot_csv(shared_root, "redcap", "raw.csv"),
+    "redcap",
+    exclusions
+  )
 }
 
-be_read_redcap_labels_snapshot <- function(shared_root) {
+be_read_redcap_labels_snapshot <- function(
+  shared_root,
+  exclusions = be_read_exclusions(shared_root)
+) {
   labels_path <- be_snapshot_file_path(shared_root, "redcap", "labels.csv")
   if (!file.exists(labels_path)) {
-    return(be_read_redcap_snapshot(shared_root))
+    return(be_read_redcap_snapshot(shared_root, exclusions))
   }
 
-  be_read_snapshot_csv(shared_root, "redcap", "labels.csv")
+  be_apply_exclusions(
+    be_read_snapshot_csv(shared_root, "redcap", "labels.csv"),
+    "redcap",
+    exclusions
+  )
 }
 
 be_read_psg_snapshot <- function(shared_root) {
   be_read_snapshot_csv(shared_root, "psg", "raw.csv")
 }
 
-be_read_biomarkers_snapshot <- function(shared_root) {
-  be_read_snapshot_csv(shared_root, "biomarkers", "raw.csv")
+be_read_biomarkers_snapshot <- function(
+  shared_root,
+  exclusions = be_read_exclusions(shared_root)
+) {
+  be_apply_exclusions(
+    be_read_snapshot_csv(shared_root, "biomarkers", "raw.csv"),
+    "biomarkers",
+    exclusions
+  )
+}
+
+# Configuration is read offline; absence explicitly means no exclusions.
+be_read_exclusions <- function(shared_root) {
+  path <- file.path(shared_root, "config", "exclusions.json")
+  if (!file.exists(path)) {
+    return(list())
+  }
+  config <- tryCatch(
+    jsonlite::read_json(path, simplifyVector = FALSE),
+    error = function(e) {
+      stop("Invalid exclusions JSON: ", conditionMessage(e), call. = FALSE)
+    }
+  )
+  be_validate_exclusions(config)
+}
+
+be_validate_exclusions <- function(config) {
+  fail <- function(message) {
+    stop("Invalid exclusions configuration: ", message, call. = FALSE)
+  }
+  text <- function(x) {
+    is.character(x) && length(x) == 1L && !is.na(x) && nzchar(trimws(x))
+  }
+  if (
+    !is.list(config) ||
+      !identical(names(config), "rules") ||
+      !is.list(config$rules) ||
+      !is.null(names(config$rules))
+  ) {
+    fail("expected an object containing a rules array.")
+  }
+  rules <- config$rules
+  ids <- character()
+  for (i in seq_along(rules)) {
+    rule <- rules[[i]]
+    required <- c("id", "participant_id", "source", "columns", "reason")
+    if (
+      !is.list(rule) ||
+        anyDuplicated(names(rule)) ||
+        !all(required %in% names(rule)) ||
+        any(!names(rule) %in% c(required, "sampletype"))
+    ) {
+      fail(sprintf("rule %d has missing, duplicate, or unknown keys.", i))
+    }
+    if (
+      !all(vapply(
+        rule[c("id", "participant_id", "source", "reason")],
+        text,
+        logical(1)
+      ))
+    ) {
+      fail(sprintf(
+        "rule %d requires nonempty string identifiers, source, and reason.",
+        i
+      ))
+    }
+    if (!rule$source %in% c("redcap", "biomarkers")) {
+      fail(sprintf("rule '%s' has an unsupported source.", rule$id))
+    }
+    if (
+      !is.list(rule$columns) ||
+        !is.null(names(rule$columns)) ||
+        !length(rule$columns) ||
+        !all(vapply(rule$columns, text, logical(1)))
+    ) {
+      fail(sprintf(
+        "rule '%s' requires a nonempty array of source columns.",
+        rule$id
+      ))
+    }
+    rule$columns <- unlist(rule$columns, use.names = FALSE)
+    if (anyDuplicated(rule$columns)) {
+      fail("duplicate source columns.")
+    }
+    if (
+      "sampletype" %in%
+        names(rule) &&
+        (!identical(rule$source, "biomarkers") ||
+          !text(rule$sampletype) ||
+          !rule$sampletype %in% c("csf", "plasma", "dbs"))
+    ) {
+      fail(sprintf("rule '%s' has an invalid sampletype restriction.", rule$id))
+    }
+    # Keys must remain intact so masking cannot change row identity or selection.
+    protected <- c(
+      "idno",
+      "record_id",
+      "participant_id",
+      "study_id",
+      "subject_id",
+      "Sample ID",
+      "Sample.ID",
+      "sampletype",
+      "Sample Type",
+      "Sample.Type",
+      "redcap_event_name",
+      "redcap_repeat_instrument",
+      "redcap_repeat_instance"
+    )
+    if (any(rule$columns %in% protected)) {
+      fail("identifier and sample/event columns cannot be masked.")
+    }
+    ids <- c(ids, rule$id)
+    rules[[i]] <- rule
+  }
+  if (anyDuplicated(ids)) {
+    fail("rule IDs must be unique.")
+  }
+  rules
+}
+
+be_apply_exclusions <- function(df, source, rules) {
+  audit <- list()
+  for (rule in rules) {
+    if (!identical(rule$source, source)) {
+      next
+    }
+    missing <- setdiff(rule$columns, names(df))
+    if (length(missing)) {
+      stop(
+        sprintf(
+          "Exclusion '%s': unknown %s source columns: %s",
+          rule$id,
+          source,
+          paste(missing, collapse = ", ")
+        ),
+        call. = FALSE
+      )
+    }
+    id_column <- if (source == "redcap") {
+      be_redcap_id_column(df)
+    } else {
+      be_biomarker_subject_column(df)
+    }
+    ids <- be_normalize_participant_merge_id(df[[id_column]])
+    match_rows <- !is.na(ids) &
+      ids == be_normalize_participant_merge_id(rule$participant_id)
+    if (!is.null(rule$sampletype)) {
+      types <- be_normalize_biomarker_sampletype(df[[be_biomarker_sampletype_column(
+        df
+      )]])
+      match_rows <- match_rows & !is.na(types) & types == rule$sampletype
+    }
+    match_rows[is.na(match_rows)] <- FALSE
+    if (!any(match_rows)) {
+      next
+    }
+    count <- sum(vapply(
+      df[match_rows, rule$columns, drop = FALSE],
+      function(x) {
+        sum(!is.na(x) & nzchar(trimws(as.character(x))))
+      },
+      integer(1)
+    ))
+    df[match_rows, rule$columns] <- NA
+    audit[[length(audit) + 1L]] <- list(
+      rule_id = rule$id,
+      source = source,
+      masked_values = count
+    )
+  }
+  attr(df, "bach_exclusions_applied") <- audit
+  df
+}
+
+be_exclusion_audit <- function(...) {
+  unlist(
+    lapply(list(...), function(df) {
+      attr(df, "bach_exclusions_applied") %||% list()
+    }),
+    recursive = FALSE,
+    use.names = FALSE
+  )
 }

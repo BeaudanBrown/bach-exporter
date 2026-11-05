@@ -12,7 +12,8 @@ be_build_export_manifest <- function(
   shared_root,
   refresh_mode = "auto",
   snapshot_metadata = NULL,
-  execution_mode = "targets"
+  execution_mode = "targets",
+  exclusions_applied = list()
 ) {
   if (is.null(snapshot_metadata)) {
     snapshot_metadata <- be_collect_snapshot_metadata(shared_root)
@@ -29,6 +30,7 @@ be_build_export_manifest <- function(
     exported_at = format(Sys.time(), "%Y-%m-%d %H:%M:%S %Z"),
     refresh_mode = refresh_mode,
     execution_mode = execution_mode,
+    exclusions_applied = exclusions_applied,
     shared_root = spec$shared$root,
     build_id = shared_paths$build_id,
     snapshot_metadata = snapshot_metadata,

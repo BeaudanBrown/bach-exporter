@@ -279,13 +279,18 @@ be_target_graph <- function(
       )
     ),
     targets::tar_target(
+      export_exclusions,
+      be_read_exclusions(export_shared_root),
+      cue = targets::tar_cue(mode = "always")
+    ),
+    targets::tar_target(
       export_raw_redcap,
-      be_read_redcap_snapshot(export_shared_root)
+      be_read_redcap_snapshot(export_shared_root, export_exclusions)
     ),
     targets::tar_target(
       export_labels_redcap,
       if (identical(export_cat_labels, "named")) {
-        be_read_redcap_labels_snapshot(export_shared_root)
+        be_read_redcap_labels_snapshot(export_shared_root, export_exclusions)
       } else {
         NULL
       }
@@ -443,8 +448,12 @@ be_target_graph <- function(
         be_read_mri_lookup(export_shared_root)
       ),
       targets::tar_target(
+        export_raw_biomarkers,
+        be_read_biomarkers_snapshot(export_shared_root, export_exclusions)
+      ),
+      targets::tar_target(
         export_biomarkers_wide,
-        be_read_biomarkers_wide(export_shared_root)
+        be_build_biomarkers_participant_wide(export_raw_biomarkers)
       ),
       targets::tar_target(
         export_genomics_participant,
@@ -478,6 +487,14 @@ be_target_graph <- function(
     shared_targets,
     domain_targets,
     list(
+      targets::tar_target_raw(
+        "export_exclusion_audit",
+        if ("biomarkers" %in% domains) {
+          quote(be_exclusion_audit(export_raw_redcap, export_raw_biomarkers))
+        } else {
+          quote(be_exclusion_audit(export_raw_redcap))
+        }
+      ),
       be_export_domain_output_target(
         name = "participant_domain_outputs",
         domains = domains,
@@ -541,7 +558,8 @@ be_target_graph <- function(
           shared_root = export_shared_root,
           refresh_mode = export_refresh_mode,
           snapshot_metadata = snapshot_metadata,
-          execution_mode = "targets"
+          execution_mode = "targets",
+          exclusions_applied = export_exclusion_audit
         )
       )
     )

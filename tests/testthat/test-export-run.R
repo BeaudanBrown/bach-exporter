@@ -2640,6 +2640,194 @@ test_that("run_export supports CDR and MMSE neuropsych domains", {
   )
 })
 
+test_that("Olfactory preserves all fields and handles missing visits without scoring", {
+  input <- data.frame(
+    idno = c("BACH001", "BACH001", "BACH002"),
+    redcap_event_name = c("Baseline", "Year 2", "Baseline"),
+    olfactory_1 = c(1, NA, 0),
+    olfactory_1a = c("Coffee", NA, NA),
+    olfactory_notes = c("Synthetic note", NA, NA),
+    olfactory_pentotal = c(7, NA, NA)
+  )
+  for (i in seq_len(16)) {
+    input[[paste0("olfactory_pen", i)]] <- c(1, NA, 2)
+  }
+  output <- be_build_olfactory_domain(input)
+  expected <- c(
+    "olfactory_recent_consumption",
+    "olfactory_recent_consumption_details",
+    "olfactory_notes",
+    paste0("olfactory_pen", seq_len(16)),
+    "olfactory_total"
+  )
+  expect_setequal(grep("^olfactory_", names(output), value = TRUE), expected)
+  baseline <- output[output$year == "baseline", ]
+  baseline <- baseline[order(baseline$participant_id), ]
+  expect_equal(baseline$olfactory_total, c(7, NA_real_))
+  expect_equal(baseline$olfactory_recent_consumption, c(1, 0))
+  expect_equal(baseline$olfactory_recent_consumption_details, c("Coffee", NA))
+  expect_equal(baseline$olfactory_notes, c("Synthetic note", NA))
+  for (field in paste0("olfactory_pen", seq_len(16))) {
+    expect_equal(baseline[[field]], c(1, 2))
+  }
+  expect_true(all(is.na(output[output$year == "year2", expected])))
+  empty_visit <- be_build_olfactory_domain(input, years = "year2")
+  expect_false(any(grepl("^olfactory_", names(empty_visit))))
+  absent <- input[, c("idno", "redcap_event_name")]
+  expect_equal(nrow(be_build_olfactory_domain(absent)), 0L)
+  expect_equal(nrow(be_build_olfactory_domain(input[FALSE, ])), 0L)
+})
+
+test_that("Olfactory is selectable and exports through targets in both label modes", {
+  source(file.path("..", "..", "R", "domain_choices.R"), local = TRUE)
+  registry <- be_domain_registry()
+  expect_equal(registry$label[registry$id == "olfactory"], "Olfactory")
+  expect_equal(registry$group[registry$id == "olfactory"], "Neuropsych")
+
+  shared_root <- make_export_shared_root()
+  on.exit(unlink(shared_root, recursive = TRUE), add = TRUE)
+  for (mode in c("raw", "labels")) {
+    path <- file.path(shared_root, "snapshots", "redcap", paste0(mode, ".csv"))
+    snapshot <- utils::read.csv(path, stringsAsFactors = FALSE)
+    snapshot$olfactory_1 <- if (mode == "raw") {
+      c(1, NA, 0)
+    } else {
+      c("Yes", NA, "No")
+    }
+    snapshot$olfactory_1a <- c("Coffee", NA, NA)
+    snapshot$olfactory_notes <- c("Synthetic note", NA, "Synthetic follow-up")
+    snapshot$olfactory_pentotal <- c(7, NA, 0)
+    for (i in seq_len(16)) {
+      snapshot[[paste0("olfactory_pen", i)]] <- if (mode == "raw") {
+        c(1, NA, 2)
+      } else {
+        c(paste0("Choice A pen ", i), NA, paste0("Choice B pen ", i))
+      }
+    }
+    utils::write.csv(snapshot, path, row.names = FALSE, na = "")
+  }
+  spec <- be_default_export_spec(shared_root = shared_root)
+  spec$domains <- "olfactory"
+  spec$cohort$years <- c("baseline", "year2")
+  for (mode in c("named", "numbered")) {
+    spec$options$cat_labels <- mode
+    spec$output$path <- file.path(
+      shared_root,
+      paste0("olfactory-", mode, ".csv")
+    )
+    result <- run_export(spec, refresh_mode = "auto")
+    output <- utils::read.csv(result$output, stringsAsFactors = FALSE)
+    expect_equal(output$participant_id, c(1, 2, 2))
+    expect_equal(output$olfactory_total, c(7, NA, 0))
+    expect_equal(
+      output$olfactory_notes,
+      c("Synthetic note", NA, "Synthetic follow-up")
+    )
+    expect_equal(
+      output$olfactory_recent_consumption_details,
+      c("Coffee", NA, NA)
+    )
+    expect_equal(
+      as.character(output$olfactory_recent_consumption),
+      if (mode == "named") c("Yes", NA, "No") else c("1", NA, "0")
+    )
+    for (i in seq_len(16)) {
+      expect_equal(
+        as.character(output[[paste0("olfactory_pen", i)]]),
+        if (mode == "named") {
+          c(paste0("Choice A pen ", i), NA, paste0("Choice B pen ", i))
+        } else {
+          c("1", NA, "2")
+        }
+      )
+    }
+  }
+})
+
+test_that("source exclusions mask before ratios and invalidate warm pipeline caches", {
+  shared_root <- make_export_shared_root()
+  on.exit(unlink(shared_root, recursive = TRUE), add = TRUE)
+  spec <- be_default_export_spec(shared_root = shared_root)
+  spec$domains <- c("participants", "biomarkers", "moca", "demographics")
+  spec$cohort$years <- c("baseline", "year2")
+  spec$output$path <- file.path(shared_root, "exclusion-export.csv")
+  export <- function() {
+    result <- run_export(spec, refresh_mode = "auto")
+    list(
+      data = utils::read.csv(result$output),
+      manifest = jsonlite::read_json(paste0(result$output, ".manifest.json"))
+    )
+  }
+  original <- export()
+  expect_equal(original$data$ab4240ratio_csf[1], 0.05)
+  dir.create(file.path(shared_root, "config"), showWarnings = FALSE)
+  path <- file.path(shared_root, "config", "exclusions.json")
+  rules <- list(
+    list(
+      id = "synthetic-csf",
+      participant_id = "BACH0001",
+      source = "biomarkers",
+      sampletype = "csf",
+      columns = as.list(unname(be_biomarker_value_fields())),
+      reason = "Synthetic contamination"
+    ),
+    list(
+      id = "synthetic-redcap",
+      participant_id = "1",
+      source = "redcap",
+      columns = list("moca_total", "race"),
+      reason = "Synthetic missing score"
+    ),
+    list(
+      id = "unmatched",
+      participant_id = "59",
+      source = "biomarkers",
+      columns = list("AB40_mean_conc"),
+      reason = "Synthetic absent participant"
+    )
+  )
+  jsonlite::write_json(list(rules = rules), path, auto_unbox = TRUE)
+  masked <- export()
+  expect_true(all(is.na(masked$data[1, grepl("_csf$", names(masked$data))])))
+  expect_equal(
+    masked$data$ab4240ratio_csf[2:3],
+    original$data$ab4240ratio_csf[2:3]
+  )
+  expect_equal(masked$data$ab4240ratio_plasma, original$data$ab4240ratio_plasma)
+  expect_equal(masked$data$participant_id, original$data$participant_id)
+  expect_true(is.na(masked$data$moca_total[1]))
+  expect_true(is.na(masked$data$race[1]))
+  audit <- masked$manifest$exclusions_applied
+  expect_setequal(
+    vapply(audit, `[[`, character(1), "rule_id"),
+    c("synthetic-csf", "synthetic-redcap")
+  )
+  csf <- Filter(function(x) x$rule_id == "synthetic-csf", audit)[[1]]
+  expect_equal(csf$masked_values, 12)
+  expect_false(any(c("participant_id", "original_values") %in% names(csf)))
+  spec$options$cat_labels <- "numbered"
+  numbered <- export()
+  expect_true(is.na(numbered$data$moca_total[1]))
+  expect_true(is.na(numbered$data$race[1]))
+
+  # Removing the file must restore data even when the targets store is warm.
+  unlink(path)
+  restored <- export()
+  expect_equal(restored$data$ab4240ratio_csf, original$data$ab4240ratio_csf)
+  expect_equal(restored$data$moca_total, original$data$moca_total)
+  expect_length(restored$manifest$exclusions_applied, 0L)
+
+  # An unused source is not read or column-validated, but structural errors fail.
+  rules[[1]]$columns <- list("not_a_column")
+  jsonlite::write_json(list(rules = rules[1]), path, auto_unbox = TRUE)
+  spec$domains <- "moca"
+  unlink(file.path(shared_root, "snapshots", "biomarkers", "raw.csv"))
+  expect_no_error(export())
+  rules[[1]]$source <- "unsupported"
+  jsonlite::write_json(list(rules = rules[1]), path, auto_unbox = TRUE)
+  expect_error(export(), "unsupported source")
+})
+
 test_that("run_export supports extended neuropsych battery domains", {
   shared_root <- make_export_shared_root()
   on.exit(unlink(shared_root, recursive = TRUE), add = TRUE)

@@ -1,3 +1,20 @@
+be_build_olfactory_domain <- function(redcap_df, years = NULL) {
+  be_build_event_field_domain(
+    redcap_df = redcap_df,
+    years = years,
+    field_map = c(
+      olfactory_recent_consumption = "olfactory_1",
+      olfactory_recent_consumption_details = "olfactory_1a",
+      olfactory_notes = "olfactory_notes",
+      stats::setNames(
+        paste0("olfactory_pen", seq_len(16)),
+        paste0("olfactory_pen", seq_len(16))
+      ),
+      olfactory_total = "olfactory_pentotal"
+    )
+  )
+}
+
 be_build_cdr_domain <- function(redcap_df, years = NULL) {
   be_build_event_field_domain(
     redcap_df = redcap_df,
