@@ -3,6 +3,9 @@ set shell := ["bash", "-cu"]
 set-admin-shared-root SHARED_ROOT:
     Rscript scripts/set_admin_shared_root.R --shared-root "{{SHARED_ROOT}}"
 
+set-admin-exclusions-source SOURCE="data/local-shared-root/config/exclusions.json":
+    Rscript scripts/set_admin_exclusions_source.R "{{SOURCE}}"
+
 validate-shared-root SHARED_ROOT:
     Rscript scripts/validate_release.R "{{SHARED_ROOT}}"
 

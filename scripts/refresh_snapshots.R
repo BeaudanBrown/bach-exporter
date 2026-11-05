@@ -1,4 +1,5 @@
 source("R/paths.R")
+source("R/source_snapshots.R")
 source("R/source_refresh_admin.R")
 
 be_refresh_snapshots_runtime <- function() {
@@ -119,6 +120,7 @@ refresh_snapshots_main <- function(
     )))
   }
 
+  be_sync_admin_exclusions(config)
   runtime$inform("Executing REDCap snapshot refresh.")
   result <- runtime$execute_refresh(config)
   runtime$inform("REDCap snapshot refresh complete.")

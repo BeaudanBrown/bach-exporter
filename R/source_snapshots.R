@@ -189,6 +189,10 @@ be_read_exclusions <- function(shared_root) {
   if (!file.exists(path)) {
     return(list())
   }
+  be_validate_exclusions_file(path)
+}
+
+be_validate_exclusions_file <- function(path) {
   config <- tryCatch(
     jsonlite::read_json(path, simplifyVector = FALSE),
     error = function(e) {

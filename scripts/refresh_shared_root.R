@@ -17,8 +17,18 @@ refresh_shared_root_main <- function(
   skip_refresh <- identical(parsed[["skip-refresh"]] %||% FALSE, TRUE)
   init_keyring <- identical(parsed[["init-keyring"]] %||% FALSE, TRUE)
 
-  resolved_shared_root <- be_resolve_admin_shared_root(shared_root)
-  be_write_admin_refresh_config(resolved_shared_root)
+  config <- be_admin_refresh_config()
+  resolved_shared_root <- be_resolve_admin_shared_root(
+    shared_root,
+    config_path = config$config_path
+  )
+  be_write_admin_refresh_config(
+    resolved_shared_root,
+    config_path = config$config_path
+  )
+  config <- be_admin_refresh_config(config_path = config$config_path)
+  config$shared_root <- resolved_shared_root
+  be_sync_admin_exclusions(config)
 
   staged_root <- tempfile("shared-app-stage-")
   on.exit(unlink(staged_root, recursive = TRUE, force = TRUE), add = TRUE)

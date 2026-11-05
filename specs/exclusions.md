@@ -2,6 +2,24 @@
 
 Maintainers can mask known-invalid measurements without deleting participants or editing shared snapshots. Place `exclusions.json` under `<shared-root>/config/`. The exporter reads this file automatically; there is no researcher-facing toggle.
 
+## Automatic installation during refresh
+
+Maintain the real rules in the gitignored checkout file `data/local-shared-root/config/exclusions.json`. Register its location once from the repo root:
+
+```bash
+just set-admin-exclusions-source
+```
+
+Or register another file with `just set-admin-exclusions-source /path/to/exclusions.json`. Registration validates the rules and stores the absolute path as `exclusions_source` in the local admin configuration, preserving other settings. It does not call REDCap or modify snapshots. Moving the checkout requires registering the new path.
+
+After registration, `just refresh`, `just refresh-app`, `just refresh-data`, and `just refresh-shared-root <root>` automatically install that file at the selected shared root's `config/exclusions.json`. Edit the local file and refresh; no separate copy command is needed. Switching the shared root preserves the registered source setting.
+
+Configured sources must exist and validate; otherwise refresh fails before app publishing or API execution. The copied bytes are validated again and atomically renamed on the destination filesystem. If atomic replacement is unavailable or fails, refresh fails rather than deleting the previous file. A source already at the destination is validated without copying.
+
+Without `exclusions_source`, existing destination exclusions are left untouched. To clear rules, publish a valid `{"rules": []}` file; deleting the source is an error, not a request to clear the destination. Plain snapshot dry runs and keyring setup do not install exclusions. App refresh installs them even when snapshot refresh is skipped.
+
+Column existence is checked later when exporting a needed source, not during installation; installation does not inspect participant snapshots. Back up the maintained source separately: Git does not store it.
+
 ## Configuration
 
 ```json

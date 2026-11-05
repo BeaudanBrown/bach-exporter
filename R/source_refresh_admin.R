@@ -66,6 +66,7 @@ be_admin_refresh_config <- function(config_path = NULL) {
   list(
     config_path = config_path,
     shared_root = file_config[["shared_root"]] %||% NULL,
+    exclusions_source = file_config[["exclusions_source"]] %||% NULL,
     redcap_url = env_or_file(
       "BACH_REDCAP_URL",
       "redcap_url",
@@ -113,6 +114,92 @@ be_admin_refresh_config <- function(config_path = NULL) {
     ),
     package = "redcapAPI"
   )
+}
+
+# Persist an absolute source path so later refreshes do not depend on cwd.
+be_set_admin_exclusions_source <- function(
+  source_path,
+  config_path = be_admin_refresh_config_path()
+) {
+  if (!file.exists(source_path) || dir.exists(source_path)) {
+    stop("Exclusions source file does not exist.", call. = FALSE)
+  }
+  be_validate_exclusions_file(source_path)
+  config <- if (file.exists(config_path)) {
+    jsonlite::read_json(config_path, simplifyVector = TRUE)
+  } else {
+    list()
+  }
+  config$exclusions_source <- normalizePath(
+    source_path,
+    winslash = "/",
+    mustWork = TRUE
+  )
+  dir.create(dirname(config_path), recursive = TRUE, showWarnings = FALSE)
+  jsonlite::write_json(
+    config,
+    config_path,
+    auto_unbox = TRUE,
+    pretty = TRUE,
+    null = "null"
+  )
+  invisible(config_path)
+}
+
+be_sync_admin_exclusions <- function(config) {
+  source_path <- config$exclusions_source
+  if (is.null(source_path)) {
+    return(invisible(NULL))
+  }
+  if (
+    !is.character(source_path) ||
+      length(source_path) != 1L ||
+      is.na(source_path) ||
+      !nzchar(trimws(source_path))
+  ) {
+    stop(
+      "Configured exclusions_source must be a nonempty file path.",
+      call. = FALSE
+    )
+  }
+  if (!file.exists(source_path) || dir.exists(source_path)) {
+    stop("Configured exclusions source file does not exist.", call. = FALSE)
+  }
+  if (is.null(config$shared_root) || !nzchar(config$shared_root)) {
+    stop("Exclusions destination shared root is missing.", call. = FALSE)
+  }
+  destination <- file.path(config$shared_root, "config", "exclusions.json")
+  be_validate_exclusions_file(source_path)
+  if (
+    identical(
+      normalizePath(source_path, winslash = "/", mustWork = TRUE),
+      normalizePath(destination, winslash = "/", mustWork = FALSE)
+    )
+  ) {
+    return(invisible(destination))
+  }
+
+  dir.create(dirname(destination), recursive = TRUE, showWarnings = FALSE)
+  staged <- tempfile(
+    ".exclusions-",
+    tmpdir = dirname(destination),
+    fileext = ".json"
+  )
+  on.exit(unlink(staged), add = TRUE)
+  if (!file.copy(source_path, staged)) {
+    stop("Could not stage exclusions configuration.", call. = FALSE)
+  }
+  # Validate the exact bytes being published, including if the source changed
+  # while being copied. Rename on the destination filesystem is atomic; never
+  # unlink the old rules as a fallback if replacement fails.
+  be_validate_exclusions_file(staged)
+  if (!file.rename(staged, destination)) {
+    stop(
+      "Could not atomically replace exclusions configuration; existing rules were preserved.",
+      call. = FALSE
+    )
+  }
+  invisible(destination)
 }
 
 be_admin_snapshot_schema_paths <- function(shared_root) {
