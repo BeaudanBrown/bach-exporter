@@ -6,6 +6,7 @@
 .cache/
 
 # Repo-local coordinator/runtime artifacts
+.pi/
 .loom/
 manifest.json
 old-script.R
